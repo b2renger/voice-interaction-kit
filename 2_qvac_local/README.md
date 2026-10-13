@@ -83,7 +83,9 @@ npm run server:mock
 
 ## Downloading the models
 
-QVAC downloads the models **peer to peer** (Hyperswarm), and some school networks block this. By default (`"download": "auto"`), the app adds an **HTTP fallback** from Hugging Face for Whisper, Silero and Qwen. Supertonic only exists in the QVAC registry. Parler and Chatterbox download the first time you choose them: do it once on an open network. The Smart Turn model needs no download: it is inside the app.
+Whisper, Silero and Qwen come straight from **Hugging Face** over HTTPS (`"download": "http"`, the default), which works on most networks. The voices (Supertonic, Parler, Chatterbox) only exist in QVAC's registry, which downloads **peer to peer** (Hyperswarm), and some school networks block this. Supertonic downloads on the first launch; Parler and Chatterbox the first time you choose them: do it once on an open network. The Smart Turn model needs no download: it is inside the app. While a model loads, the window shows a progress bar; "waiting for data" that keeps counting means the network is blocking the download.
+
+`"download"` in `config.json` can also be `"auto"` (QVAC's registry first, Hugging Face only after the registry gives up, which can take minutes) or `"p2p"` (the registry only).
 
 If the network blocks everything:
 
@@ -191,7 +193,7 @@ Only one conversation runs at a time: if the app window has one open and cables 
 | symptom | what to check |
 |---|---|
 | Vulkan error (Windows) | update the graphics driver |
-| loading stays stuck at 0% | peer to peer is blocked: see "Downloading the models" |
+| loading stays stuck at 0% ("waiting for data") | the network blocks the download (often peer to peer, for the voices): see "Downloading the models" |
 | no sound from the mic (Mac) | System Settings → Privacy & Security → Microphone → allow "Voice Lab" |
 | the first reply is slow | the models load at startup: wait for "Models ready" |
 | `npm run make` fails on native libraries | build on the target platform (see above), and run `npm install` again, or let GitHub build the installers ([`../PUBLISHING.md`](../PUBLISHING.md)) |

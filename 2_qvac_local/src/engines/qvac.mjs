@@ -48,11 +48,14 @@ export async function createQvacEngine(config, log) {
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   };
 
+  /** A catalogue entry's Hugging Face address, or null. Some catalogue paths point at the web page (/blob/), not the file. */
+  const hfUrl = (c) => (c.registrySource === 'hf' && c.registryPath ? `https://huggingface.co/${c.registryPath.replace('/blob/', '/resolve/')}` : null);
+
   /** A model source: a name from the QVAC catalogue (e.g. WHISPER_SMALL_Q8_0), a local path or a URL. */
   function source(name, modelType) {
     const c = sdk[name];
     if (!c || typeof c !== 'object' || !c.src) return { modelSrc: name, modelType };
-    const http = c.registrySource === 'hf' && c.registryPath ? `https://huggingface.co/${c.registryPath}` : null;
+    const http = hfUrl(c);
     if (config.download === 'http' && http) return { modelSrc: http, modelType };
     if (config.download !== 'p2p' && http) return { modelSrc: c, modelType, fallbackSrc: http };
     return { modelSrc: c, modelType };
@@ -69,24 +72,40 @@ export async function createQvacEngine(config, log) {
     if (!v || /^[a-z][a-z0-9+.-]*:\/\//i.test(v) || isAbsolute(v)) return v;
     return join(APP_DIR, v);
   }
+  // A companion file takes no fallbackSrc, so unless "p2p" Silero comes straight from Hugging Face.
   function vadSource() {
     const c = sdk[M.asr.vad];
     if (!c || !c.src) return M.asr.vad;
-    if (config.download === 'http' && c.registrySource === 'hf') return `https://huggingface.co/${c.registryPath}`;
-    return c;
+    return (config.download !== 'p2p' && hfUrl(c)) || c;
   }
 
   async function load(stage, src, modelConfig, onProgress) {
     const t0 = Date.now();
-    onProgress && onProgress({ stage, progress: 0 });
-    const id = await sdk.loadModel({
-      ...src,
-      modelConfig,
-      onProgress: (p) => onProgress && onProgress({ stage, progress: p.percentage, downloaded: p.downloaded, total: p.total }),
-    });
-    onProgress && onProgress({ stage, progress: 100 });
-    log(`▸ ${stage}: ready (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
-    return id;
+    let last = { stage, progress: 0 };
+    let lastAt = t0;
+    const report = (p) => { last = p; lastAt = Date.now(); if (onProgress) onProgress(p); };
+    report(last);
+    // No news (a stalled download, the peer-to-peer registry, loading into memory): say how long, every second.
+    const tick = setInterval(() => {
+      const waitS = Math.round((Date.now() - lastAt) / 1000);
+      if (waitS >= 3 && onProgress) onProgress({ ...last, waitS });
+    }, 1000);
+    try {
+      const id = await sdk.loadModel({
+        ...src,
+        modelConfig,
+        onProgress: (p) => report({ stage, progress: p.percentage, downloaded: p.downloaded, total: p.total }),
+      });
+      if (onProgress) onProgress({ stage, progress: 100 });
+      log(`▸ ${stage}: ready (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+      return id;
+    } catch (e) {
+      if (!/registry/i.test(e.message)) throw e;
+      throw new Error(`Could not download a model (${stage}) from QVAC's peer-to-peer network: this network seems to block it. `
+        + `Connect once to another network (home Wi-Fi, a phone hotspot) and restart Voice Lab: the model then stays on this computer. (${e.message})`);
+    } finally {
+      clearInterval(tick);
+    }
   }
   async function unload(id) {
     if (!id) return;

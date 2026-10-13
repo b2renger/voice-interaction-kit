@@ -342,7 +342,7 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 | the agent cuts in too early | increase `End silence (ms)`, set `End sensitivity` to low (with Gemini, then `Start`) |
 | the agent doesn't react to a quiet voice | `Start sensitivity` on high; check the mic chosen by the system |
 | no sound | click once in the page (browsers block sound before a click); check `Volume` and `Play through speakers` |
-| Voice Lab: loading stuck at 0% | the network blocks peer to peer: see "Downloading the models" in the Voice Lab README |
+| Voice Lab: loading stuck at 0% ("waiting for data") | the network blocks the download (often peer to peer, for the voices): see "Downloading the models" in the Voice Lab README |
 | Voice Lab: Vulkan error (Windows) | update the graphics driver |
 | Voice Lab: no mic (Mac) | System Settings → Privacy & Security → Microphone → allow "Voice Lab" |
 | cables can't reach the local engine | is the app open? Is the address the one from the menu **Engine → Copy address for cables.gl**? |

@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 
 export function loadConfig(file) {
   const base = {
-    port: 8790, host: '127.0.0.1', download: 'auto', warmup: true,
+    port: 8790, host: '127.0.0.1', download: 'http', warmup: true,
     // the pages that can open a conversation (cables.gl, the lab window, offline cables); ["*"] = all
     allowedOrigins: ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*'],
     models: {

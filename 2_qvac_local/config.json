@@ -1,7 +1,7 @@
 {
   "port": 8790,
   "host": "127.0.0.1",
-  "download": "auto",
+  "download": "http",
   "warmup": true,
   "allowedOrigins": [
     "https://cables.gl",

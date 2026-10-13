@@ -367,8 +367,10 @@ if (mode === 'fake-qvac') {
     const loads = rep.calls.filter((c) => c.fn === 'loadModel');
     check(loads.some((c) => c.modelType === 'whisper') && loads.some((c) => c.modelType === 'llm') && loads.some((c) => c.modelType === 'tts'), 'the three models are loaded');
     check(loads.filter((c) => c.modelType === 'tts').some((c) => c.modelConfig.voice === 'M2'), 'changing the voice reloads the voice (M2)');
-    check(loads.find((c) => c.modelType === 'whisper').fallbackSrc && /^https:\/\/huggingface\.co\//.test(loads.find((c) => c.modelType === 'whisper').fallbackSrc), 'download: Hugging Face HTTP fallback for "hf" models');
-    check(!loads.find((c) => c.modelType === 'tts').fallbackSrc, 'download: no invented fallback for Supertonic (s3)');
+    const whisper = loads.find((c) => c.modelType === 'whisper');
+    const hf = /^https:\/\/huggingface\.co\/.*\/resolve\//;
+    check(hf.test(whisper.src) && hf.test(whisper.modelConfig.vadModelSrc), 'download: Whisper and Silero straight from Hugging Face (default "http")', whisper);
+    check(loads.find((c) => c.modelType === 'tts').src === 'TTS_MULTILINGUAL_SUPERTONIC3_Q8_0', 'download: Supertonic (s3) from the QVAC registry');
     check(loads.find((c) => c.modelType === 'llm').modelConfig.reasoning_budget === 0, 'Qwen3: reasoning off (reasoning_budget 0)');
     check(rep.calls.some((c) => c.fn === 'cancel'), 'interrupting cancels the generation (cancel)');
     check(rep.calls.some((c) => c.fn === 'completion' && c.history.some((h) => h.role === 'assistant' && h.content === 'Are you still there?')),

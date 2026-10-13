@@ -6,7 +6,7 @@ import { join, dirname, extname, basename, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { attachWebSocket } from './ws.mjs';
 import { Session } from './session.mjs';
-import { mutex } from './util.mjs';
+import { mutex, progressText } from './util.mjs';
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -56,11 +56,7 @@ export async function startServer(o) {
       }
       log(`▸ engine: ${engine.name === 'mock' ? 'SIMULATED (no models)' : 'QVAC'}`);
       if (config.warmup !== false) {
-        await prepareLock(() => engine.prepare(config.defaults || {}, (p) => {
-          const pct = typeof p.progress === 'number' ? ` ${Math.round(p.progress)} %` : '';
-          const mb = p.total ? ` (${(p.downloaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB)` : '';
-          status(`Loading: ${p.stage}${pct}${mb}`, p.progress);
-        }));
+        await prepareLock(() => engine.prepare(config.defaults || {}, (p) => status(progressText(p), p.progress)));
       }
       warm = 'ready';
       status('', null);

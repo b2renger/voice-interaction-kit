@@ -61,6 +61,8 @@
   .banner.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
   .banner.err { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
   .banner.info { background: var(--chip); color: var(--muted); }
+  .banner .bar { height: 6px; margin-top: 6px; border-radius: 3px; background: color-mix(in srgb, var(--muted) 22%, transparent); overflow: hidden; }
+  .banner .bar i { display: block; height: 100%; background: var(--accent); }
   .metrics { width: min(620px, 92%); display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .metric { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; }
   .metric b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
@@ -375,10 +377,19 @@
   let started = 0;
   const STATE_WORDS = { idle: 'ready', connecting: 'connecting…', listening: 'listening', hearing: 'I hear you', thinking: 'thinking', speaking: 'speaking', ended: 'ended', error: 'error' };
 
-  function banner(kind, text) {
+  function banner(kind, text, progress) {
     const b = $('#banner');
     b.className = 'banner' + (text ? ' show ' + kind : '');
     b.textContent = text || '';
+    if (text && typeof progress === 'number') {        // a model loading: a progress bar under the text
+      const pct = Math.round(Math.min(100, Math.max(0, progress)));
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.setAttribute('role', 'progressbar');
+      bar.setAttribute('aria-valuenow', pct);
+      bar.innerHTML = `<i style="width:${pct}%"></i>`;
+      b.append(bar);
+    }
   }
 
   agent.on('state', (ev) => {
@@ -390,7 +401,7 @@
     $('#interrupt').disabled = !(ev.state === 'thinking' || ev.state === 'speaking');
   });
   agent.on('start', (ev) => { banner('', ''); $('#engineInfo').textContent = ev.engine === 'local' ? 'local engine (QVAC)' : 'Gemini Live'; });
-  agent.on('status', (ev) => { if (ev.text) banner('info', ev.text); else banner('', ''); });
+  agent.on('status', (ev) => { if (ev.text) banner('info', ev.text, ev.progress); else banner('', ''); });
   agent.on('user.start', () => { $('#userCap').textContent = '…'; });
   agent.on('user.partial', (ev) => { $('#userCap').textContent = ev.text; });
   agent.on('user.text', (ev) => { $('#userCap').textContent = ev.text; });
@@ -518,7 +529,7 @@
       if (h.error) { banner('err', h.error); return; }
       if (h.models !== 'ready') {
         wasLoading = true;
-        if (!agent.active) banner('info', (h.status && h.status.text) || 'Loading the models…');
+        if (!agent.active) banner('info', (h.status && h.status.text) || 'Loading the models…', h.status && h.status.progress);
         setTimeout(pollHealth, 1000);
       } else if (wasLoading && !agent.active) { banner('info', 'Models ready: click Start.'); }
     }).catch(() => { $('#engineInfo').textContent = 'no local backend (Gemini still works)'; });

@@ -58,5 +58,14 @@ export function rmsS16(buf) {
   return Math.sqrt(sum / n);
 }
 
+/** The status line while a model loads: "Loading: language model 42 % (440/1057 MB) · waiting for data, 12 s". */
+export function progressText(p) {
+  if (!p) return '';
+  const pct = typeof p.progress === 'number' ? ` ${Math.round(p.progress)} %` : '';
+  const mb = p.total ? ` (${(p.downloaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB)` : '';
+  const wait = p.waitS ? ` · ${p.progress >= 100 ? 'loading into memory' : 'waiting for data'}, ${p.waitS} s` : '';
+  return `Loading: ${p.stage}${pct}${mb}${wait}`;
+}
+
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 export const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };

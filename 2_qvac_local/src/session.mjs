@@ -2,7 +2,7 @@
 // Protocol: see CONTRACT.md ("Local engine"). Incoming audio: 16-bit PCM, mono, 16 kHz, in binary frames.
 // Outgoing audio: binary frames [u32 sample rate][u32 turn id][16-bit mono PCM].
 import { ReplyParser, systemPrompt, heardNothing, speakable, trimHistory, classifyInterjection } from './text.mjs';
-import { delay, clamp, num } from './util.mjs';
+import { delay, clamp, num, progressText } from './util.mjs';
 
 const DEFAULTS = {
   name: 'Ada', persona: '', language: 'en', greeting: '', shortAnswers: true, creativity: 1,
@@ -630,10 +630,3 @@ export class Session {
 }
 
 function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
-
-function progressText(p) {
-  if (!p) return '';
-  const pct = typeof p.progress === 'number' ? ` ${Math.round(p.progress)} %` : '';
-  const mb = p.total ? ` (${(p.downloaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB)` : '';
-  return `Loading: ${p.stage}${pct}${mb}`;
-}
