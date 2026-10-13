@@ -6,9 +6,15 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { ROOT, check, summary, until, sleep } from './helpers.mjs';
 
-process.env.NODE_PATH = join(ROOT, 'tests', 'electron-stub');
+// require('electron') always gets the stub, even when 2_qvac_local/node_modules has the real package
+// (which, outside Electron, only exports the path to the Electron binary).
 const require = createRequire(import.meta.url);
-require('node:module').Module._initPaths();
+const { Module } = require('node:module');
+const ELECTRON_STUB = join(ROOT, 'tests', 'electron-stub', 'electron', 'index.js');
+const resolveFilename = Module._resolveFilename;
+Module._resolveFilename = function (request, ...rest) {
+  return resolveFilename.call(this, request === 'electron' ? ELECTRON_STUB : request, ...rest);
+};
 process.argv.push('--mock');
 const { handleSquirrelEvent } = require(join(ROOT, '2_qvac_local', 'electron', 'main.cjs'));
 const st = globalThis.__electronStub;
