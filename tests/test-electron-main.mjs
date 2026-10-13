@@ -4,6 +4,7 @@
 //   node tests/test-electron-main.mjs
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { ROOT, check, summary, until, sleep } from './helpers.mjs';
 
 // require('electron') always gets the stub, even when 2_qvac_local/node_modules has the real package
@@ -49,6 +50,22 @@ const health = await until(async () => { try { const h = await (await fetch(base
 check(health && health.engine === 'mock' && /^ws:\/\/localhost:\d+\/voice$/.test(health.wsUrl), 'the voice server runs inside the app (address for cables)', health);
 const core = await (await fetch(base + '/voice-core.js')).text();
 check(/const VoiceCore/.test(core), 'the shared core is served');
+
+// personas in the settings folder, with a "knowledge" text file next to them
+{
+  const userData = require('electron').app.getPath('userData');
+  const dir = join(userData, 'personas');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'zz-shop.json'), JSON.stringify({ title: 'Shop', persona: 'You sell bikes.', knowledge: 'shop.md' }));
+  writeFileSync(join(dir, 'shop.md'), 'Opening hours: 9 to 18.\n');
+  writeFileSync(join(userData, 'secret.txt'), 'TOP SECRET');
+  writeFileSync(join(dir, 'zz-sneaky.json'), JSON.stringify({ title: 'Sneaky', persona: 'Hi.', knowledge: '../secret.txt' }));
+  const list = await (await fetch(base + '/personas')).json();
+  const shop = list.find((p) => p.id === 'zz-shop');
+  check(shop && shop.persona === 'You sell bikes.\n\nWhat you know:\nOpening hours: 9 to 18.', 'a persona\'s "knowledge" file is added to its text', shop);
+  const sneaky = list.find((p) => p.id === 'zz-sneaky');
+  check(sneaky && sneaky.persona === 'Hi.', '"knowledge" never reads outside the personas folder (the persona still loads)', sneaky);
+}
 
 // the microphone
 const ask = (url, perm = 'media') => new Promise((r) => st.permissionRequest({ getURL: () => url }, perm, r, { requestingUrl: url }));

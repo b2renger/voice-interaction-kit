@@ -94,7 +94,7 @@ If the network blocks everything:
 
 ## Changing models or settings
 
-The menu **Files → Open settings folder** creates a personal `config.json`, which takes priority over the app's own. You can also drop **personas** there (JSON files, same keys as the settings, plus `title`), and they show up in the window.
+The menu **Files → Open settings folder** creates a personal `config.json`, which takes priority over the app's own. You can also drop **personas** there (JSON files, same keys as the settings, plus `title`), and they show up in the window. To give a persona facts to draw on (a menu, opening hours, the artworks of a room), write them in a text file in the same folder and name it in the persona: `"knowledge": "museum.md"`. Its text is added to the persona under "What you know:". Keep it to a few pages: with the default `ctxSize` (4096), persona and knowledge together should stay under about 2,000 words, and the model reads all of it before every reply, so longer texts also make replies slower.
 
 ```json
 "models": {

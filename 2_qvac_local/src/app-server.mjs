@@ -88,7 +88,17 @@ export async function startServer(o) {
       for (const f of readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
         const id = basename(f, '.json');
         if (seen.has(id)) continue;
-        try { list.push({ id, ...JSON.parse(readFileSync(join(dir, f), 'utf8')) }); seen.add(id); } catch { /* invalid file ignored */ }
+        let p;
+        try { p = JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { continue; /* invalid file ignored */ }
+        // "knowledge": a text file next to the persona, added to its text. basename: a shared persona
+        // file must not pull any other file of the computer into the prompt (sent to Gemini on that engine).
+        if (p.knowledge) {
+          try {
+            p.persona = `${p.persona || ''}\n\nWhat you know:\n${readFileSync(join(dir, basename(String(p.knowledge))), 'utf8').trim()}`.trim();
+          } catch (e) { log(`✖ persona ${f}: cannot read its knowledge file (${e.message})`); }
+        }
+        list.push({ id, ...p });
+        seen.add(id);
       }
     }
     return list;
