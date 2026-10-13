@@ -1,6 +1,6 @@
 # 2. "Voice Lab": the QVAC app (Windows and Mac M1)
 
-A **desktop app** to install on each student's computer. It runs a voice agent that is **100% local and open**, with no cloud and no key, using three models, plus a small optional one for the end of turn:
+A **desktop app** to install on each student's computer. It is the **brain** of the kit: it listens, thinks and speaks. By default the agent is **100% local and open**, with no cloud and no key, using three models, plus a small optional one for the end of turn. It can also use **Gemini Live** (online) instead: see "Using Gemini".
 
 | role | default model | size |
 |---|---|---|
@@ -13,10 +13,10 @@ These models run on Tether's [QVAC](https://github.com/tetherto/qvac) SDK (llama
 
 Once open, the app does two things:
 
-- **the lab window** is for designing a voice agent: persona, voice, turn-taking sliders, animated face, subtitles, choice buttons, wait measurements, settings export;
-- **a local server** (`ws://localhost:8790/voice`) lets the cables op `VoiceAgent` use these models when its `Engine` = `Local (QVAC)`. The menu **Engine → Copy address for cables.gl** copies this address.
+- **the lab window** is for designing a voice agent: engine, persona, voice, turn-taking sliders, animated face, subtitles, choice buttons, wait measurements, settings export. It runs the conversation, with the mic and the speakers;
+- **a hub** (`ws://localhost:8790/events`) lets **clients** follow that conversation and drive it: the cables op `VoiceAgent`, the p5.js and HTML examples, your own pages. The menu **Engine → Copy address for clients** copies this address. See "Clients".
 
-The states, events and settings are the same as the Gemini op's (see [`../CONTRACT.md`](../CONTRACT.md)).
+The states, events and settings are the same with both engines (see [`../CONTRACT.md`](../CONTRACT.md)).
 
 ## For students: install
 
@@ -175,11 +175,35 @@ Choose one with **Local voice engine** in the window (or `Local voice engine` in
 
 > **Consent first.** A voice is personal: it identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards. Never clone a public figure, a classmate who isn't there, or a teacher as a joke. The watermark does not make a clone harmless: it only helps detect it.
 
-## From cables.gl
+## Using Gemini
 
-In the `VoiceAgent` op: `Engine` = `Local (QVAC)`, `Local server` = the address copied from the menu (usually `ws://localhost:8790/voice`), then Start. **The app must stay open.**
+In the lab window, **Engine** = `Gemini Live (online)`. Then give it access, in one of two ways:
 
-Only one conversation runs at a time: if the app window has one open and cables connects, cables takes over (and vice versa). From cables.gl online, Chrome may ask for permission to access the "local network": accept it.
+**A. An API key (simplest, to test on your own).** Create a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and paste it into the lab window's key field. It stays on this computer (in the window's storage) and is never exported with the settings.
+
+**B. A token server (for a class, or a shared key).** The key stays on one computer, and the lab window gets a single-use token, valid for 30 minutes.
+
+```bash
+cd 1_cables_gemini_live/token-server
+cp .env.example .env        # then put your key in .env: GEMINI_API_KEY=...
+node server.mjs             # Node 18 or later, nothing to install
+```
+
+In the lab window, the token server field = `http://localhost:8787/token`.
+
+Then click **Start**. Every client follows the Gemini conversation exactly as it follows a local one.
+
+> **Data:** on Gemini's free tier, Google may use the conversations to improve its models, and people may review them. For students' voices, use a paid project or set a clear rule about what is said. The mic only opens with **Start**, and closes with **Stop**.
+
+## Clients: cables.gl, p5.js, your own pages
+
+The app is the brain; any number of clients can follow the conversation and drive it, at the same time, through `ws://localhost:8790/events` (menu **Engine → Copy address for clients**). They get the states, the texts, the levels, the choices and the mood, and they send Start, Stop, Interrupt, a typed message, context or a choice. The persona, its knowledge and the settings stay in the app.
+
+- **cables.gl**: the `VoiceAgent` op, see [`../1_cables_gemini_live/README.md`](../1_cables_gemini_live/README.md). From cables.gl online, Chrome may ask for permission to access the "local network": accept it.
+- **p5.js, or a plain web page**: start from [`../examples/`](../examples/). Open them through a local web server (VS Code's Live Server, `npx serve`) or the p5.js web editor: a page opened by double-click is refused, because the app can't tell where it comes from.
+- **Your own**: the messages are in [`../CONTRACT.md`](../CONTRACT.md), "The clients protocol". Allowed pages are listed in `allowedOrigins` (`config.json`); clients on other computers are not accepted.
+
+**The app's window must stay open**: it is the one that listens and speaks. Closed, the clients are told (`app: false`), and they reconnect on their own.
 
 ## Known limits
 

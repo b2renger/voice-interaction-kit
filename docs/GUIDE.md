@@ -10,41 +10,34 @@ For what already exists in open source, see [the open-source landscape](OPEN_SOU
 
 ## 1. What the kit contains
 
-Two prototypes share the same vocabulary.
+One brain, several clients.
 
-| | **1. The cables.gl op "VoiceAgent"** | **2. The "Voice Lab" app** |
+- **The Voice Lab app** (Windows / Mac M1, installed on each computer) is the brain. It listens, thinks and speaks, and it holds the persona, its knowledge and the settings, in its lab window.
+- **Its clients** follow the conversation and drive it: the cables.gl op `VoiceAgent`, and the p5.js and HTML/CSS/JS examples in [`../examples/`](../examples/), starting points for your own pages. Several clients can follow the same conversation at once (a cables scene and a p5.js screen, say).
+
+The app has two engines:
+
+| | **Local (QVAC)** | **Gemini Live** |
 |---|---|---|
-| engine | Gemini Live (Google, online) | QVAC (open models, 100% local) |
-| where it runs | in the browser, in a cables.gl patch | a Windows / Mac M1 app installed on each computer |
-| what you need | a cables.gl account, a Gemini key (or a token server) | nothing but the app. The models download once (~1.5 GB, ~2 GB on disk). |
-| voice quality | very smooth, low latency, fine understanding | slower, smaller models, decent synthetic voice. Three voice engines: preset voices, a voice described in words, a cloned voice |
-| data | the voices go through Google | nothing leaves the computer |
-| for designing | with all the visual and sound ops of cables | in the app's lab window, **or** from cables (the op connects to it) |
+| where it runs | on the computer, with open models | online, at Google |
+| what you need | nothing but the app. The models download once (~1.5 GB, ~2 GB on disk). | a Gemini key (or a token server) |
+| voice quality | slower, smaller models, decent synthetic voice. Three voice engines: preset voices, a voice described in words, a cloned voice | very smooth, low latency, fine understanding |
+| data | nothing leaves the computer | the voices go through Google |
 
-**The key point:** both prototypes expose **the same states, the same events and the same settings** (see [`../CONTRACT.md`](../CONTRACT.md)). An interface built in cables with Gemini works as is with the local engine: only the `Engine` port changes. So students can design online, then test their interface offline (and the other way round), and compare.
+**The key point:** both engines produce **the same states, the same events and the same settings** (see [`../CONTRACT.md`](../CONTRACT.md)). A client built while the app ran Gemini works as is with the local engine: only the engine chosen in the app changes. So students can design with one, test with the other, and compare.
 
-### Which one to choose for a workshop?
+### Which engine for a workshop?
 
-- **Exploring interaction design** (shapes, animations, sounds, calls to action): the cables op with Gemini. It has the most believable voice, and cables offers the whole graphic vocabulary.
-- **No key, limited network, or sensitive data**: the Voice Lab app, with the QVAC engine.
-- **Designing the interface before you have the models, or on a weak machine**: the Voice Lab with the **simulated engine**. The agent hears a "voice-like noise", replies with a short pre-written script (choices, mood, a long reply you can cut off) and speaks with a hum. Each conversation replays the same script, which makes demos repeatable.
+- **Exploring interaction design** (shapes, animations, sounds, calls to action): Gemini. It has the most believable voice; cables (or p5.js) brings the graphic vocabulary.
+- **No key, limited network, or sensitive data**: the local engine.
+- **Designing the interface before you have the models, or on a weak machine**: the **simulated engine** (menu **Engine → Simulated**). The agent hears a "voice-like noise", replies with a short pre-written script (choices, mood, a long reply you can cut off) and speaks with a hum. Each conversation replays the same script, which makes demos repeatable.
 - **Getting students to think about latency and quality**: both, side by side. The measurements of each turn (`Wait (ms)`, `Turn timing`) let you compare with numbers.
 
 ---
 
 ## 2. Quick start
 
-### 2.1 The cables.gl op with Gemini (10 minutes)
-
-1. Open a patch that belongs to you on cables.gl.
-2. Avatar, top right → **Code a new op** → name `VoiceAgent` → **Create Op**.
-3. In the code editor that opens: delete everything, paste **all** of [`1_cables_gemini_live/VoiceAgent.op.js`](../1_cables_gemini_live/VoiceAgent.op.js), save (`Ctrl/Cmd + S`).
-4. On the op: paste a Gemini key into `Gemini API key` (created at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
-5. Click `Start`, allow the mic, talk.
-
-The cables code is not modified: the op is a "patch op" that lives in the patch and travels with it. The key is **never** saved in the patch. For a whole class, a **token server** is better: the key stays on the teacher's computer, and each browser gets a token valid for 30 minutes. See [`1_cables_gemini_live/README.md`](../1_cables_gemini_live/README.md).
-
-### 2.2 The Voice Lab app (teacher: once; students: 5 minutes)
+### 2.1 The Voice Lab app (teacher: once; students: 5 minutes)
 
 **The teacher publishes the installers once.** The simplest way: put the kit on GitHub and push a version tag (`v1.0.0`). GitHub Actions then builds the Windows and Mac installers and publishes them as a **GitHub Release**, with no Mac needed on your side. Step by step: [`PUBLISHING.md`](../PUBLISHING.md). You can also build them on your own machine (`npm install` then `npm run make`: an `.exe` on a PC, a `.dmg` on a Mac). Details in [`2_qvac_local/README.md`](../2_qvac_local/README.md).
 
@@ -53,9 +46,21 @@ The cables code is not modified: the op is a "patch op" that lives in the patch 
 - **Windows:** "Windows protected your PC" → **More info → Run anyway**.
 - **Mac:** on first launch, macOS blocks the app. Open **System Settings → Privacy & Security → Open Anyway**. If macOS says the app "is damaged": `xattr -cr "/Applications/Voice Lab.app"` in Terminal.
 
-On first launch, the models download: the window's banner shows the percentage, and a bar moves along on the app icon. When the window says "Models ready", click **Start**.
+On first launch, the models download: the window shows a progress bar, and a bar moves along on the app icon. When the window says "Models ready", click **Start**.
 
-To connect **cables** to the local engine: leave the app open, and in the op set `Engine` = `Local (QVAC)`. The menu **Engine → Copy address for cables.gl** gives the server address (usually `ws://localhost:8790/voice`).
+**Gemini instead of the local engine:** in the lab window, Engine = `Gemini Live (online)`, then a key, or the address of a token server (for a class: the key stays on the teacher's computer, and each lab window gets a token valid for 30 minutes). See "Using Gemini" in [`2_qvac_local/README.md`](../2_qvac_local/README.md).
+
+### 2.2 A client: the cables.gl op (5 minutes)
+
+1. Keep the Voice Lab app open.
+2. Open a patch that belongs to you on cables.gl.
+3. Avatar, top right → **Code a new op** → name `VoiceAgent` → **Create Op**.
+4. In the code editor that opens: delete everything, paste **all** of [`1_cables_gemini_live/VoiceAgent.op.js`](../1_cables_gemini_live/VoiceAgent.op.js), save (`Ctrl/Cmd + S`).
+5. `App connected` goes to 1. Click `Start` on the op (or in the app), talk.
+
+The cables code is not modified: the op is a "patch op" that lives in the patch and travels with it. The op follows the app's conversation; the persona, the voice and the engine are chosen in the app. See [`1_cables_gemini_live/README.md`](../1_cables_gemini_live/README.md).
+
+**p5.js or a plain web page instead:** start from [`../examples/`](../examples/). Open them through a local web server (VS Code's Live Server, `npx serve`) or the p5.js web editor; a page opened by double-click is refused.
 
 ---
 
@@ -89,7 +94,7 @@ Some moments are events, not states. When the person stays silent, the agent sta
 
 This is the heart of the workshop. For each case: what happens, the settings that change it, the signals to design with, and some ideas.
 
-> **With Gemini**, an open session does not pick up live changes to persona, voice, language, creativity, short answers, end silence, sensitivities or `Interruptible`: the op asks you to click `Start`. Volume, delay, sounds and mic change live. **With the local engine**, everything applies live.
+> **With Gemini**, an open session does not pick up live changes to persona, voice, language, creativity, short answers, end silence, sensitivities or `Interruptible`: the lab window asks you to click `Start`. Volume, delay, sounds and mic change live. **With the local engine**, everything applies live.
 >
 > A port marked **(local)** only works with the local engine: Gemini ignores it. The settings borrowed from open source (end of turn, interrupt after, away, fillers, voice engine) never need a restart.
 
@@ -216,7 +221,7 @@ With Gemini, if `Away after (ms)` is shorter than the time the greeting takes, `
 |---|---|---|
 | **choices** | the agent offers options (Gemini: `show_choices` tool; local: `[[choices: A \| B]]` tag, never read aloud) | `Choices` (array), `Question` (Gemini only) and `On choices` outputs. To answer: `Choice index` = the number of the choice, **counting from 0** (0 = the first one), then `Choose`. |
 | **a mood** | `set_mood` tool / `[[mood: …]]` tag | `Mood` output, `On mood` |
-| **a patch tool** (Gemini) | described in JSON in `Tools (JSON)` (e.g. `change_color`) | `On tool call`, `Tool call` = `{id, name, args}`. Answer with `Tool result` + `Send tool result` (otherwise an automatic answer after 10 s). |
+| **a patch tool** (Gemini) | described in JSON under `extraTools`, in a persona file of the app (e.g. `change_color`) | `On tool call`, `Tool call` = `{id, name, args}`. Answer with `Tool result` + `Send tool result` (otherwise an automatic answer after 10 s). |
 | **typing instead of talking** | `Text` + `Send text` | a button can "say" a sentence in the person's place |
 | **informing without asking for a reply** | `Context` + `Send context` | "the user is looking at room 2". The agent does not reply. If you send it while the agent is speaking, the context waits for the end of its reply, so it does not cut it off. |
 
@@ -224,12 +229,12 @@ With Gemini, if `Away after (ms)` is shorter than the time the greeting takes, `
 
 | situation | what the kit does |
 |---|---|
-| key refused, server missing, mic refused | `error` state, readable message on `Error`, `On error`, and the message shows on the op |
-| Gemini closes the session (15-minute limit) | the op reconnects on its own and picks the conversation up again. With a token server, it asks for a fresh token. |
-| setting changed during a session (persona, voice… with Gemini) | the op shows "click Start to restart" |
+| key refused, server missing, mic refused | `error` state, readable message on `Error`, `On error`, and the message shows in the lab window and on the op |
+| Gemini closes the session (15-minute limit) | the lab window reconnects on its own and picks the conversation up again. With a token server, it asks for a fresh token. |
+| setting changed during a session (persona, voice… with Gemini) | the lab window shows "click Start to restart" |
 | `Stop` during connection or the mic request | nothing starts afterwards, the mic is released |
 | a 2nd page connects to the local engine | it takes over; the 1st one stops and shows "Another page opened a conversation, so this one is stopping." (one conversation per machine) |
-| you delete the op | the session and the mic close |
+| you delete the op | the op disconnects; the conversation goes on in the app (Stop closes it and the mic) |
 
 ---
 
@@ -242,7 +247,7 @@ Each exercise builds on one or two edge cases. Suggested length: 1 hour to half 
 3. **The wait.** `Reply delay (ms)` at 0, 1,000 then 3,000. Design three ways to fill the wait (visual, sound, a waiting phrase in the persona) and compare them with `Wait (ms)`.
 4. **Cutting it off.** Design the moment of interruption: by voice, by gesture, by keyboard. What do you see, what do you hear? Should the agent pick up again?
 5. **The spoken menu.** A reception agent (station, museum) that always offers choices on screen, `Choices` → buttons → `Choose`. Where does the voice stop, and where does the screen take over?
-6. **Offline.** Reconnect the interface from exercise 2 or 5 to the local engine (`Engine` = `Local (QVAC)`). What breaks when latency and quality drop? How does the interface make up for it?
+6. **Offline.** Switch the app to the local engine (Engine = `Local (QVAC)`, in the lab window) and keep the interface from exercise 2 or 5 as it is. What breaks when latency and quality drop? How does the interface make up for it?
 7. **The agent that acts.** Declare a tool (`change_color`, `open_door`…) and make the patch react to the voice.
 8. **The wait, measured (after CUI '25).** Reproduce a published experiment with the Voice Lab: three delays × three ways to fill the wait.
 
@@ -292,19 +297,22 @@ For deeper reading: the CUI '25 study on waits and fillers ([arXiv 2507.22352](h
 ## 6. Architecture (for the teacher or a developer)
 
 ```
-common/voice-core.js        the core, in the browser: mic (16 kHz PCM), voice playback, levels,
+common/voice-core.js        the core the lab window runs: mic (16 kHz PCM), voice playback, levels,
                             states, events, earcons, measurements. Two engines:
   ├─ GeminiEngine           direct WebSocket to Gemini Live (setup, audio, transcripts, tools, resumption)
-  └─ LocalEngine            WebSocket to the Voice Lab server (protocol described in CONTRACT.md)
+  └─ LocalEngine            WebSocket to the Voice Lab server (audio protocol, CONTRACT.md)
 
 1_cables_gemini_live/
-  op-glue.js                the cables op's ports (English names, groups)
-  build.mjs                 assembles voice-core + op-glue → VoiceAgent.op.js (the file to paste)
+  VoiceAgent.op.js          the cables op: a client of the app (the file to paste)
   token-server/             Gemini ephemeral token server, no dependencies (Node 18+)
+
+examples/                   clients to start from: p5js/ and html-css-js/
 
 2_qvac_local/               the Electron app "Voice Lab"
   electron/main.cjs         window, menus, mic (granted only to its own page), Windows installer
-  src/app-server.mjs        built-in HTTP + WebSocket server (lab page, /health, /personas, /voice)
+  src/app-server.mjs        built-in HTTP + WebSocket server (lab page, /health, /personas, /voice, /brain, /events)
+  src/hub.mjs               the hub: the lab window (/brain) publishes its events and levels, the clients
+                            (/events) follow them and send commands (clients protocol, CONTRACT.md)
   src/session.mjs           one conversation: recognition → model → voice sentence by sentence, interruptions,
                             Smart Turn, the voice dipping (backchannels, stop phrases), fillers
   src/turn/                 Smart Turn: smart-turn.mjs (the model, through onnxruntime-node, optional)
@@ -320,7 +328,7 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 .github/workflows/          tests.yml (the tests, on every push to main) and release.yml (the installers)
 ```
 
-**Changing the op:** never edit `VoiceAgent.op.js` by hand. Edit `common/voice-core.js` or `op-glue.js`, then `node 1_cables_gemini_live/build.mjs`, and paste the op into cables again.
+**Changing the op:** edit `1_cables_gemini_live/VoiceAgent.op.js` (it is short: ports, and the messages of the clients protocol), then paste it into cables again. What the agent does (engines, states, events) lives in `common/voice-core.js`, run by the lab window.
 
 **Changing the Voice Lab:** `npm start` in `2_qvac_local` to try it; `npm run start:mock` for the simulated engine; `npm run make` to rebuild the installers. The lab page picks up `common/voice-core.js` automatically.
 
@@ -328,7 +336,7 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 
 **Changing the local models:** menu **Files → Open settings folder**, edit `config.json`, then restart the app. Lighter models exist for modest machines (see the Voice Lab README).
 
-**Automated tests:** `tests/` (see [`tests/README.md`](../tests/README.md)). They run without a key, without models and without Electron, against "fakes" that speak the same protocols: 344 checks today, plus 1 skipped where `onnxruntime-node` can't be installed. `npm test`, at the root, runs them all. On GitHub, they run on every push to `main`.
+**Automated tests:** `tests/` (see [`tests/README.md`](../tests/README.md)). They run without a key, without models and without Electron, against "fakes" that speak the same protocols: 378 checks today, plus 1 skipped where `onnxruntime-node` can't be installed. `npm test`, at the root, runs them all. On GitHub, they run on every push to `main`.
 
 ---
 
@@ -336,16 +344,17 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 
 | symptom | what to check |
 |---|---|
-| the op is red: "Gemini refused the session" | the key is wrong or the model is not available for this account |
-| the op gets no token | is the token server running? Did Chrome get permission to access the "local network"? Is the page's address in `ALLOWED_ORIGINS`? |
+| the lab window says "Gemini refused the session" | the key is wrong or the model is not available for this account |
+| the lab window gets no token | is the token server running? Is the lab window's address in `ALLOWED_ORIGINS`? |
 | the agent cuts itself off | echo: headphones, or untick `Listen while speaking` |
 | the agent cuts in too early | increase `End silence (ms)`, set `End sensitivity` to low (with Gemini, then `Start`) |
 | the agent doesn't react to a quiet voice | `Start sensitivity` on high; check the mic chosen by the system |
-| no sound | click once in the page (browsers block sound before a click); check `Volume` and `Play through speakers` |
+| no sound | click once in the lab window (it blocks sound before a click); check Volume and Play through speakers |
 | Voice Lab: loading stuck at 0% ("waiting for data") | the network blocks the download (often peer to peer, for the voices): see "Downloading the models" in the Voice Lab README |
 | Voice Lab: Vulkan error (Windows) | update the graphics driver |
 | Voice Lab: no mic (Mac) | System Settings → Privacy & Security → Microphone → allow "Voice Lab" |
-| cables can't reach the local engine | is the app open? Is the address the one from the menu **Engine → Copy address for cables.gl**? |
+| a client (cables, p5.js, a page) can't reach the app | is the app open, with its window? Is the address the one from the menu **Engine → Copy address for clients**? A page opened by double-click (`file://`) is refused: open it through a local web server (VS Code's Live Server, `npx serve`) |
+| a client is connected but nothing moves | the app runs but its window is closed (`App connected` = 0, or `app: false`): open it again |
 | Voice Lab: "Smart Turn is unavailable here: using silence only." | the optional `onnxruntime-node` is missing or did not load. Run `npm install` again in `2_qvac_local`, then `npm run selftest` (⚠ on "end of turn: Smart Turn" means it is still missing). Meanwhile, turns end on silence. |
 | Voice Lab: "Parler only speaks English: replies will sound English-accented." | Parler is English only: set the language to English, or use Supertonic or Chatterbox |
 | Voice Lab: nothing is said for a long time after choosing Parler or Chatterbox | the first use downloads the voice (about 1.16 GB for Parler, 345 MB + 788 MB for Chatterbox): watch the banner. Do it once, on a good network. |
@@ -358,7 +367,7 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 ## 8. Known limits, and what remains to be checked
 
 - **Not yet tried for real:** the real Gemini API (no key in the build environment), the real QVAC models and the Electron packaging (QVAC and Electron could not be installed there). Everything else is checked by the automated tests, against faithful imitations of the protocols. The [human test protocol](HUMAN_TESTS.md) starts with exactly that.
-- **Gemini 3.8 Live** picks its language on its own, has only predefined voices and no "affective dialog". Sessions last 15 minutes at most (the op reconnects on its own).
+- **Gemini 3.8 Live** picks its language on its own, has only predefined voices and no "affective dialog". Sessions last 15 minutes at most (the lab window reconnects on its own).
 - **Local engine:** no echo cancellation, small models (less refined replies, weaker in languages other than English, choice tags sometimes forgotten), latency that depends a lot on the machine.
 - **Not yet tried for real, among the borrowed features:** `onnxruntime-node` inside Electron 42, and the Smart Turn model inside the installers (only the Python check has run the real model); the real Parler and Chatterbox voices in QVAC (a fake SDK checks the calls against QVAC 0.21's docs); Smart Turn's accuracy on real speech, and its timing with QVAC's speech detector; what real Whisper writes for a short "mm-hm"; echo with speakers while the voice dips; how fast fillers get prepared, since QVAC makes one synthesis at a time; how real Gemini answers the reprompt instruction. Tests A12, B5, B6, D5, E6 to E8, F6 and I8 of the [human test protocol](HUMAN_TESTS.md) check them.
 - **Local voices:** Supertonic, the default, was archived by its makers in September 2026: it keeps working, but there will be no new voices. Parler only speaks English. Chatterbox has no Japanese or Chinese here.
@@ -368,7 +377,7 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 ## 9. Data and privacy
 
 - With **Gemini**, the students' voices go to Google. On the free tier, Google may use them to improve its models, and people may review them. For classroom use: a paid project, or a clear rule about what is said to the agent.
-- The **Gemini key** is never saved in the patch. With the token server, it never leaves the teacher's computer.
-- With the **Voice Lab**, nothing leaves the computer (except the model downloads: at first launch, and the first time you choose Parler or Chatterbox). The mic is only granted to the app's page.
+- The **Gemini key** stays in the lab window, on one computer: it is never in a patch, nor in an exported settings file. With the token server, it never leaves the teacher's computer.
+- With the **Voice Lab**, nothing leaves the computer (except the model downloads: at first launch, and the first time you choose Parler or Chatterbox). The mic is only granted to the app's page. The clients (cables, p5.js, pages) never get the mic: only what the app publishes, and only on this computer.
 - In both cases, the mic only opens with **Start** and closes with **Stop**.
 - **Voice cloning** (Chatterbox): a voice recording is personal data. Only with the clear, written consent of the person, for the exercise only, and delete the recording afterwards. The cloned voice carries a watermark, but that does not make it harmless.

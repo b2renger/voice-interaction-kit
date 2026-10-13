@@ -199,12 +199,14 @@ const VoiceCore = (function () {
     return { tools: decls.length ? [{ functionDeclarations: decls }] : [], error: null };
   }
 
-  /** extraTools: an array of declarations, or {functionDeclarations:[…]}, or ''. */
+  /** extraTools: an array of declarations, or {functionDeclarations:[…]}, or ''. As JSON text, or already parsed (a persona file). */
   function parseExtraTools(text) {
-    const t = String(text || '').trim();
-    if (!t) return { list: [], error: null };
-    let v;
-    try { v = JSON.parse(t); } catch (e) { return { list: [], error: 'The tools JSON is invalid: ' + e.message }; }
+    let v = text;
+    if (typeof v !== 'object' || v === null) {
+      const t = String(text || '').trim();
+      if (!t) return { list: [], error: null };
+      try { v = JSON.parse(t); } catch (e) { return { list: [], error: 'The tools JSON is invalid: ' + e.message }; }
+    }
     const list = Array.isArray(v) ? v : (v && Array.isArray(v.functionDeclarations) ? v.functionDeclarations : null);
     if (!list) return { list: [], error: 'Tools must be an array of function declarations.' };
     const bad = list.find((d) => !d || typeof d.name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/.test(d.name));

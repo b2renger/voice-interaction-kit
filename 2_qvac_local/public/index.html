@@ -301,6 +301,7 @@
       localStorage.setItem(STORE, JSON.stringify(copy));
       if (settings.apiKey) localStorage.setItem(KEY_STORE, settings.apiKey); else localStorage.removeItem(KEY_STORE);
     } catch (e) { /* no storage */ }
+    hubInfo();                                       // the clients show the agent's name and engine
   }
   function readField(el) {
     const k = el.dataset.k;
@@ -461,6 +462,36 @@
     $('#sayText').value = '';
   };
 
+  // ---------- the hub: this window is the brain; clients (cables, p5.js, web pages) follow it and drive it ----------
+  let hubWs = null;
+  let hubLevels = '';
+  function hubSend(m) { if (hubWs && hubWs.readyState === 1) hubWs.send(JSON.stringify(m)); }
+  function hubInfo() { hubSend({ type: 'info', name: settings.name || '', engine: settings.engine }); }
+  function hubCommand(c) {
+    if (c.type === 'start') $('#start').onclick();
+    else if (c.type === 'stop') $('#stop').onclick();
+    else if (c.type === 'interrupt') $('#interrupt').onclick();
+    else if (c.type === 'text') agent.sendText(c.text);
+    else if (c.type === 'context') agent.sendContext(c.text);
+    else if (c.type === 'choose') { clearChoices(); agent.choose(c.option); }
+    else if (c.type === 'tool.result') agent.sendToolResult(c.id, c.result);
+  }
+  (function hubConnect() {
+    hubWs = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/brain');
+    hubWs.onopen = hubInfo;
+    hubWs.onmessage = (e) => {
+      let m; try { m = JSON.parse(e.data); } catch (_) { return; }
+      if (m.type === 'command' && m.command) hubCommand(m.command);
+    };
+    hubWs.onclose = (e) => { if (e.reason !== 'another lab window took over') setTimeout(hubConnect, 1000); };
+  })();
+  agent.on('*', (ev) => hubSend({ type: 'event', event: ev }));
+  setInterval(() => {                                // the levels, about 30 times a second while they move
+    const l = agent.levels();
+    const user = Math.round(l.user * 1000) / 1000; const bot = Math.round(l.bot * 1000) / 1000;
+    if (user + '/' + bot !== hubLevels) { hubLevels = user + '/' + bot; hubSend({ type: 'levels', user, bot }); }
+  }, 33);
+
   // ---------- the face ----------
   const cv = $('#face');
   const g = cv.getContext('2d');
@@ -526,7 +557,7 @@
   function pollHealth() {
     fetch('/health').then((r) => r.json()).then((h) => {
       const eng = h.engine === 'mock' ? 'SIMULATED engine (no models)' : h.engine === 'qvac' ? 'QVAC engine' : 'local engine';
-      $('#engineInfo').textContent = `${eng} · for cables: ${h.wsUrl || location.host + '/voice'}`;
+      $('#engineInfo').textContent = `${eng} · for clients (cables, p5.js…): ${h.wsUrl || 'ws://' + location.host + '/events'}`;
       if (h.error) { banner('err', h.error); return; }
       if (h.models !== 'ready') {
         wasLoading = true;

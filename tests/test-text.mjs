@@ -73,4 +73,10 @@ const s = Object.assign({}, ctx.VC.DEFAULTS, { name: 'Zoe', persona: 'Gardener.'
 check(ctx.VC._.systemPrompt(s, 'local') === systemPrompt(s, 'local'), 'prompt: identical in the browser and the backend (local)');
 check(ctx.VC._.systemPrompt(s, 'gemini') === systemPrompt(s, 'gemini'), 'prompt: identical (gemini)');
 
+// Gemini tools: JSON text (a settings field), or already an array (written as is in a persona file)
+const decl = [{ name: 'change_color', description: 'Changes the color of the scene.' }];
+check(ctx.VC._.parseExtraTools(JSON.stringify(decl)).list.length === 1, 'tools: as JSON text');
+const fromArray = ctx.VC._.parseExtraTools(decl);
+check(fromArray.list.length === 1 && fromArray.error === null, 'tools: as an array, from a persona file', fromArray);
+
 process.exit(summary() ? 1 : 0);

@@ -16,7 +16,8 @@ const SUITES = [
   { name: 'test-protocol fake-qvac', args: ['tests/test-protocol.mjs', 'fake-qvac'] },
   { name: 'test-electron-main', args: ['tests/test-electron-main.mjs'] },
   { name: 'test-smart-turn', args: ['tests/test-smart-turn.mjs'] },
-  { name: 'test-op-gemini', args: ['tests/test-op-gemini.mjs'], browser: true },
+  { name: 'test-gemini', args: ['tests/test-gemini.mjs'], browser: true },
+  { name: 'test-hub', args: ['tests/test-hub.mjs'] },
   { name: 'test-local', args: ['tests/test-local.mjs'], browser: true },
 ];
 const TIMEOUT_MS = 10 * 60 * 1000;

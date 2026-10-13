@@ -5,7 +5,7 @@ export function loadConfig(file) {
   const base = {
     port: 8790, host: '127.0.0.1', download: 'http', warmup: true,
     // the pages that can open a conversation (cables.gl, the lab window, offline cables); ["*"] = all
-    allowedOrigins: ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*'],
+    allowedOrigins: ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*', 'https://editor.p5js.org', 'https://preview.p5js.org'],
     models: {
       asr: { src: 'WHISPER_SMALL_Q8_0', vad: 'VAD_SILERO_5_1_2', language: 'en', useGpu: true, threads: 4 },
       llm: { src: 'QWEN3_1_7B_INST_Q4', ctxSize: 4096, maxTokens: 320, thinking: false, useGpu: true },

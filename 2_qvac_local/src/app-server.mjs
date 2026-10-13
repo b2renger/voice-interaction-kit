@@ -6,12 +6,13 @@ import { join, dirname, extname, basename, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { attachWebSocket } from './ws.mjs';
 import { Session } from './session.mjs';
+import { createHub } from './hub.mjs';
 import { mutex, progressText } from './util.mjs';
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** The pages allowed to open a conversation. An entry ending in * is a prefix. */
-export const DEFAULT_ORIGINS = ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*'];
+export const DEFAULT_ORIGINS = ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*', 'https://editor.p5js.org', 'https://preview.p5js.org'];
 export function originAllowed(list, origin) {
   const l = Array.isArray(list) && list.length ? list : DEFAULT_ORIGINS;
   if (!origin) return true;                          // not a browser (local tool, test)
@@ -39,6 +40,7 @@ export async function startServer(o) {
   let lastStatus = { text: 'Starting…', progress: null };
   const prepareLock = mutex();
   const sessions = new Set();
+  const hub = createHub(log);
   const status = (text, progress) => {
     lastStatus = { text, progress: progress == null ? null : progress };
     for (const s of sessions) s.status(text, progress);
@@ -129,10 +131,16 @@ export async function startServer(o) {
     res.end('Not found');
   });
 
+  // /voice: the lab window's audio (local engine). /brain: the lab window publishes to the hub; only the
+  // app's own page may, so no other site can pose as the agent. /events: the clients (cables, p5.js, pages).
+  const ownOrigin = (origin) => [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`].includes(origin);
   attachWebSocket(server, {
-    path: '/voice',
-    allowOrigin: (origin) => originAllowed(config.allowedOrigins, origin),
-    onConnection(ws) {
+    path: /^\/(voice|brain|events)$/,
+    allowOrigin: (origin, path) => (path === '/brain' ? !origin || ownOrigin(origin) : originAllowed(config.allowedOrigins, origin)),
+    onConnection(ws, req) {
+      const path = (req.url || '').split('?')[0];
+      if (path === '/brain') return hub.brain(ws);
+      if (path === '/events') return hub.client(ws);
       // One conversation at a time: the models run on this machine, for one person.
       for (const s of sessions) { s.error('replaced', 'Another page opened a conversation, so this one is stopping.'); s.close('replaced'); }
       const session = new Session(ws, {
@@ -192,9 +200,9 @@ export async function startServer(o) {
   }
   const shown = host === '0.0.0.0' ? 'localhost' : host;
   const url = `http://${shown}:${actualPort}/`;
-  wsUrl = `ws://${shown === '127.0.0.1' ? 'localhost' : shown}:${actualPort}/voice`;
+  wsUrl = `ws://${shown === '127.0.0.1' ? 'localhost' : shown}:${actualPort}/events`;
   log(`▸ lab window: ${url}`);
-  log(`▸ WebSocket for the cables op: ${wsUrl}`);
+  log(`▸ WebSocket for the clients (cables, p5.js, web pages): ${wsUrl}`);
   const ready = boot();
 
   return {
@@ -205,6 +213,7 @@ export async function startServer(o) {
     ready,
     async close() {
       for (const s of sessions) s.close('server shutting down');
+      hub.close();
       await new Promise((r) => server.close(() => r()));
       try { if (smartTurn) await (await smartTurn).close(); } catch { /* closed */ }
       try { if (engine && engine.close) await engine.close(); } catch { /* closed */ }

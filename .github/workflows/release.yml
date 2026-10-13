@@ -102,4 +102,5 @@ jobs:
             On a Mac: open it once, then **System Settings → Privacy & Security → Open Anyway**
             (if macOS says the app is damaged: `xattr -cr "/Applications/Voice Lab.app"`).
 
-            The cables.gl op is `1_cables_gemini_live/VoiceAgent.op.js` in the source code below.
+            The app is the brain; its clients are in the source code below: the cables.gl op
+            (`1_cables_gemini_live/VoiceAgent.op.js`) and the p5.js and HTML examples (`examples/`).

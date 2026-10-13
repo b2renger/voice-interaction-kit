@@ -116,7 +116,7 @@ function buildMenu() {
         { label: 'QVAC (local models)', type: 'radio', checked: !MOCK, click: () => { if (MOCK) relaunch(false); } },
         { label: 'Simulated (no models, to design the interface)', type: 'radio', checked: MOCK, click: () => { if (!MOCK) relaunch(true); } },
         { type: 'separator' },
-        { label: 'Copy address for cables.gl', click: () => { if (srv) clipboard.writeText(srv.wsUrl); } },
+        { label: 'Copy address for clients (cables.gl, p5.js…)', click: () => { if (srv) clipboard.writeText(srv.wsUrl); } },
       ],
     },
     {

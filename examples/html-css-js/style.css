@@ -1,0 +1,33 @@
+/* One colour per state: the same as the Voice Lab window. */
+:root {
+  --bg: #f4f2ee; --ink: #1d1c1a; --muted: #6d6a64; --chip: #ece8e0;
+  --idle: #a8a39a; --listening: #3e8e7e; --hearing: #2aa7a0; --thinking: #6b5fb5; --speaking: #d8743b; --error: #c0392b;
+}
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink); font: 16px/1.4 system-ui, sans-serif; }
+main { width: min(560px, 92vw); display: grid; gap: 14px; justify-items: center; text-align: center; padding: 24px 0; }
+#app { color: var(--muted); font-size: 14px; margin: 0; }
+
+/* The orb: its colour is the state; script.js sets --voice and --mic (0 to 1) about 30 times a second. */
+#orb {
+  --voice: 0; --mic: 0;
+  width: 160px; height: 160px; border-radius: 50%;
+  color: var(--idle); background: currentColor;
+  transform: scale(calc(1 + var(--voice) * 0.4));
+  box-shadow: 0 0 0 calc(var(--mic) * 48px) color-mix(in srgb, currentColor 25%, transparent);
+  transition: color .3s;
+}
+#orb.listening { color: var(--listening); }
+#orb.hearing { color: var(--hearing); }
+#orb.thinking { color: var(--thinking); animation: pulse 1s ease-in-out infinite alternate; }
+#orb.speaking { color: var(--speaking); }
+#orb.error { color: var(--error); }
+@keyframes pulse { to { transform: scale(.9); } }
+@media (prefers-reduced-motion: reduce) { #orb.thinking { animation: none; } }
+
+#state { margin: 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.said { margin: 0; min-height: 1.4em; }
+.said b { font-size: 12px; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+#choices, .buttons, form { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+button, input { font: inherit; border-radius: 999px; border: 1px solid #d6d1c7; padding: 8px 14px; background: #fffdf9; color: var(--ink); }
+#choices button { background: var(--chip); border-color: transparent; }
+input { min-width: min(320px, 80vw); }

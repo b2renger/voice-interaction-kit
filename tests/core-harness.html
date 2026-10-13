@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>voice-core test bench</title></head>
+<body>
+<p>Test bench: voice-core with the former op's ports (tests/fixtures/core-ports.js), inside a fake cables (automated tests).</p>
+<pre id="log"></pre>
+<script src="cables-shim.js"></script>
+<script>
+  window.events = [];
+  window.ready = Promise.all(['../common/voice-core.js', 'fixtures/core-ports.js'].map((f) => fetch(f).then((r) => r.text()))).then(([core, ports]) => {
+    window.op = runOpCode(core + '\n' + ports);
+    window.op.voiceAgent.on('*', (ev) => window.events.push(ev));
+    return true;
+  });
+  window.P = (name) => window.op.ports[name];
+  window.fire = (name) => window.op.ports[name].trigger();
+</script>
+</body>
+</html>

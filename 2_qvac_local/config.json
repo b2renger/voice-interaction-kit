@@ -10,7 +10,9 @@
     "http://localhost:*",
     "http://127.0.0.1:*",
     "cables:*",
-    "file:*"
+    "file:*",
+    "https://editor.p5js.org",
+    "https://preview.p5js.org"
   ],
   "models": {
     "asr": {

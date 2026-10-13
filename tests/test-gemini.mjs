@@ -1,5 +1,6 @@
-// Tests the VoiceAgent cables op against a fake Gemini Live server, in Chromium, with a fake microphone.
-//   node tests/test-op-gemini.mjs
+// Tests voice-core's Gemini Live engine (the one the lab window runs) against a fake Gemini Live server,
+// in Chromium, with a fake microphone, through the former op's ports (tests/fixtures/core-ports.js).
+//   node tests/test-gemini.mjs
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startStatic, makeFakeMicWav, launch, check, summary, sleep, until } from './helpers.mjs';
@@ -13,7 +14,7 @@ const consoleErrors = [];
 page.on('pageerror', (e) => consoleErrors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
 
-await page.goto(`${web.url}/tests/op-harness.html`);
+await page.goto(`${web.url}/tests/core-harness.html`);
 await page.evaluate(() => window.ready);
 
 const port = (name) => page.evaluate((n) => { const p = window.P(n); if (!p) throw new Error('no port ' + n); return p.get(); }, name);

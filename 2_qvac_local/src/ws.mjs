@@ -128,7 +128,7 @@ export class WebSocketConnection extends EventEmitter {
 /**
  * Attaches a WebSocket server to a Node HTTP server.
  * @param {import('node:http').Server} server
- * @param {{path?: string|RegExp, onConnection: (ws: WebSocketConnection, req: any) => void, allowOrigin?: (origin: string|undefined) => boolean}} o
+ * @param {{path?: string|RegExp, onConnection: (ws: WebSocketConnection, req: any) => void, allowOrigin?: (origin: string|undefined, path: string) => boolean}} o
  */
 export function attachWebSocket(server, o) {
   server.on('upgrade', (req, socket) => {
@@ -137,7 +137,7 @@ export function attachWebSocket(server, o) {
     const key = req.headers['sec-websocket-key'];
     const upgrade = String(req.headers.upgrade || '').toLowerCase();
     if (!pathOk || !key || upgrade !== 'websocket') { socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'); return; }
-    if (o.allowOrigin && !o.allowOrigin(req.headers.origin)) { socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'); return; }
+    if (o.allowOrigin && !o.allowOrigin(req.headers.origin, url)) { socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'); return; }
     const accept = createHash('sha1').update(key + GUID).digest('base64');
     socket.write([
       'HTTP/1.1 101 Switching Protocols',

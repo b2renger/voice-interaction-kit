@@ -1,7 +1,8 @@
 // =============================================================================
-// The ports of the cables.gl "VoiceAgent" op.
-// (build.mjs pastes this file AFTER common/voice-core.js; the result,
-//  VoiceAgent.op.js, is what you paste into the cables op editor.)
+// TEST FIXTURE: the ports of the former cables op, which ran common/voice-core.js itself.
+// The op is now a client of the Voice Lab app (1_cables_gemini_live/VoiceAgent.op.js); this wrapper is
+// kept so tests/test-gemini.mjs can drive voice-core's Gemini engine (run by the lab window) port by port.
+// tests/core-harness.html loads common/voice-core.js, then this file, inside the fake cables.
 // =============================================================================
 
 // ---- dropdown labels ↔ core values -------------------------------------------

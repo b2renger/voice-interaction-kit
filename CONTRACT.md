@@ -1,8 +1,8 @@
 # The shared vocabulary
 
-The two prototypes (the cables.gl op with Gemini Live, and the local QVAC backend) speak **the same language**: the same states, the same events, the same settings. An interface designed for one works with the other: you just switch engines.
+The **Voice Lab app** is the brain of the kit: it listens, thinks and speaks, with the local QVAC engine or with Gemini Live, and it holds the persona, its knowledge and the settings. Its **clients** (the cables.gl op, a p5.js sketch, a web page) all follow the same conversation through the app's hub, and drive it with the same commands. Both engines produce **the same states and the same events**, so an interface designed with one works with the other: you only switch the engine in the app.
 
-Everything is defined in [`common/voice-core.js`](common/voice-core.js). This file describes that vocabulary.
+Everything is defined in [`common/voice-core.js`](common/voice-core.js), which the lab window runs. This file describes that vocabulary, then the two protocols: the clients protocol (the hub), and the audio protocol between the lab window and the local engine.
 
 ## The states
 
@@ -52,7 +52,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `turn` | summary of a turn | `user`, `bot`, `interrupted`, `ms` | `On turn` |
 | `ui.choices` | the agent offers choices | `question`, `options` | `On choices` |
 | `ui.mood` | the agent changes mood | `mood` | `On mood` |
-| `tool.call` | the agent calls a tool declared by the patch (Gemini) | `id`, `name`, `args` | `On tool call` |
+| `tool.call` | the agent calls a tool declared in the settings (`extraTools`, Gemini). A client sends the result back (`tool.result`) | `id`, `name`, `args` | `On tool call` |
 | `tool.cancel` | Gemini cancels tool calls | `ids` | — |
 | `timing` | measurements from the local server | `turnId`, `ms` | — |
 | `error` | an error | `code`, `message`, `fatal` | `On error` |
@@ -60,11 +60,13 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 
 **Turn timing** (`turn.ms`): `speech` is how long the person's sentence lasted. `firstSound` runs from the end of their sentence to the agent's first sound: it is the wait you feel. `total` runs from the end of their sentence to the end of the reply. The local engine adds `asr` (waiting for the transcript), `firstToken` (the model's first word), `firstAudio` (first voice frame), `reply`, `filler` (from the end of the person's turn to the start of the filler, when there is one) and `smartTurn` (how long the Smart Turn model took). A filler does not count as the reply: `firstSound` and `Wait (ms)` still measure the wait for the real reply.
 
-**The levels** are not events: you read them on every frame (`agent.levels()` → `{user, bot}`, from 0 to 1; `Mic level` and `Voice level` ports). For debugging, `agent.debug()` also gives `duck` (1, or 0.3 while the voice is lowered because someone talks over it) and `gain`.
+**The levels** are not events: the lab window reads them on every frame (`agent.levels()` → `{user, bot}`, from 0 to 1), and the clients get them in `levels` messages, about 30 times a second (`Mic level` and `Voice level` ports). For debugging, `agent.debug()` also gives `duck` (1, or 0.3 while the voice is lowered because someone talks over it) and `gain`.
 
 **The moods**: `neutral`, `happy`, `curious`, `focused`, `sorry`, `surprised`, `excited`.
 
 ## The settings
+
+They are set in the Voice Lab window, or in a persona file. Clients don't change them.
 
 | key | default | what it changes | Gemini | local |
 |---|---|---|---|---|
@@ -102,11 +104,38 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `geminiModel`, `apiKey`, `tokenUrl`, `geminiEndpoint` | gemini-3.8-live | connection to Gemini | | |
 | `serverUrl` | `ws://localhost:8790/voice` | address of the local backend | | |
 
-On the Gemini side, an open session cannot change persona, voice or turn rules. The op then says "click Start to restart". On the local side, everything applies live, except the server address. The settings added with the open-source borrowings (`turnDetection`, `interruptAfterMs`, `awayAfterMs`, `repromptLine`, `fillerLines`, `fillerAfterMs`, `localVoiceEngine`, `voiceDescription`) never need a restart. A "—" in the Gemini column means Gemini ignores the setting.
+On the Gemini side, an open session cannot change persona, voice or turn rules. The lab window then says "click Start to restart". On the local side, everything applies live, except the server address. The settings added with the open-source borrowings (`turnDetection`, `interruptAfterMs`, `awayAfterMs`, `repromptLine`, `fillerLines`, `fillerAfterMs`, `localVoiceEngine`, `voiceDescription`) never need a restart. A "—" in the Gemini column means Gemini ignores the setting.
 
-## The local engine protocol
+## The clients protocol (the hub)
 
-It goes through a WebSocket: `ws://localhost:8790/voice`.
+Any page can follow the conversation and drive it through one WebSocket: `ws://localhost:8790/events` (Voice Lab menu **Engine → Copy address for clients**). The cables op, the examples in [`examples/`](examples/) and your own pages all use it.
+
+Allowed pages: those served from this computer (`http://localhost:*`, `http://127.0.0.1:*`), cables.gl and the p5.js web editor (`allowedOrigins` in `config.json`). A page opened by double-click (`file://`) is refused: the browser hides where it comes from, so it could be any website. Open it through a local web server instead (VS Code's Live Server, or `npx serve`).
+
+**The app sends** (JSON):
+
+- `{type:'hello', app, name, engine, state, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the lab window opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when the app runs but its window is closed: nothing happens until it opens;
+- every event of the table above, as it is: `{type, state, t, …data}`;
+- `{type:'levels', user, bot}`: the mic and the voice, from 0 to 1, about 30 times a second while they move;
+- `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the lab window is closed) or `bad-command`.
+
+**The client sends** (JSON):
+
+| command | what it does |
+|---|---|
+| `{type:'start'}` | starts the conversation, like the lab window's Start button |
+| `{type:'stop'}` | stops it |
+| `{type:'interrupt'}` | cuts the agent's reply |
+| `{type:'text', text}` | a typed message: the agent replies to it |
+| `{type:'context', text}` | information for the agent, with no reply ("the visitor is in room 2") |
+| `{type:'choose', option}` | picks one of the choices the agent offered |
+| `{type:'tool.result', id, result}` | the result of a `tool.call` (Gemini) |
+
+Every client sees the same conversation, and any of them can drive it. The mic and the speakers are the app's: clients only show and command.
+
+## The audio protocol (lab window ↔ local engine)
+
+The lab window streams the mic to the local engine and plays its voice through a WebSocket: `ws://localhost:8790/voice`. Clients never use it: they use the hub.
 
 **The browser sends:**
 
@@ -145,7 +174,7 @@ It goes through a WebSocket: `ws://localhost:8790/voice`.
   Two `status` texts are warnings, not errors: "Smart Turn is unavailable here: using silence only." (once per conversation) and "Parler only speaks English: replies will sound English-accented."
 - as binary: the voice, with an 8-byte header followed by the sound. The first 4 bytes give the sample rate (unsigned 32-bit integer, little-endian), the next 4 the turn number (same format), then comes the 16-bit mono PCM. The browser ignores the voice of a turn it has interrupted. A turn number of `0xFFFFFFFF` (4294967295) marks the audio of a **filler**: the browser plays it, but it is not part of the reply.
 
-One conversation at a time. A second page that connects takes over, and the first one receives the `replaced` error.
+One conversation at a time. A second lab window that connects takes over, and the first one receives the `replaced` error.
 
 ## Mapping to other toolkits
 

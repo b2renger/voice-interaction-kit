@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Lab client: HTML, CSS, JS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <p id="app" role="status">Connecting to the Voice Lab app…</p>
+    <div id="orb" class="idle" aria-hidden="true"></div>
+    <p id="state" aria-live="polite">idle</p>
+    <p class="said"><b>You</b> <span id="user"></span></p>
+    <p class="said"><b id="name">Agent</b> <span id="bot"></span></p>
+    <div id="choices"></div>
+    <div class="buttons">
+      <button id="start">Start</button>
+      <button id="stop">Stop</button>
+      <button id="interrupt">Interrupt</button>
+    </div>
+    <form id="contextForm">
+      <input id="context" aria-label="Context for the agent" placeholder="Context, e.g. The visitor is in room 2.">
+      <button>Send context</button>
+    </form>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>

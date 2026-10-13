@@ -2,14 +2,17 @@
 <html lang="en">
 <head><meta charset="utf-8"><title>VoiceAgent op test bench</title></head>
 <body>
-<p>Test bench: the VoiceAgent op runs here inside a fake cables (automated tests).</p>
+<p>Test bench: the VoiceAgent op (a client of the Voice Lab app) runs here inside a fake cables (automated tests).</p>
 <pre id="log"></pre>
 <script src="cables-shim.js"></script>
 <script>
   window.events = [];
   window.ready = fetch('../1_cables_gemini_live/VoiceAgent.op.js').then((r) => r.text()).then((code) => {
     window.op = runOpCode(code);
-    window.op.voiceAgent.on('*', (ev) => window.events.push(ev));
+    // every message the op shows on its "Event" port
+    const any = window.op.ports['On event'];
+    const fire = any.trigger.bind(any);
+    any.trigger = () => { window.events.push(window.op.ports.Event.get()); fire(); };
     return true;
   });
   window.P = (name) => window.op.ports[name];

@@ -1,4 +1,5 @@
-// Tests the local backend in SIMULATED mode (no models): the lab window and the cables op ("Local" engine),
+// Tests the local backend in SIMULATED mode (no models): the lab window, and its clients through the hub
+// (the cables op, the p5.js and HTML examples),
 // in Chromium, with a fake microphone. Checks the protocol, the states, the choices, the mood, the interruptions.
 //   node tests/test-local.mjs
 import { spawn } from 'node:child_process';
@@ -116,9 +117,21 @@ const errors = [];
   await page.close();
 }
 
-// =========================== 2. the cables op, Local engine ======================================
+// =========================== 2. the hub: the cables op and the examples follow the lab window ===========
 {
   const web = await startStatic(ROOT);
+  const hubUrl = `ws://127.0.0.1:${PORT}/events`;
+  const lab = await browser.newPage();
+  lab.on('pageerror', (e) => errors.push('lab (brain): ' + e));
+  await lab.goto(base + '/');
+  await lab.evaluate(() => {                        // what the lab window receives from its clients
+    window.__ctx = []; window.__chosen = [];
+    const ctx = window.agent.sendContext; window.agent.sendContext = (t) => { window.__ctx.push(t); return ctx(t); };
+    const ch = window.agent.choose; window.agent.choose = (o) => { window.__chosen.push(o); return ch(o); };
+  });
+  const labState = () => lab.evaluate(() => window.agent.state);
+
+  // the cables op
   const page = await browser.newPage();
   page.on('pageerror', (e) => errors.push('op: ' + e));
   await page.goto(`${web.url}/tests/op-harness.html`);
@@ -126,42 +139,66 @@ const errors = [];
   const port = (n) => page.evaluate((x) => window.P(x).get(), n);
   const set = (n, v) => page.evaluate(([x, val]) => window.P(x).set(val), [n, v]);
   const fire = (n) => page.evaluate((x) => window.fire(x), n);
-  await set('Engine', 'Local (QVAC)');
-  await set('Local server', `ws://127.0.0.1:${PORT}/voice`);
-  await set('Local voice', 'M2');
-  await set('Repair line (local)', 'Sorry?');
-  await sleep(250);
+  const uiError = (id) => page.evaluate((x) => (window.op.uiErrors[x] || {}).txt || '', id);
+  await set('App address', 'ws://127.0.0.1:1/events');
+  check(await until(async () => /Cannot reach the Voice Lab app/.test(await uiError('app')), 5000), 'op: a clear message when the app is not running', await uiError('app'));
+  await set('App address', hubUrl);
+  check(await until(async () => (await port('App connected')) === 1, 5000), 'op: connected to the app (the lab window is open)', await port('App connected'));
+  check((await port('Agent name')) === (await lab.evaluate(() => window.agent.settings.name)), "op: shows the agent's name", await port('Agent name'));
   await fire('Start');
-  check(await until(async () => (await port('State')) === 'listening', 8000), 'local op: connected to the backend', await port('Error'));
-  check(await until(async () => (await port('Last user text')).length > 0, 12000), 'local op: the fake mic\'s speech arrives as text', await port('Last user text'));
-  check(await until(async () => (await page.evaluate(() => window.P('On reply start').triggered)) >= 1, 12000), 'local op: the agent replies (On reply start)');
+  check(await until(async () => ['listening', 'speaking'].includes(await labState()), 8000), 'op: "Start" starts the conversation in the lab window', await labState());
+  check(await until(async () => ['listening', 'hearing', 'thinking', 'speaking'].includes(await port('State')), 4000), "op: follows the lab window's state", await port('State'));
+  check(await until(async () => (await port('Last user text')).length > 0, 12000), 'op: what the person said (heard by the lab window) arrives', await port('Last user text'));
+  check(await until(async () => (await page.evaluate(() => window.P('On reply start').triggered)) >= 1, 12000), 'op: the agent replies (On reply start)');
   // each simulated conversation replays the same script: the 1st reply offers choices and a mood
-  check(await until(async () => (await port('Choices'))?.join('|') === 'Painting|Sculpture' && (await port('Mood')) === 'happy', 4000),
-    'local op: choices and mood arrive on the ports', [await port('Choices'), await port('Mood')]);
-  check((await port('Wait (ms)')) > 0, 'local op: wait measured', await port('Wait (ms)'));
+  check(await until(async () => (await port('Choices'))?.join('|') === 'Painting|Sculpture' && (await port('Mood')) === 'happy', 6000),
+    'op: choices and mood arrive on the ports', [await port('Choices'), await port('Mood')]);
+  check(await until(async () => (await port('Mic level')) > 0 || (await port('Voice level')) > 0, 6000), 'op: the levels arrive', [await port('Mic level'), await port('Voice level')]);
+  await set('Choice index', 1);
+  await fire('Choose');
+  check(await until(() => lab.evaluate(() => window.__chosen[0] === 'Sculpture'), 3000), 'op: "Choose" picks a choice in the lab window', await lab.evaluate(() => window.__chosen));
+  await set('Context', 'The visitor is in room 2.');
+  await fire('Send context');
+  check(await until(() => lab.evaluate(() => window.__ctx.includes('The visitor is in room 2.')), 3000), 'op: "Send context" reaches the agent', await lab.evaluate(() => window.__ctx));
   await fire('Stop');
-  check(await until(async () => (await port('State')) === 'ended', 3000), 'local op: Stop');
-  // a 2nd page (the lab window) takes the conversation: the op says so clearly, with no false interruption
-  await fire('Start');
-  await until(async () => (await port('State')) === 'listening', 8000);
-  const nEv = await page.evaluate(() => window.events.length);
-  const lab = await browser.newPage();
-  await lab.goto(base + '/');
-  await lab.click('#start');
-  check(await until(async () => (await port('State')) === 'error' && /Another page/.test(await port('Error')), 8000), 'local op: another page takes over, and the op says why', await port('Error'));
-  await sleep(600);
-  check(/Another page/.test(await port('Error')), 'local op: this message stays on screen (not replaced by "connection closed")', await port('Error'));
-  const evTake = await page.evaluate((n) => window.events.slice(n), nEv);
-  check(!evTake.some((e) => e.type === 'interrupted' && e.by === 'user'), 'local op: no false "interruption by the user" on takeover', evTake.map((e) => e.type + (e.by ? ':' + e.by : '')));
-  check(await until(() => lab.evaluate(() => window.agent.state === 'listening' || window.agent.state === 'speaking'), 8000), 'local op: the page that took over converses normally');
-  await lab.click('#stop');
+  check(await until(async () => (await labState()) === 'ended' && (await port('State')) === 'ended', 4000), 'op: "Stop" stops the conversation', [await labState(), await port('State')]);
+
+  // the examples, served over HTTP (a double-clicked file is refused) and pointed at this test server
+  const serveExample = (p) => p.route('**/examples/**/*.js', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace('ws://localhost:8790/events', hubUrl) });
+  });
+  const html = await browser.newPage();
+  html.on('pageerror', (e) => errors.push('html example: ' + e));
+  await serveExample(html);
+  await html.goto(`${web.url}/examples/html-css-js/index.html`);
+  check(await until(async () => /Connected to/.test(await html.textContent('#app')), 5000), 'html example: connected to the app', await html.textContent('#app'));
+  await html.click('#start');
+  check(await until(async () => ['listening', 'speaking'].includes(await labState()), 8000), 'html example: Start starts the lab window', await labState());
+  check(await until(async () => ['listening', 'hearing', 'thinking', 'speaking'].includes(await html.getAttribute('#orb', 'class')), 4000), 'html example: the orb follows the state', await html.getAttribute('#orb', 'class'));
+  await html.fill('#context', 'The visitor is in room 3.');
+  await html.click('#contextForm button');
+  check(await until(() => lab.evaluate(() => window.__ctx.includes('The visitor is in room 3.')), 3000), 'html example: the context reaches the agent');
+  await html.click('#stop');
+  check(await until(async () => (await labState()) === 'ended', 4000), 'html example: Stop');
+
+  const p5 = await browser.newPage();
+  p5.on('pageerror', (e) => errors.push('p5 example: ' + e));
+  await serveExample(p5);
+  await p5.goto(`${web.url}/examples/p5js/index.html`);
+  check(await until(() => p5.evaluate(() => typeof agent !== 'undefined' && agent.app === true), 8000), 'p5 example: connected to the app (p5.js from its CDN)');
+  await p5.mouse.click(100, 100);
+  check(await until(async () => ['listening', 'speaking'].includes(await labState()), 8000), 'p5 example: a click starts the conversation', await labState());
+  await p5.keyboard.press('2');
+  check(await until(() => lab.evaluate(() => window.__ctx.includes('The visitor is now in room 2.')), 3000), 'p5 example: key 2 sends the context', await lab.evaluate(() => window.__ctx));
+  await p5.mouse.click(100, 100);
+  check(await until(async () => (await labState()) === 'ended', 4000), 'p5 example: a second click stops it', await labState());
+
+  // the lab window closes: every client knows it
   await lab.close();
-  // a clean refusal if the address is wrong
-  await set('Local server', 'ws://127.0.0.1:1/voice');
-  await sleep(250);
-  await fire('Start');
-  check(await until(async () => /local server/i.test(await port('Error')), 12000), 'local op: clear message if the server is not running', await port('Error'));
-  await page.close();
+  check(await until(async () => (await port('App connected')) === 0, 4000), 'op: the lab window closes → "App connected" goes to 0');
+  check(await until(async () => /window is closed/.test(await html.textContent('#app')), 4000), 'html example: says the lab window is closed', await html.textContent('#app'));
+  for (const p of [page, html, p5]) await p.close();
   web.close();
 }
 

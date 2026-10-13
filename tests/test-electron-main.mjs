@@ -47,7 +47,7 @@ check(win && win.opts.webPreferences.contextIsolation === true && win.opts.webPr
 check(win && /simulated engine/.test(win.opts.title), 'the title says "simulated engine" with --mock', win && win.opts.title);
 const base = win.url.replace(/\/$/, '');
 const health = await until(async () => { try { const h = await (await fetch(base + '/health')).json(); return h.models === 'ready' && h; } catch { return false; } }, 8000);
-check(health && health.engine === 'mock' && /^ws:\/\/localhost:\d+\/voice$/.test(health.wsUrl), 'the voice server runs inside the app (address for cables)', health);
+check(health && health.engine === 'mock' && /^ws:\/\/localhost:\d+\/events$/.test(health.wsUrl), 'the voice server runs inside the app (address for the clients: /events)', health);
 const core = await (await fetch(base + '/voice-core.js')).text();
 check(/const VoiceCore/.test(core), 'the shared core is served');
 
@@ -77,10 +77,10 @@ check(st.permissionCheck(null, 'media', base) === true && st.permissionCheck(nul
 
 // the menus
 const labels = JSON.stringify(st.menu || []);
-check(/Engine/.test(labels) && /Simulated/.test(labels) && /models folder/.test(labels) && /Copy address for cables/.test(labels), 'menus: engine, folders, cables address');
+check(/Engine/.test(labels) && /Simulated/.test(labels) && /models folder/.test(labels) && /Copy address for clients/.test(labels), 'menus: engine, folders, clients address');
 const engineMenu = st.menu.find((m) => m.label === 'Engine');
-engineMenu.submenu.find((i) => /cables/.test(i.label || '')).click();
-check(st.clipboard === health.wsUrl, '"Copy address for cables.gl" copies the WebSocket address', st.clipboard);
+engineMenu.submenu.find((i) => /Copy address/.test(i.label || '')).click();
+check(st.clipboard === health.wsUrl, '"Copy address for clients" copies the clients\' WebSocket address', st.clipboard);
 engineMenu.submenu.find((i) => /QVAC/.test(i.label || '')).click();
 check(st.relaunched && !st.relaunched.args.includes('--mock') && st.exited === 0, 'switching to the QVAC engine relaunches the app without --mock', st.relaunched);
 
