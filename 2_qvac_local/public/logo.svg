@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img">
+  <title>Voice Interaction Kit: a person's voice and an agent taking turns, and a wrench</title>
+  <rect width="256" height="256" rx="56" fill="#2f6f5e"/>
+  <path d="M58 40h76a30 30 0 0 1 30 30v36a30 30 0 0 1-30 30H86l-42 28 10-30a30 30 0 0 1-26-28V70a30 30 0 0 1 30-30z" fill="#fffdf9"/>
+  <g fill="#2f6f5e"><rect x="51" y="78" width="10" height="20" rx="5"/><rect x="71" y="66" width="10" height="44" rx="5"/><rect x="91" y="58" width="10" height="60" rx="5"/><rect x="111" y="70" width="10" height="36" rx="5"/><rect x="131" y="80" width="10" height="16" rx="5"/></g>
+  <path d="M122 118h76a30 30 0 0 1 30 30v36a30 30 0 0 1-26 28l10 30-42-28h-48a30 30 0 0 1-30-30v-36a30 30 0 0 1 30-30z" fill="#d8743b" stroke="#2f6f5e" stroke-width="8" stroke-linejoin="round" paint-order="stroke"/>
+  <g fill="#fffdf9"><circle cx="138" cy="158" r="9"/><circle cx="182" cy="158" r="9"/></g>
+  <path d="M141 183q19 14 38 0" fill="none" stroke="#fffdf9" stroke-width="7" stroke-linecap="round"/>
+  <g transform="translate(200 68) rotate(-45)">
+    <mask id="jaw" maskUnits="userSpaceOnUse" x="-40" y="-30" width="100" height="60"><rect x="-40" y="-30" width="100" height="60" fill="#fff"/><rect x="30" y="-7.5" width="30" height="15" fill="#000"/></mask>
+    <g mask="url(#jaw)" fill="#fffdf9"><rect x="-30" y="-9" width="56" height="18" rx="9"/><circle cx="30" cy="0" r="19"/></g>
+  </g>
+</svg>

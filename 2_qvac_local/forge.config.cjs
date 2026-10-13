@@ -69,6 +69,7 @@ module.exports = {
     executableName: 'VoiceLab',
     appBundleId: 'edu.voicelab.app',
     appCategoryType: 'public.app-category.education',
+    icon: path.join(__dirname, 'build', 'icon'),   // build/icon.icns on Mac, build/icon.ico on Windows (made from public/logo.svg)
     // The QVAC worker cannot load its libraries from an asar archive (the plugin enforces this too).
     // No asar also lets onnxruntime-node (Smart Turn, optional) load its native library.
     asar: false,
@@ -79,13 +80,18 @@ module.exports = {
     // models/ (the Smart Turn model) must stay in the package: never add it here.
     ignore: [
       /^\/out\//,
+      /^\/build\//,
       /^\/selftest-[^/]*\.wav$/,
       /^\/\.qvac-worker-backup\//,
     ],
   },
   rebuildConfig: {},
   makers: [
-    { name: '@electron-forge/maker-squirrel', platforms: ['win32'], config: { name: 'voice_lab', setupExe: 'VoiceLab-Setup.exe' } },
+    { name: '@electron-forge/maker-squirrel', platforms: ['win32'], config: {
+      name: 'voice_lab', setupExe: 'VoiceLab-Setup.exe', setupIcon: path.join(__dirname, 'build', 'icon.ico'),
+      // the icon in Windows' "Apps" list: Squirrel only takes a URL
+      iconUrl: 'https://raw.githubusercontent.com/b2renger/voice-interaction-kit/main/2_qvac_local/build/icon.ico',
+    } },
     { name: '@electron-forge/maker-dmg', platforms: ['darwin'], config: { name: 'Voice Lab' } },
     { name: '@electron-forge/maker-zip', platforms: ['darwin', 'win32', 'linux'] },
   ],

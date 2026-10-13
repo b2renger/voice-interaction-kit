@@ -1,3 +1,5 @@
+<p align="center"><img src="2_qvac_local/public/logo.svg" width="128" alt="Voice Interaction Kit logo: a person's voice and a smiling agent taking turns in speech bubbles, with a wrench"></p>
+
 # Voice interaction: two prototypes for designing an agent that talks
 
 Two tools that let design students work on the **identity of a voice agent** (its voice, its personality) and on the **basic vocabulary of voice UX**: taking turns, knowing when someone has finished, interrupting, thinking, not understanding, visual and sound feedback, and calls to action.
