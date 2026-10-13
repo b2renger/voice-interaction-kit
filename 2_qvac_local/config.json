@@ -1,0 +1,64 @@
+{
+  "port": 8790,
+  "host": "127.0.0.1",
+  "download": "auto",
+  "warmup": true,
+  "allowedOrigins": [
+    "https://cables.gl",
+    "https://sandbox.cables.gl",
+    "https://dev.cables.gl",
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "cables:*",
+    "file:*"
+  ],
+  "models": {
+    "asr": {
+      "src": "WHISPER_SMALL_Q8_0",
+      "vad": "VAD_SILERO_5_1_2",
+      "language": "en",
+      "useGpu": true,
+      "threads": 4
+    },
+    "llm": {
+      "src": "QWEN3_1_7B_INST_Q4",
+      "ctxSize": 4096,
+      "maxTokens": 320,
+      "thinking": false,
+      "useGpu": true
+    },
+    "tts": {
+      "src": "TTS_MULTILINGUAL_SUPERTONIC3_Q8_0",
+      "language": "en",
+      "voice": "F1",
+      "speed": 1,
+      "steps": 5,
+      "useGpu": true,
+      "mode": "sentence",
+      "parler": {
+        "src": "TTS_MINI_V1_EN_PARLER_TTS_Q8_0",
+        "voice": "Laura"
+      },
+      "chatterbox": {
+        "src": "TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0",
+        "s3gen": "TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0",
+        "referenceAudio": ""
+      }
+    }
+  },
+  "turn": {
+    "smartTurn": {
+      "model": "models/smart-turn-v3.2-cpu.onnx",
+      "threshold": 0.5,
+      "threads": 1
+    }
+  },
+  "defaults": {
+    "language": "en",
+    "localVoice": "F1",
+    "localSpeed": 1,
+    "endSilenceMs": 800,
+    "startSensitivity": "high",
+    "endSensitivity": "high"
+  }
+}

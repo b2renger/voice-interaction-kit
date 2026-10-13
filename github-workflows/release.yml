@@ -1,0 +1,105 @@
+# Builds the Voice Lab installers (2_qvac_local) for Windows (x64) and Apple Silicon Macs,
+# and publishes them as a GitHub Release.
+#
+#   git tag v1.0.0 && git push origin v1.0.0     → builds both installers and creates the "v1.0.0" release
+#   Actions tab → "Release" → Run workflow        → builds both installers without a release
+#                                                    (download them from the run page, under "Artifacts")
+#
+# The installers are not code-signed: Windows SmartScreen and macOS Gatekeeper warn on first launch
+# (see docs/GUIDE.md, "Voice Lab").
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows-x64
+          - os: macos-14            # Apple Silicon (M1 and later)
+            label: mac-arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: 2_qvac_local
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Use the tag as the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Quick checks before building
+        working-directory: .
+        run: |
+          node tests/test-text.mjs
+          node tests/test-electron-main.mjs
+
+      - name: Build the installers
+        run: npm run make
+
+      - name: Collect the installers with clear names
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          mkdir -p ../dist
+          if [ "${{ matrix.label }}" = "windows-x64" ]; then
+            cp out/make/squirrel.windows/x64/*.exe "../dist/VoiceLab-Setup-${VERSION}-windows-x64.exe"
+            for z in out/make/zip/win32/x64/*.zip; do cp "$z" "../dist/VoiceLab-${VERSION}-windows-x64.zip"; done
+          else
+            for d in out/make/*.dmg; do cp "$d" "../dist/VoiceLab-${VERSION}-mac-arm64.dmg"; done
+            for z in out/make/zip/darwin/arm64/*.zip; do cp "$z" "../dist/VoiceLab-${VERSION}-mac-arm64.zip"; done
+          fi
+          ls -la ../dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voice-lab-${{ matrix.label }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish the GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            ## Voice Lab ${{ github.ref_name }}
+
+            | | download |
+            |---|---|
+            | Windows (x64) | `VoiceLab-Setup-…-windows-x64.exe` |
+            | Mac (Apple Silicon, M1 and later) | `VoiceLab-…-mac-arm64.dmg` |
+
+            The installers are not code-signed. On Windows: **More info → Run anyway**.
+            On a Mac: open it once, then **System Settings → Privacy & Security → Open Anyway**
+            (if macOS says the app is damaged: `xattr -cr "/Applications/Voice Lab.app"`).
+
+            The cables.gl op is `1_cables_gemini_live/VoiceAgent.op.js` in the source code below.

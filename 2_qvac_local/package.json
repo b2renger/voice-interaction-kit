@@ -1,0 +1,35 @@
+{
+  "name": "voice-lab",
+  "productName": "Voice Lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Voice Lab: a 100% local voice agent (QVAC: Whisper + Qwen3 + Supertonic) for prototyping voice interactions.",
+  "author": "Voice interaction workshop",
+  "license": "MIT",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "engines": { "node": ">=22.17.0" },
+  "scripts": {
+    "start": "node scripts/sync-core.mjs && electron .",
+    "start:mock": "node scripts/sync-core.mjs && electron . --mock",
+    "server": "node src/server.mjs",
+    "server:mock": "node src/server.mjs --mock",
+    "selftest": "node src/selftest.mjs",
+    "package": "node scripts/sync-core.mjs && electron-forge package",
+    "make": "node scripts/sync-core.mjs && electron-forge make"
+  },
+  "dependencies": {
+    "@qvac/sdk": "0.21.0"
+  },
+  "optionalDependencies": {
+    "onnxruntime-node": "^1.22.0"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.11.1",
+    "@electron-forge/maker-dmg": "^7.11.1",
+    "@electron-forge/maker-squirrel": "^7.11.1",
+    "@electron-forge/maker-zip": "^7.11.1",
+    "@electron-forge/plugin-base": "^7.11.1",
+    "electron": "^42.5.0"
+  }
+}

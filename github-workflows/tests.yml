@@ -1,0 +1,35 @@
+# Runs every automated test suite (no Gemini key, no models, no Electron needed: fakes stand in for them).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright (Chromium) for the browser suites, and onnxruntime-node for Smart Turn
+        run: |
+          npm install
+          npm install --no-save onnxruntime-node
+          npx playwright install --with-deps chromium
+
+      - name: Install numpy and onnxruntime for the Smart Turn model-parity check
+        run: pip install numpy onnxruntime
+
+      - name: Run all the suites
+        run: node tests/run-all.mjs --strict

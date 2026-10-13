@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>VoiceAgent op test bench</title></head>
+<body>
+<p>Test bench: the VoiceAgent op runs here inside a fake cables (automated tests).</p>
+<pre id="log"></pre>
+<script src="cables-shim.js"></script>
+<script>
+  window.events = [];
+  window.ready = fetch('../1_cables_gemini_live/VoiceAgent.op.js').then((r) => r.text()).then((code) => {
+    window.op = runOpCode(code);
+    window.op.voiceAgent.on('*', (ev) => window.events.push(ev));
+    return true;
+  });
+  window.P = (name) => window.op.ports[name];
+  window.fire = (name) => window.op.ports[name].trigger();
+</script>
+</body>
+</html>

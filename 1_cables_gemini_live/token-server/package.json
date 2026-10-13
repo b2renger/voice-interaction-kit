@@ -1,0 +1,9 @@
+{
+  "name": "voice-agent-token-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ephemeral Gemini Live tokens for the VoiceAgent cables.gl op (no dependencies).",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server.mjs" }
+}

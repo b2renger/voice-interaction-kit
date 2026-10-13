@@ -1,0 +1,30 @@
+# dependencies and build output
+node_modules/
+2_qvac_local/out/
+dist/
+*.log
+npm-debug.log*
+
+# secrets: never commit an API key
+.env
+.env.*
+!.env.example
+
+# files written by the self-test and by tools
+selftest-*.wav
+smart_turn_audio_log/
+.qvac-worker-backup/
+__pycache__/
+*.pyc
+test-results/
+playwright-report/
+
+# operating systems and editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# files set aside for deletion
+_to_delete/

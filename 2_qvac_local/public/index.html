@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Lab</title>
+<style>
+  :root {
+    --bg: #f4f2ee; --panel: #fffdf9; --ink: #1d1c1a; --muted: #6d6a64; --line: #e3dfd7;
+    --accent: #2f6f5e; --accent-ink: #ffffff; --warn: #b0561d; --danger: #b3261e; --chip: #ece8e0;
+    --orb-listen: #3e8e7e; --orb-hear: #2aa7a0; --orb-think: #6b5fb5; --orb-speak: #d8743b; --orb-idle: #a8a39a; --orb-error: #c0392b;
+    --radius: 10px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --panel: #1e1e1c; --ink: #ecebe7; --muted: #9b978f; --line: #302f2c; --chip: #2a2926; --accent: #5fb39f; --accent-ink: #0f1a17; --orb-idle: #5e5b56; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.45; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: .01em; }
+  header .engine { margin-left: auto; color: var(--muted); font-size: 13px; }
+  main { display: grid; grid-template-columns: 340px 1fr 320px; min-height: calc(100vh - 50px); }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  aside, section { padding: 14px 16px; }
+  aside.settings { border-right: 1px solid var(--line); overflow-y: auto; max-height: calc(100vh - 50px); }
+  aside.log { border-left: 1px solid var(--line); overflow-y: auto; max-height: calc(100vh - 50px); }
+  @media (max-width: 1100px) { aside.settings, aside.log { max-height: none; border: 0; border-top: 1px solid var(--line); } }
+  details { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 10px; }
+  summary { cursor: pointer; padding: 9px 12px; font-weight: 600; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: '▾'; float: right; color: var(--muted); }
+  details:not([open]) summary::after { content: '▸'; }
+  .fields { padding: 2px 12px 12px; display: grid; gap: 9px; }
+  label.f { display: grid; gap: 3px; font-size: 12.5px; color: var(--muted); }
+  label.f span.v { color: var(--ink); font-variant-numeric: tabular-nums; }
+  label.c { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  input[type=text], input[type=password], input[type=number], select, textarea {
+    width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px;
+  }
+  textarea { min-height: 92px; resize: vertical; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .hint { font-size: 12px; color: var(--muted); margin: 0; }
+  button { font: inherit; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 22px; }
+  .controls { display: flex; gap: 8px; }
+  #face { width: min(380px, 80vw); height: min(380px, 80vw); }
+  .state { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); min-height: 18px; }
+  .captions { width: min(620px, 92%); display: grid; gap: 8px; }
+  .cap { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; min-height: 42px; }
+  .cap b { display: block; font-size: 11.5px; color: var(--muted); font-weight: 600; margin-bottom: 2px; letter-spacing: .04em; text-transform: uppercase; }
+  .choices { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; min-height: 36px; }
+  .choices .q { width: 100%; text-align: center; color: var(--muted); font-size: 13px; }
+  .choices button { background: var(--chip); border-color: transparent; padding: 8px 14px; border-radius: 999px; }
+  .say { width: min(620px, 92%); display: flex; gap: 8px; }
+  .banner { width: min(620px, 92%); border-radius: var(--radius); padding: 8px 12px; font-size: 13px; display: none; }
+  .banner.show { display: block; }
+  .banner.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+  .banner.err { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+  .banner.info { background: var(--chip); color: var(--muted); }
+  .metrics { width: min(620px, 92%); display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .metric { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; }
+  .metric b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .metric span { font-size: 12px; color: var(--muted); }
+  h2 { font-size: 13px; margin: 4px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  td, th { text-align: left; padding: 4px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  #events { font-family: var(--mono); font-size: 11.5px; display: grid; gap: 2px; }
+  #events div { display: grid; grid-template-columns: 52px 1fr; gap: 6px; }
+  #events .t { color: var(--muted); }
+  .sr { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Voice Lab</h1>
+  <span class="engine" id="engineInfo">—</span>
+</header>
+<main>
+  <!-- ===================== SETTINGS ===================== -->
+  <aside class="settings" aria-label="Settings">
+    <details open>
+      <summary>Engine</summary>
+      <div class="fields">
+        <label class="f">Engine
+          <select data-k="engine"><option value="local">Local (QVAC, on this machine)</option><option value="gemini">Gemini Live (online)</option></select>
+        </label>
+        <div data-show="gemini" class="fields" style="padding:0">
+          <label class="f">Gemini API key (kept in this browser)
+            <input type="password" data-k="apiKey" autocomplete="off" placeholder="AIza…">
+          </label>
+          <label class="f">or token server
+            <input type="text" data-k="tokenUrl" placeholder="http://localhost:8787/token">
+          </label>
+          <label class="f">Model
+            <input type="text" data-k="geminiModel">
+          </label>
+        </div>
+        <div data-show="local" class="fields" style="padding:0">
+          <label class="f">Local server
+            <input type="text" data-k="serverUrl">
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Persona</summary>
+      <div class="fields">
+        <label class="f">Persona preset
+          <select id="presets"><option value="">— choose —</option></select>
+        </label>
+        <label class="f">Name <input type="text" data-k="name"></label>
+        <label class="f">Persona (who they are, what they know, how they behave)
+          <textarea data-k="persona"></textarea>
+        </label>
+        <label class="f">Language
+          <select data-k="language"><option value="en">English</option><option value="fr">French</option><option value="es">Spanish</option><option value="de">German</option><option value="it">Italian</option><option value="pt">Portuguese</option></select>
+        </label>
+        <label class="f">Greeting (empty = waits to be spoken to)
+          <input type="text" data-k="greeting">
+        </label>
+        <label class="c"><input type="checkbox" data-k="shortAnswers"> Short answers</label>
+        <label class="f">Creativity <span class="v" data-out="creativity"></span>
+          <input type="range" min="0" max="2" step="0.1" data-k="creativity">
+        </label>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Voice</summary>
+      <div class="fields">
+        <label class="f" data-show="gemini">Gemini voice <select data-k="geminiVoice" id="geminiVoices"></select></label>
+        <label class="f" data-show="gemini">Speaking style (asked of the model)
+          <input type="text" data-k="speakingStyle" placeholder="slow, calm, with a smile">
+        </label>
+        <label class="f" data-show="local">Local voice engine
+          <select data-k="localVoiceEngine"><option value="supertonic">Supertonic (fast, 10 preset voices)</option><option value="parler">Parler (describe the voice in words, English)</option><option value="chatterbox">Chatterbox (multilingual, can clone a voice)</option></select>
+        </label>
+        <label class="f" data-show="local" data-voice="supertonic">Local voice (F = female, M = male) <select data-k="localVoice" id="localVoices"></select></label>
+        <label class="f" data-show="local" data-voice="parler">Voice description (Parler)
+          <textarea data-k="voiceDescription" placeholder="A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone."></textarea>
+        </label>
+        <label class="f" data-show="local" data-voice="supertonic chatterbox">Speed <span class="v" data-out="localSpeed"></span>
+          <input type="range" min="0.5" max="2" step="0.05" data-k="localSpeed">
+        </label>
+        <label class="f">Volume <span class="v" data-out="volume"></span>
+          <input type="range" min="0" max="2" step="0.05" data-k="volume">
+        </label>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Turn-taking</summary>
+      <div class="fields">
+        <label class="f">End-of-turn silence <span class="v" data-out="endSilenceMs"></span>
+          <input type="range" min="200" max="3000" step="50" data-k="endSilenceMs">
+        </label>
+        <p class="hint">Short = an impatient agent that cuts in at pauses. Long = a patient agent, but slower to reply.</p>
+        <label class="f">Start-of-speech sensitivity
+          <select data-k="startSensitivity"><option value="high">high (hears everything, even a whisper)</option><option value="low">low (only a clear voice)</option></select>
+        </label>
+        <label class="f">End-of-speech sensitivity
+          <select data-k="endSensitivity"><option value="high">high (decides quickly)</option><option value="low">low (waits to be sure)</option></select>
+        </label>
+        <label class="f" data-show="local">End of turn
+          <select data-k="turnDetection"><option value="silence">silence only</option><option value="smart">silence + Smart Turn model</option></select>
+        </label>
+        <p class="hint" data-show="local">With Smart Turn, a complete sentence ends the turn quickly; a pause mid-sentence waits up to the end-of-turn silence. Try 2000 ms.</p>
+        <label class="c"><input type="checkbox" data-k="interruptible"> Can be interrupted</label>
+        <label class="f" data-show="local">Talk over it this long to interrupt (ms) <span class="v" data-out="interruptAfterMs"></span>
+          <input type="range" min="0" max="2000" step="50" data-k="interruptAfterMs">
+        </label>
+        <p class="hint" data-show="local">Above 0, the agent first lowers its voice. A short "mm-hm" lets it carry on; a short "stop" makes it stop and listen.</p>
+        <label class="c"><input type="checkbox" data-k="listenWhileSpeaking"> Listens while speaking</label>
+        <p class="hint">With speakers, untick "Listens while speaking": otherwise it hears itself. With headphones, leave it ticked.</p>
+        <label class="f">Away after (ms) <span class="v" data-out="awayAfterMs"></span>
+          <input type="range" min="0" max="30000" step="500" data-k="awayAfterMs">
+        </label>
+        <label class="f">Reprompt line (said once when the person stays silent)
+          <input type="text" data-k="repromptLine" placeholder="Are you still there?">
+        </label>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Feedback</summary>
+      <div class="fields">
+        <label class="f">Extra delay before replying <span class="v" data-out="replyDelayMs"></span>
+          <input type="range" min="0" max="5000" step="100" data-k="replyDelayMs">
+        </label>
+        <label class="f">Earcons
+          <select data-k="earcons"><option value="off">off</option><option value="soft">soft</option><option value="clear">clear</option></select>
+        </label>
+        <label class="f">Thinking sound
+          <select data-k="thinkingSound"><option value="off">off</option><option value="tick">tick</option><option value="hum">hum</option></select>
+        </label>
+        <label class="f" data-show="local">Repair line (when nothing was understood)
+          <input type="text" data-k="repairLine" placeholder="Sorry, I didn't catch that.">
+        </label>
+        <label class="f" data-show="local">Filler lines (said while it thinks, separated by |)
+          <input type="text" data-k="fillerLines" placeholder="Hmm, let me see…|Good question…|One moment…">
+        </label>
+        <label class="f" data-show="local">Say a filler after (ms) <span class="v" data-out="fillerAfterMs"></span>
+          <input type="range" min="0" max="4000" step="100" data-k="fillerAfterMs">
+        </label>
+        <label class="c"><input type="checkbox" data-k="uiTools"> Can show choices and a mood</label>
+      </div>
+    </details>
+
+    <details>
+      <summary>Share settings</summary>
+      <div class="fields">
+        <div class="row"><button id="export">Export (JSON)</button><button id="import">Import…</button></div>
+        <p class="hint">The JSON holds the persona, the voice and all the sliders (never the API key).</p>
+        <input type="file" id="importFile" accept="application/json" class="sr">
+      </div>
+    </details>
+  </aside>
+
+  <!-- ===================== STAGE ===================== -->
+  <section class="stage" aria-label="Conversation">
+    <div class="controls">
+      <button class="primary" id="start">Start</button>
+      <button id="stop" disabled>Stop</button>
+      <button id="interrupt" disabled>Interrupt</button>
+    </div>
+    <div class="banner" id="banner" role="status"></div>
+    <canvas id="face" width="760" height="760" aria-label="The agent's face"></canvas>
+    <div class="state" id="state">—</div>
+    <div class="choices" id="choices" aria-live="polite"></div>
+    <div class="captions">
+      <div class="cap"><b>You</b><span id="userCap"></span></div>
+      <div class="cap"><b id="botName">Agent</b><span id="botCap"></span></div>
+    </div>
+    <form class="say" id="sayForm">
+      <input type="text" id="sayText" placeholder="Type instead of speaking…" aria-label="Typed message">
+      <button type="submit">Send</button>
+    </form>
+    <div class="metrics">
+      <div class="metric"><b id="mWait">—</b><span>felt wait (end of your sentence → its voice)</span></div>
+      <div class="metric"><b id="mSpeech">—</b><span>length of your last sentence</span></div>
+      <div class="metric"><b id="mTurns">0</b><span>turns</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== LOG ===================== -->
+  <aside class="log" aria-label="Log">
+    <h2>Turns</h2>
+    <table><thead><tr><th>#</th><th>wait</th><th>total</th><th></th></tr></thead><tbody id="turns"></tbody></table>
+    <h2 style="margin-top:16px">Events</h2>
+    <div id="events"></div>
+  </aside>
+</main>
+
+<script src="/voice-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  const STORE = 'voice-lab.settings';
+  const KEY_STORE = 'voice-lab.geminiKey';
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+  // ---------- settings ----------
+  let settings = Object.assign({}, VoiceCore.DEFAULTS, { engine: 'local', serverUrl: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/voice' });
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(STORE) || '{}')); settings.apiKey = localStorage.getItem(KEY_STORE) || ''; } catch (e) { /* no storage */ }
+
+  $('#geminiVoices').innerHTML = VoiceCore.GEMINI_VOICES.map(([n, c]) => `<option value="${n}">${n} — ${c}</option>`).join('');
+  $('#localVoices').innerHTML = VoiceCore.LOCAL_VOICES.map((v) => `<option value="${v}">${v}</option>`).join('');
+
+  const fmt = { creativity: (v) => Number(v).toFixed(1), localSpeed: (v) => '×' + Number(v).toFixed(2), volume: (v) => Math.round(v * 100) + ' %', endSilenceMs: (v) => v + ' ms', replyDelayMs: (v) => v + ' ms',
+    interruptAfterMs: (v) => (Number(v) === 0 ? 'at once' : v + ' ms'),
+    fillerAfterMs: (v) => (Number(v) === 0 ? 'never' : v + ' ms'),
+    awayAfterMs: (v) => (Number(v) === 0 ? 'never' : v + ' ms') };
+
+  function paintSettings() {
+    for (const el of $$('[data-k]')) {
+      const k = el.dataset.k;
+      if (el.type === 'checkbox') el.checked = !!settings[k];
+      else el.value = settings[k] == null ? '' : settings[k];
+    }
+    for (const out of $$('[data-out]')) out.textContent = fmt[out.dataset.out] ? fmt[out.dataset.out](settings[out.dataset.out]) : settings[out.dataset.out];
+    for (const el of $$('[data-show]')) {
+      // data-voice: only for these local voice engines (Supertonic's preset voices, Parler's description…)
+      const voiceOk = !el.dataset.voice || el.dataset.voice.split(' ').includes(settings.localVoiceEngine || 'supertonic');
+      el.style.display = el.dataset.show === settings.engine && voiceOk ? '' : 'none';
+    }
+    $('#botName').textContent = settings.name || 'Agent';
+  }
+  function save() {
+    try {
+      const copy = Object.assign({}, settings); delete copy.apiKey;
+      localStorage.setItem(STORE, JSON.stringify(copy));
+      if (settings.apiKey) localStorage.setItem(KEY_STORE, settings.apiKey); else localStorage.removeItem(KEY_STORE);
+    } catch (e) { /* no storage */ }
+  }
+  function readField(el) {
+    const k = el.dataset.k;
+    if (el.type === 'checkbox') return el.checked;
+    if (el.type === 'range' || el.type === 'number') return Number(el.value);
+    return el.value;
+  }
+  // Sliders and text fields send their settings after a short pause (not on every pixel or
+  // every letter): on the local side, a change of voice or silence reloads a model.
+  let updTimer = null;
+  function pushSettings(delay) {
+    clearTimeout(updTimer);
+    updTimer = null;
+    const run = () => {
+      updTimer = null;
+      const r = agent.update(settings);
+      if (r.needsRestart) banner('warn', 'Setting changed: click Start to restart the session with this setting.');
+    };
+    if (delay) updTimer = setTimeout(run, delay); else run();
+  }
+  for (const el of $$('[data-k]')) {
+    const typing = el.type === 'text' || el.tagName === 'TEXTAREA' || el.type === 'password';
+    const live = el.type === 'range' || typing;
+    el.addEventListener(live ? 'input' : 'change', () => {
+      settings[el.dataset.k] = readField(el);
+      paintSettings(); save();
+      pushSettings(typing ? 400 : el.type === 'range' ? 150 : 0);
+    });
+    if (live) el.addEventListener('change', () => { if (updTimer) pushSettings(0); });   // released: right away
+  }
+
+  // ---------- personas ----------
+  const builtIn = [
+    { id: 'guide', title: 'Museum guide', name: 'Ada', persona: 'You are a curious, warm museum guide. You help visitors discover the artworks of the great gallery. You ask questions to find out what interests them.', greeting: 'Hello, welcome to the museum!' },
+  ];
+  fetch('/personas').then((r) => r.ok ? r.json() : []).catch(() => []).then((list) => {
+    const all = list.length ? list : builtIn;
+    $('#presets').innerHTML = '<option value="">— choose —</option>' + all.map((p, i) => `<option value="${i}">${p.title || p.name}</option>`).join('');
+    $('#presets').onchange = (e) => {
+      const p = all[Number(e.target.value)];
+      if (!p) return;
+      for (const k of Object.keys(VoiceCore.DEFAULTS)) if (p[k] !== undefined) settings[k] = p[k];
+      paintSettings(); save();
+      const r = agent.update(settings);
+      if (r.needsRestart) banner('warn', 'Persona changed: click Start to use it.');
+    };
+  });
+
+  // ---------- export / import ----------
+  $('#export').onclick = () => {
+    const copy = Object.assign({}, settings); delete copy.apiKey;
+    const blob = new Blob([JSON.stringify(copy, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (settings.name || 'agent').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $('#import').onclick = () => $('#importFile').click();
+  $('#importFile').onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const v = JSON.parse(await f.text());
+      for (const k of Object.keys(VoiceCore.DEFAULTS)) if (v[k] !== undefined && k !== 'apiKey') settings[k] = v[k];
+      paintSettings(); save(); agent.update(settings);
+      banner('info', 'Settings imported.');
+    } catch (err) { banner('err', 'This file is not a valid settings JSON.'); }
+  };
+
+  // ---------- the agent ----------
+  const agent = VoiceCore.createVoiceAgent({ settings });
+  window.agent = agent;                                  // for the console and the tests
+  let mood = 'neutral';
+  let started = 0;
+  const STATE_WORDS = { idle: 'ready', connecting: 'connecting…', listening: 'listening', hearing: 'I hear you', thinking: 'thinking', speaking: 'speaking', ended: 'ended', error: 'error' };
+
+  function banner(kind, text) {
+    const b = $('#banner');
+    b.className = 'banner' + (text ? ' show ' + kind : '');
+    b.textContent = text || '';
+  }
+
+  agent.on('state', (ev) => {
+    $('#state').textContent = STATE_WORDS[ev.state] || ev.state;
+    const live = ['listening', 'hearing', 'thinking', 'speaking'].includes(ev.state);
+    $('#start').disabled = ev.state === 'connecting';
+    $('#start').textContent = live ? 'Restart' : 'Start';
+    $('#stop').disabled = !live && ev.state !== 'connecting';
+    $('#interrupt').disabled = !(ev.state === 'thinking' || ev.state === 'speaking');
+  });
+  agent.on('start', (ev) => { banner('', ''); $('#engineInfo').textContent = ev.engine === 'local' ? 'local engine (QVAC)' : 'Gemini Live'; });
+  agent.on('status', (ev) => { if (ev.text) banner('info', ev.text); else banner('', ''); });
+  agent.on('user.start', () => { $('#userCap').textContent = '…'; });
+  agent.on('user.partial', (ev) => { $('#userCap').textContent = ev.text; });
+  agent.on('user.text', (ev) => { $('#userCap').textContent = ev.text; });
+  agent.on('thinking', () => { $('#botCap').textContent = '…'; clearChoices(); });
+  agent.on('bot.text', (ev) => { $('#botCap').textContent = ev.text; });
+  agent.on('bot.start', (ev) => { if (ev.waitMs != null) $('#mWait').textContent = (ev.waitMs / 1000).toFixed(1) + ' s'; });
+  agent.on('not.understood', () => { $('#userCap').textContent = '(not understood)'; });
+  agent.on('ui.choices', (ev) => showChoices(ev.question, ev.options));
+  agent.on('ui.mood', (ev) => { mood = ev.mood; });
+  agent.on('error', (ev) => banner(ev.fatal ? 'err' : 'warn', ev.message));
+  agent.on('ended', () => { mood = 'neutral'; });
+  agent.on('turn', (ev) => {
+    const n = agent.conversation().length;
+    $('#mTurns').textContent = n;
+    if (ev.ms.speech != null) $('#mSpeech').textContent = (ev.ms.speech / 1000).toFixed(1) + ' s';
+    const tr = document.createElement('tr');
+    const s = (v) => (v == null ? '—' : (v / 1000).toFixed(1) + ' s');
+    tr.innerHTML = `<td>${n}</td><td>${s(ev.ms.firstSound)}</td><td>${s(ev.ms.total)}</td><td>${ev.interrupted ? 'cut off' : ''}</td>`;
+    $('#turns').prepend(tr);
+  });
+  agent.on('*', (ev) => {
+    if (ev.type === 'state') return;
+    const row = document.createElement('div');
+    const detail = ev.text || ev.message || (ev.options ? ev.options.join(' | ') : '') || ev.mood
+      || (ev.type === 'turn.prediction' ? `p ${Number(ev.probability).toFixed(2)} · ${ev.complete ? 'complete' : 'not finished'} · ${ev.ms} ms` : '')
+      || (ev.type === 'user.away' ? `silent ${(ev.afterMs / 1000).toFixed(1)} s · ${ev.count}×` : '') || '';
+    row.innerHTML = `<span class="t">${(ev.t / 1000).toFixed(1)}</span><span></span>`;
+    row.lastChild.textContent = ev.type + (detail ? ' · ' + String(detail).slice(0, 80) : '');
+    const box = $('#events');
+    box.prepend(row);
+    while (box.children.length > 120) box.lastChild.remove();
+  });
+
+  function clearChoices() { $('#choices').innerHTML = ''; }
+  function showChoices(question, options) {
+    const box = $('#choices');
+    box.innerHTML = '';
+    if (question) { const q = document.createElement('div'); q.className = 'q'; q.textContent = question; box.append(q); }
+    for (const o of options) {
+      const b = document.createElement('button');
+      b.textContent = o;
+      b.onclick = () => { clearChoices(); agent.choose(o); };
+      box.append(b);
+    }
+  }
+
+  $('#start').onclick = () => { clearTimeout(updTimer); updTimer = null; banner('', ''); clearChoices(); agent.update(settings); agent.start(); started = performance.now(); };
+  $('#stop').onclick = () => agent.stop();
+  $('#interrupt').onclick = () => agent.interrupt();
+  $('#sayForm').onsubmit = (e) => {
+    e.preventDefault();
+    const t = $('#sayText').value.trim();
+    if (!t) return;
+    if (!agent.active) { banner('warn', 'Start the conversation first.'); return; }
+    agent.sendText(t);
+    $('#sayText').value = '';
+  };
+
+  // ---------- the face ----------
+  const cv = $('#face');
+  const g = cv.getContext('2d');
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const MOOD_SHIFT = { neutral: 0, happy: 25, curious: -20, focused: -45, sorry: -80, surprised: 50, excited: 35 };
+  let smooth = { r: 0, ring: 0, user: 0, bot: 0 };
+  function colorFor(state) {
+    return css({ listening: '--orb-listen', hearing: '--orb-hear', thinking: '--orb-think', speaking: '--orb-speak', error: '--orb-error' }[state] || '--orb-idle');
+  }
+  function draw(t) {
+    const W = cv.width; const H = cv.height; const cx = W / 2; const cy = H / 2;
+    const lv = agent.levels();
+    smooth.user += (lv.user - smooth.user) * 0.3;
+    smooth.bot += (lv.bot - smooth.bot) * 0.35;
+    const st = agent.state;
+    const s = t / 1000;
+    let r = W * 0.22;
+    if (st === 'listening') r *= 1 + 0.025 * Math.sin(s * 1.6) + 0.12 * smooth.user;
+    if (st === 'hearing') r *= 1.04 + 0.28 * smooth.user;
+    if (st === 'thinking') r *= 0.94 + 0.02 * Math.sin(s * 5);
+    if (st === 'speaking') r *= 1 + 0.35 * smooth.bot;
+    if (st === 'connecting') r *= 0.9 + 0.05 * Math.sin(s * 4);
+    smooth.r += (r - smooth.r) * 0.25;
+    g.clearRect(0, 0, W, H);
+    g.save();
+    g.filter = `hue-rotate(${MOOD_SHIFT[mood] || 0}deg)`;
+    const col = colorFor(st);
+    // halo
+    const halo = g.createRadialGradient(cx, cy, smooth.r * 0.6, cx, cy, smooth.r * 1.9);
+    halo.addColorStop(0, col + '55'); halo.addColorStop(1, col + '00');
+    g.fillStyle = halo; g.beginPath(); g.arc(cx, cy, smooth.r * 1.9, 0, Math.PI * 2); g.fill();
+    // body
+    g.fillStyle = col; g.beginPath(); g.arc(cx, cy, smooth.r, 0, Math.PI * 2); g.fill();
+    // listening ring: follows your voice
+    if (st === 'listening' || st === 'hearing') {
+      const ring = smooth.r * (1.18 + 0.5 * smooth.user);
+      g.strokeStyle = col; g.globalAlpha = 0.35 + 0.5 * smooth.user; g.lineWidth = 6;
+      g.beginPath(); g.arc(cx, cy, ring, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
+    }
+    // thinking: three spinning dots
+    if (st === 'thinking') {
+      for (let i = 0; i < 3; i++) {
+        const a = s * 3 + i * (Math.PI * 2 / 3);
+        g.fillStyle = col; g.globalAlpha = 0.8;
+        g.beginPath(); g.arc(cx + Math.cos(a) * smooth.r * 1.35, cy + Math.sin(a) * smooth.r * 1.35, 14, 0, Math.PI * 2); g.fill();
+      }
+      g.globalAlpha = 1;
+    }
+    // mouth: opens with the voice
+    const mouth = st === 'speaking' ? 6 + smooth.bot * smooth.r * 0.55 : 6;
+    g.fillStyle = 'rgba(255,255,255,.85)';
+    g.beginPath(); g.ellipse(cx, cy + smooth.r * 0.25, smooth.r * 0.32, mouth / 2, 0, 0, Math.PI * 2); g.fill();
+    // eyes
+    const blink = (Math.sin(s * 0.9) > 0.985) ? 0.15 : 1;
+    for (const dx of [-1, 1]) { g.beginPath(); g.ellipse(cx + dx * smooth.r * 0.3, cy - smooth.r * 0.18, smooth.r * 0.07, smooth.r * 0.1 * blink, 0, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  // The local engine's status: follow it while the models load (first launch: download).
+  let wasLoading = false;
+  function pollHealth() {
+    fetch('/health').then((r) => r.json()).then((h) => {
+      const eng = h.engine === 'mock' ? 'SIMULATED engine (no models)' : h.engine === 'qvac' ? 'QVAC engine' : 'local engine';
+      $('#engineInfo').textContent = `${eng} · for cables: ${h.wsUrl || location.host + '/voice'}`;
+      if (h.error) { banner('err', h.error); return; }
+      if (h.models !== 'ready') {
+        wasLoading = true;
+        if (!agent.active) banner('info', (h.status && h.status.text) || 'Loading the models…');
+        setTimeout(pollHealth, 1000);
+      } else if (wasLoading && !agent.active) { banner('info', 'Models ready: click Start.'); }
+    }).catch(() => { $('#engineInfo').textContent = 'no local backend (Gemini still works)'; });
+  }
+  pollHealth();
+
+  paintSettings();
+  $('#state').textContent = STATE_WORDS.idle;
+})();
+</script>
+</body>
+</html>
