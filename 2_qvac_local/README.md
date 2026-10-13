@@ -94,7 +94,7 @@ If the network blocks everything:
 
 ## Changing models or settings
 
-The menu **Files → Open settings folder** creates a personal `config.json`, which takes priority over the app's own. You can also drop **personas** there (JSON files, same keys as the settings, plus `title`), and they show up in the window. To give a persona facts to draw on (a menu, opening hours, the artworks of a room), write them in a text file in the same folder and name it in the persona: `"knowledge": "museum.md"`. Its text is added to the persona under "What you know:". Keep it to a few pages: with the default `ctxSize` (4096), persona and knowledge together should stay under about 2,000 words, and the model reads all of it before every reply, so longer texts also make replies slower.
+The menu **Files → Open settings folder** creates a personal `config.json`, which takes priority over the app's own. You can also drop **personas** in its `personas` folder (JSON files, same keys as the settings, plus `title`), and they show up in the window. To give a persona facts to draw on (a menu, opening hours, the artworks of a room), write them in a text file in the same folder and name it in the persona: `"knowledge": "museum.md"`. Its text is added to the persona under "What you know:". Keep it to a few pages: with the default `ctxSize` (4096), persona and knowledge together should stay under about 2,000 words, and the model reads all of it before every reply, so longer texts also make replies slower.
 
 ```json
 "models": {
@@ -203,7 +203,7 @@ The app is the brain; any number of clients can follow the conversation and driv
 - **p5.js, or a plain web page**: start from [`../examples/`](../examples/). Open them through a local web server (VS Code's Live Server, `npx serve`) or the p5.js web editor: a page opened by double-click is refused, because the app can't tell where it comes from.
 - **Your own**: the messages are in [`../CONTRACT.md`](../CONTRACT.md), "The clients protocol". Allowed pages are listed in `allowedOrigins` (`config.json`); clients on other computers are not accepted.
 
-**The app's window must stay open**: it is the one that listens and speaks. Closed, the clients are told (`app: false`), and they reconnect on their own.
+**The app must stay open**: its window is the one that listens and speaks. Closing the window quits the app; the clients then say they can't reach it, and reconnect on their own when it opens again.
 
 ## Known limits
 

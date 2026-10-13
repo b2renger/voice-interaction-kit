@@ -114,7 +114,7 @@ Allowed pages: those served from this computer (`http://localhost:*`, `http://12
 
 **The app sends** (JSON):
 
-- `{type:'hello', app, name, engine, state, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the lab window opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when the app runs but its window is closed: nothing happens until it opens;
+- `{type:'hello', app, name, engine, state, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the lab window opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when no lab window is connected (the server runs on its own, `npm run server`, with no lab page open): nothing happens until one opens;
 - every event of the table above, as it is: `{type, state, t, …data}`;
 - `{type:'levels', user, bot}`: the mic and the voice, from 0 to 1, about 30 times a second while they move;
 - `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the lab window is closed) or `bad-command`.

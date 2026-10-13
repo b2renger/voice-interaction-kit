@@ -349,12 +349,12 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 | the agent cuts itself off | echo: headphones, or untick `Listen while speaking` |
 | the agent cuts in too early | increase `End silence (ms)`, set `End sensitivity` to low (with Gemini, then `Start`) |
 | the agent doesn't react to a quiet voice | `Start sensitivity` on high; check the mic chosen by the system |
-| no sound | click once in the lab window (it blocks sound before a click); check Volume and Play through speakers |
+| no sound | click once in the lab window (it blocks sound before a click); check Volume |
 | Voice Lab: loading stuck at 0% ("waiting for data") | the network blocks the download (often peer to peer, for the voices): see "Downloading the models" in the Voice Lab README |
 | Voice Lab: Vulkan error (Windows) | update the graphics driver |
 | Voice Lab: no mic (Mac) | System Settings → Privacy & Security → Microphone → allow "Voice Lab" |
 | a client (cables, p5.js, a page) can't reach the app | is the app open, with its window? Is the address the one from the menu **Engine → Copy address for clients**? A page opened by double-click (`file://`) is refused: open it through a local web server (VS Code's Live Server, `npx serve`) |
-| a client is connected but nothing moves | the app runs but its window is closed (`App connected` = 0, or `app: false`): open it again |
+| a client says the app's window is closed | the server runs without its lab window (`npm run server`): open `http://localhost:8790` in a browser. (In the installed app, closing the window quits the app: clients then say they can't reach it, and reconnect when it opens again.) |
 | Voice Lab: "Smart Turn is unavailable here: using silence only." | the optional `onnxruntime-node` is missing or did not load. Run `npm install` again in `2_qvac_local`, then `npm run selftest` (⚠ on "end of turn: Smart Turn" means it is still missing). Meanwhile, turns end on silence. |
 | Voice Lab: "Parler only speaks English: replies will sound English-accented." | Parler is English only: set the language to English, or use Supertonic or Chatterbox |
 | Voice Lab: nothing is said for a long time after choosing Parler or Chatterbox | the first use downloads the voice (about 1.16 GB for Parler, 345 MB + 788 MB for Chatterbox): watch the banner. Do it once, on a good network. |

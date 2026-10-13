@@ -87,7 +87,7 @@ cables op names sometimes change between versions. To find an op, type the keywo
 - **"Are you still there?"** In the app, Away after = 8000 and Reprompt line = "Are you still there?". `On away` → the face slowly dims or looks around; `On user start` → it wakes up. The line is said once; after that, `On away` keeps firing with no voice, so the interface can carry on alone (a slower breathing, then sleep).
 - **A voice that dips, then decides.** In the app, Interrupt after = 600 (local): `On interruption pending` → the mouth shrinks and an "ear" appears; `On interruption cancelled` → back to normal, the agent carries on; `On interruption` → it gives you the floor.
 - **A thinking gesture.** With Filler lines filled in, in the app (local), `On filler` → a small head tilt or a glance upwards while it says "Hmm…".
-- **An agent that acts on the patch (Gemini).** Declare a tool in a persona file of the app (settings folder), with the key `extraTools`:
+- **An agent that acts on the patch (Gemini).** Declare a tool in a persona file of the app (menu **Files → Open settings folder**, then its `personas` folder), with the key `extraTools`:
 
   ```json
   "extraTools": [{
