@@ -355,7 +355,8 @@ if (mode === 'mock') {
     check(c.msgs.filter((m) => m.type === 'status' && /Smart Turn/.test(m.text)).length === 1, 'Smart Turn unavailable: said only once', c.msgs.filter((m) => m.type === 'status'));
     c.close();
     proc.kill('SIGTERM');
-    rmSync(dir, { recursive: true, force: true });
+    await new Promise((r) => proc.on('exit', r));   // Windows: a running process's folder cannot be deleted
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 }
 for (const p of servers) { try { p.kill('SIGTERM'); } catch { /* exited */ } }

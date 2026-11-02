@@ -9,7 +9,7 @@ A **desktop app** to install on each student's computer. It is the **brain** of 
 | speaking | Supertonic 3: 31 languages including English and French, voices F1–F5 and M1–M5 | 127 MB |
 | knowing when you have finished (optional) | Smart Turn v3.2 | 8.7 MB, included in the app |
 
-These models run on Tether's [QVAC](https://github.com/tetherto/qvac) SDK (llama.cpp, whisper.cpp, GGML). On first launch, the app downloads them (about 1.5 GB) and shows the progress. Two other voice engines, Parler and Chatterbox, download only if you choose them (see "The three voice engines").
+These models run on Tether's [QVAC](https://github.com/tetherto/qvac) SDK (llama.cpp, whisper.cpp, GGML). On first launch, the app downloads them (about 1.5 GB) and shows the progress, then offers to download the two other voice engines, Parler and Chatterbox, once and for all (see "Downloading the models").
 
 Once open, the app does two things:
 
@@ -83,7 +83,9 @@ npm run server:mock
 
 ## Downloading the models
 
-Whisper, Silero and Qwen come straight from **Hugging Face** over HTTPS (`"download": "http"`, the default), which works on most networks. The voices (Supertonic, Parler, Chatterbox) only exist in QVAC's registry, which downloads **peer to peer** (Hyperswarm), and some school networks block this. Supertonic downloads on the first launch; Parler and Chatterbox the first time you choose them: do it once on an open network. The Smart Turn model needs no download: it is inside the app. While a model loads, the window shows a progress bar; "waiting for data" that keeps counting means the network is blocking the download.
+**Download everything once.** When the app is ready, it offers to download all the models it does not have yet, the three voices included (about 3.7 GB, once): click **Download everything**. It is also in the menu **Files → Download all models**. Afterwards, nothing downloads again, not even when you change the voice: the app loads each model from the file on this computer, and works without the internet.
+
+Whisper, Silero and Qwen come straight from **Hugging Face** over HTTPS (`"download": "http"`, the default), which works on most networks. The voices (Supertonic, Parler, Chatterbox) only exist in QVAC's registry, which downloads **peer to peer** (Hyperswarm), and some school networks block this: a voice that receives nothing for 90 seconds is given up, and the app says which ones are missing. Do that download once on an open network (home Wi-Fi, a phone hotspot). The Smart Turn model needs no download: it is inside the app. While a model loads, the window shows a progress bar; "waiting for data" that keeps counting means the network is blocking the download.
 
 `"download"` in `config.json` can also be `"auto"` (QVAC's registry first, Hugging Face only after the registry gives up, which can take minutes) or `"p2p"` (the registry only).
 
@@ -94,7 +96,7 @@ If the network blocks everything:
 
 ## Changing models or settings
 
-The menu **Files → Open settings folder** creates a personal `config.json`, which takes priority over the app's own. You can also drop **personas** in its `personas` folder (JSON files, same keys as the settings, plus `title`), and they show up in the window. To give a persona facts to draw on (a menu, opening hours, the artworks of a room), write them in a text file in the same folder and name it in the persona: `"knowledge": "museum.md"`. Its text is added to the persona under "What you know:". Keep it to a few pages: with the default `ctxSize` (4096), persona and knowledge together should stay under about 2,000 words, and the model reads all of it before every reply, so longer texts also make replies slower.
+The menu **Files → Open settings folder** creates a personal `config.json`, which takes priority over the app's own: write in it only the keys you change (each section is merged with the app's), so that the app's next versions still apply their own settings. You can also drop **personas** in its `personas` folder (JSON files, same keys as the settings, plus `title`), and they show up in the window. To give a persona facts to draw on (a menu, opening hours, the artworks of a room), write them in a text file in the same folder and name it in the persona: `"knowledge": "museum.md"`. Its text is added to the persona under "What you know:". Keep it to a few pages: with the default `ctxSize` (4096), persona and knowledge together should stay under about 2,000 words, and the model reads all of it before every reply, so longer texts also make replies slower.
 
 ```json
 "models": {

@@ -35,7 +35,8 @@ export async function startServer(o) {
   const personaDirs = o.personaDirs || [join(APP_DIR, 'personas')];
 
   let engine = null;
-  let engineError = null;
+  let engineError = null;        // no engine at all (SDK missing): every conversation fails
+  let warmupError = null;        // the engine is there but the warm-up failed: each Start tries again
   let warm = 'loading';
   let lastStatus = { text: 'Starting…', progress: null };
   const prepareLock = mutex();
@@ -47,6 +48,12 @@ export async function startServer(o) {
     if (o.onStatus) o.onStatus({ text, progress: progress == null ? null : progress });
   };
 
+  function logError(e) {
+    log(`✖ ${e.message}`);
+    // QVAC's worker did not start: its own reason (exit code, what it wrote) is in the cause
+    if (e.cause && e.cause.message) log(`  ${e.cause.message}${e.cause.stderrTail ? `\n${String(e.cause.stderrTail).slice(-1500)}` : ''}`);
+  }
+
   async function boot() {
     try {
       if (o.mock) {
@@ -57,19 +64,27 @@ export async function startServer(o) {
         engine = await createQvacEngine(config, log);
       }
       log(`▸ engine: ${engine.name === 'mock' ? 'SIMULATED (no models)' : 'QVAC'}`);
-      if (config.warmup !== false) {
-        await prepareLock(() => engine.prepare(config.defaults || {}, (p) => status(progressText(p), p.progress)));
-      }
-      warm = 'ready';
-      status('', null);
-      log('▸ models ready.');
     } catch (e) {
       engineError = e;
       warm = 'error';
-      log(`✖ ${e.message}`);
+      logError(e);
       status(`Error: ${e.message}`, null);
       for (const s of sessions) s.fatal(e);
+      return;
     }
+    // A failed warm-up (a blocked download, a slow first start of QVAC's worker) is not final:
+    // the next Start loads again, and the models can still be downloaded (Files → Download all models).
+    if (config.warmup !== false) {
+      try {
+        await prepareLock(() => engine.prepare(config.defaults || {}, (p) => status(progressText(p), p.progress)));
+      } catch (e) {
+        warmupError = e;
+        logError(e);
+      }
+    }
+    warm = 'ready';
+    status('', null);
+    if (!warmupError) log('▸ models ready.');
   }
 
   function sendFile(res, file) {
@@ -114,7 +129,8 @@ export async function startServer(o) {
     if (path === '/voice-core.js') return sendFile(res, coreFile());
     if (path === '/health') {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
-      res.end(JSON.stringify({ engine: engine ? engine.name : null, models: warm, error: engineError ? engineError.message : null, port: actualPort, status: lastStatus, wsUrl }));
+      const error = engineError ? engineError.message : warmupError ? `${warmupError.message} (Click Start to try again.)` : null;
+      res.end(JSON.stringify({ engine: engine ? engine.name : null, models: warm, error, port: actualPort, status: lastStatus, wsUrl }));
       return;
     }
     if (path === '/personas') {
@@ -131,12 +147,17 @@ export async function startServer(o) {
     res.end('Not found');
   });
 
-  // /voice: the lab window's audio (local engine). /brain: the lab window publishes to the hub; only the
-  // app's own page may, so no other site can pose as the agent. /events: the clients (cables, p5.js, pages).
+  // /voice: the lab window's audio (local engine). /brain: the lab window publishes to the hub. Only the
+  // app's own page may use them, so no website can take over the conversation or pose as the agent.
+  // /events: the clients (cables, p5.js, pages).
   const ownOrigin = (origin) => [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`].includes(origin);
   attachWebSocket(server, {
     path: /^\/(voice|brain|events)$/,
-    allowOrigin: (origin, path) => (path === '/brain' ? !origin || ownOrigin(origin) : originAllowed(config.allowedOrigins, origin)),
+    allowOrigin: (origin, path) => {
+      const ok = path === '/events' ? originAllowed(config.allowedOrigins, origin) : !origin || ownOrigin(origin);
+      if (!ok) log(`✖ refused a connection to ${path} from the page ${origin}${path === '/events' ? ' (not in "allowedOrigins", config.json)' : ''}`);
+      return ok;
+    },
     onConnection(ws, req) {
       const path = (req.url || '').split('?')[0];
       if (path === '/brain') return hub.brain(ws);
@@ -145,7 +166,7 @@ export async function startServer(o) {
       for (const s of sessions) { s.error('replaced', 'Another page opened a conversation, so this one is stopping.'); s.close('replaced'); }
       const session = new Session(ws, {
         info: () => (engine ? engine.info() : {}),
-        prepare: async (s, p) => { await waitEngine(); return engine.prepare(s, p); },
+        prepare: async (s, p) => { await waitEngine(); await engine.prepare(s, p); warmupError = null; },
         openAsr: (x, cb) => engine.openAsr(x, cb),
         generate: (x) => engine.generate(x),
         speak: (x) => engine.speak(x),
@@ -211,6 +232,12 @@ export async function startServer(o) {
     wsUrl,
     engineName: () => (engine ? engine.name : null),
     ready,
+    /** The models of the QVAC engine and whether each is on this computer ([] for the simulated engine). */
+    models: () => (engine && engine.models ? engine.models() : []),
+    /** Downloads the missing models, after any loading in progress; the progress shows like a loading. Returns the failed ones. */
+    install: () => prepareLock(async () => {
+      try { return await engine.install((p) => status(progressText(p), p.progress)); } finally { status('', null); }
+    }),
     async close() {
       for (const s of sessions) s.close('server shutting down');
       hub.close();

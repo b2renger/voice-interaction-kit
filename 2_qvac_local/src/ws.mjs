@@ -132,6 +132,8 @@ export class WebSocketConnection extends EventEmitter {
  */
 export function attachWebSocket(server, o) {
   server.on('upgrade', (req, socket) => {
+    // Node's HTTP server no longer listens for this socket's errors: a reset would be an uncaught exception
+    socket.on('error', () => {});
     const url = (req.url || '/').split('?')[0];
     const pathOk = !o.path || (o.path instanceof RegExp ? o.path.test(url) : url === o.path);
     const key = req.headers['sec-websocket-key'];

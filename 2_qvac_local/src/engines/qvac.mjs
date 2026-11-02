@@ -3,6 +3,7 @@
 //
 // Interface shared by the engines (see engines/mock.mjs):
 //   prepare(settings, onProgress)                      loads / reloads the models for these settings
+//   models(), install(onProgress)                      (QVAC only) the models on this computer; downloads the missing ones
 //   openAsr(opts, {onVad, onText, onEndOfTurn, onError}) → {write(pcmS16le16k), close()}
 //   generate({system, history, temperature, onDelta})   → {done: Promise<{text, firstTokenMs}>, cancel()}
 //   speak({voice, speed, language, engine, description}) → {write(phrase), end(), cancel(), frames: AsyncIterable}
@@ -16,9 +17,29 @@
 //               Resemble's Perth watermark.
 import { isAbsolute, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readdirSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { AsyncQueue, clamp, num } from '../util.mjs';
 
 const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const MODELS_DIR = join(homedir(), '.qvac', 'models');   // QVAC's download folder (qvac.config.json sets no cacheDirectory)
+
+/**
+ * A catalogue model already on this computer: its path, or null. QVAC names a download "<hash>_<file name>",
+ * the hash depending on where it came from (peer-to-peer or Hugging Face), so any copy of the right size will do.
+ * Loading from that path never touches the network: QVAC otherwise checks a Hugging Face file online at every
+ * launch, and refuses a cached Whisper or Silero file (not GGUF) when it is offline.
+ */
+function cachedFile(c) {
+  const name = String(c.registryPath || '').split('/').pop();
+  if (!name || !c.expectedSize) return null;
+  try {
+    for (const f of readdirSync(MODELS_DIR)) {
+      if (f.endsWith(`_${name}`) && statSync(join(MODELS_DIR, f)).size === c.expectedSize) return join(MODELS_DIR, f);
+    }
+  } catch { /* nothing downloaded yet */ }
+  return null;
+}
 export const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox'];
 const SUPERTONIC_VOICES = ['F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5'];
 // Chatterbox multilingual languages, minus ja and zh (they need mecabDictSrc / cangjieTsvSrc)
@@ -27,6 +48,9 @@ const NATIVE_RATE = { supertonic: 44100, parler: 44100, chatterbox: 24000 };
 export function voiceEngineOf(s) { return VOICE_ENGINES.includes(s && s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic'; }
 
 export async function createQvacEngine(config, log) {
+  // QVAC gives its worker process 30 s to start. A cold start (first launch after a restart, the antivirus
+  // scanning ~200 MB of native libraries, the GPU driver waking up) can take longer; a warm one takes 3–5 s.
+  process.env.QVAC_RPC_INIT_TIMEOUT_MS ||= '180000';
   let sdk;
   try {
     // QVAC_SDK lets the tests plug in a fake SDK (tests/fake-qvac-sdk.mjs).
@@ -55,6 +79,8 @@ export async function createQvacEngine(config, log) {
   function source(name, modelType) {
     const c = sdk[name];
     if (!c || typeof c !== 'object' || !c.src) return { modelSrc: name, modelType };
+    const file = cachedFile(c);
+    if (file) return { modelSrc: file, modelType };
     const http = hfUrl(c);
     if (config.download === 'http' && http) return { modelSrc: http, modelType };
     if (config.download !== 'p2p' && http) return { modelSrc: c, modelType, fallbackSrc: http };
@@ -63,7 +89,7 @@ export async function createQvacEngine(config, log) {
   /** A companion file (Chatterbox's S3Gen…): the catalogue entry itself, or a local path / URL. */
   function asset(name) {
     const c = sdk[name];
-    if (c && typeof c === 'object' && c.src) return c;
+    if (c && typeof c === 'object' && c.src) return cachedFile(c) || c;
     return localPath(name);
   }
   /** A path relative to the app folder becomes absolute; URLs and absolute paths stay as they are. */
@@ -76,7 +102,58 @@ export async function createQvacEngine(config, log) {
   function vadSource() {
     const c = sdk[M.asr.vad];
     if (!c || !c.src) return M.asr.vad;
-    return (config.download !== 'p2p' && hfUrl(c)) || c;
+    return cachedFile(c) || (config.download !== 'p2p' && hfUrl(c)) || c;
+  }
+
+  /** Every catalogue model these settings can use (all three voices), and whether it is on this computer. */
+  function models() {
+    const P = M.tts.parler || {};
+    const C = M.tts.chatterbox || {};
+    const wanted = [
+      ['speech recognition', M.asr.src], ['voice detection', M.asr.vad], ['language model', M.llm.src], ['voice (supertonic)', M.tts.src],
+      ['voice (parler)', P.src || 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0'], ['voice (chatterbox)', C.src || 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0'],
+      ['voice (chatterbox, part 2)', C.s3gen || 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0'],
+    ];
+    const seen = new Set();
+    return wanted.filter(([, n]) => sdk[n] && sdk[n].src && !seen.has(n) && seen.add(n))
+      .map(([stage, name]) => ({ stage, name, size: sdk[name].expectedSize || 0, p2pOnly: !hfUrl(sdk[name]), file: cachedFile(sdk[name]) }));
+  }
+
+  /**
+   * Downloads, without loading them, the models not yet on this computer. Returns those that failed.
+   * A download that receives nothing for STALL_S seconds is cancelled: on a network that blocks QVAC's
+   * peer-to-peer registry, no data ever comes and the download would never end.
+   */
+  async function install(onProgress, STALL_S = 90) {
+    const todo = models().filter((m) => !m.file);
+    const failed = [];
+    for (const [i, m] of todo.entries()) {
+      const stage = `${i + 1}/${todo.length} ${m.stage}`;
+      const c = sdk[m.name];
+      const http = config.download !== 'p2p' && hfUrl(c);
+      let last = { stage, progress: 0 };
+      let lastAt = Date.now();
+      let stalled = false;
+      onProgress(last);
+      const op = sdk.downloadAsset({
+        assetSrc: http || c,
+        onProgress: (p) => { last = { stage, progress: p.percentage, downloaded: p.downloaded, total: p.total }; lastAt = Date.now(); onProgress(last); },
+      });
+      const tick = setInterval(() => {
+        const waitS = Math.round((Date.now() - lastAt) / 1000);
+        if (waitS >= STALL_S) { stalled = true; clearInterval(tick); sdk.cancel({ requestId: op.requestId }).catch(() => {}); } else if (waitS >= 3) onProgress({ ...last, waitS });
+      }, 1000);
+      try {
+        await op;
+        log(`▸ ${m.stage}: downloaded`);
+      } catch (e) {
+        log(`✖ ${m.stage}: ${stalled ? `nothing received in ${STALL_S} s${m.p2pOnly ? " from QVAC's peer-to-peer network (this network seems to block it)" : ''}` : e.message}`);
+        failed.push(m);
+      } finally {
+        clearInterval(tick);
+      }
+    }
+    return failed;
   }
 
   async function load(stage, src, modelConfig, onProgress) {
@@ -102,7 +179,7 @@ export async function createQvacEngine(config, log) {
     } catch (e) {
       if (!/registry/i.test(e.message)) throw e;
       throw new Error(`Could not download a model (${stage}) from QVAC's peer-to-peer network: this network seems to block it. `
-        + `Connect once to another network (home Wi-Fi, a phone hotspot) and restart Voice Lab: the model then stays on this computer. (${e.message})`);
+        + `Connect once to another network (home Wi-Fi, a phone hotspot) and choose Files → Download all models: the models then stay on this computer. (${e.message})`);
     } finally {
       clearInterval(tick);
     }
@@ -114,6 +191,8 @@ export async function createQvacEngine(config, log) {
 
   return {
     name: 'qvac',
+    models,
+    install,
     info() {
       return {
         engine: 'qvac',
@@ -151,6 +230,7 @@ export async function createQvacEngine(config, log) {
       if (asrKey !== st.asrKey) {
         await asrReleased();                             // the current stream must be released before unloading the model
         await unload(st.asr);
+        st.asr = null; st.asrKey = '';                   // if the load fails, the next prepare loads again
         st.asr = await load('speech recognition', source(M.asr.src, 'whisper'), asrConfig, onProgress);
         st.asrKey = asrKey;
       }
@@ -160,6 +240,7 @@ export async function createQvacEngine(config, log) {
       const llmKey = JSON.stringify(llmConfig);
       if (llmKey !== st.llmKey) {
         await unload(st.llm);
+        st.llm = null; st.llmKey = '';
         st.llm = await load('language model', source(M.llm.src, 'llm'), llmConfig, onProgress);
         st.llmKey = llmKey;
       }
@@ -311,10 +392,15 @@ export async function createQvacEngine(config, log) {
         write(sentence) {
           chain = chain.then(async () => {
             if (cancelled) return;
-            const r = sdk.textToSpeech({ modelId: st.tts, text: sentence, inputType: 'text', stream: false, ...voiceFields });
-            current = r;
+            // a voice that failed to load: say so, instead of replies without sound
+            if (!st.tts) { q.fail(new Error('No voice is loaded: the last voice change failed (see the error above). Choose a voice again, or Files → Download all models.')); return; }
+            let r;
             let samples;
-            try { samples = await r.buffer; } catch (e) { if (!cancelled) q.fail(e); return; }
+            try {
+              r = sdk.textToSpeech({ modelId: st.tts, text: sentence, inputType: 'text', stream: false, ...voiceFields });   // can throw at once
+              current = r;
+              samples = await r.buffer;
+            } catch (e) { if (!cancelled) q.fail(e); return; }
             const rate = (await r.sampleRate) || st.ttsRate;
             current = null;
             if (cancelled || !samples || !samples.length) return;
@@ -364,6 +450,7 @@ export async function createQvacEngine(config, log) {
     },
 
     async close() {
+      await asrReleased();                               // a recognition stream closing: let it drain first
       for (const id of [st.asr, st.llm, st.tts]) await unload(id);
       try { await sdk.close(); } catch { /* closed */ }
     },

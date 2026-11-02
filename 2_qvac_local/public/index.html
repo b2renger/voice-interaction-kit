@@ -266,6 +266,10 @@
   'use strict';
   const STORE = 'voice-lab.settings';
   const KEY_STORE = 'voice-lab.geminiKey';
+  // This computer's connections: never taken from a persona or an imported file (shared between students),
+  // which could otherwise send the microphone or the Gemini session to another server.
+  const LOCAL_ONLY = ['apiKey', 'tokenUrl', 'geminiEndpoint', 'serverUrl'];
+  const shareable = (k) => LOCAL_ONLY.indexOf(k) < 0;
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
 
@@ -339,11 +343,12 @@
   ];
   fetch('/personas').then((r) => r.ok ? r.json() : []).catch(() => []).then((list) => {
     const all = list.length ? list : builtIn;
-    $('#presets').innerHTML = '<option value="">— choose —</option>' + all.map((p, i) => `<option value="${i}">${p.title || p.name}</option>`).join('');
+    $('#presets').innerHTML = '<option value="">— choose —</option>';
+    all.forEach((p, i) => $('#presets').add(new Option(String(p.title || p.name || p.id || i), String(i))));   // text, never HTML
     $('#presets').onchange = (e) => {
       const p = all[Number(e.target.value)];
       if (!p) return;
-      for (const k of Object.keys(VoiceCore.DEFAULTS)) if (p[k] !== undefined) settings[k] = p[k];
+      for (const k of Object.keys(VoiceCore.DEFAULTS)) if (p[k] !== undefined && shareable(k)) settings[k] = p[k];
       paintSettings(); save();
       const r = agent.update(settings);
       if (r.needsRestart) banner('warn', 'Persona changed: click Start to use it.');
@@ -352,7 +357,7 @@
 
   // ---------- export / import ----------
   $('#export').onclick = () => {
-    const copy = Object.assign({}, settings); delete copy.apiKey;
+    const copy = Object.assign({}, settings); for (const k of LOCAL_ONLY) delete copy[k];
     const blob = new Blob([JSON.stringify(copy, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -366,7 +371,7 @@
     if (!f) return;
     try {
       const v = JSON.parse(await f.text());
-      for (const k of Object.keys(VoiceCore.DEFAULTS)) if (v[k] !== undefined && k !== 'apiKey') settings[k] = v[k];
+      for (const k of Object.keys(VoiceCore.DEFAULTS)) if (v[k] !== undefined && shareable(k)) settings[k] = v[k];
       paintSettings(); save(); agent.update(settings);
       banner('info', 'Settings imported.');
     } catch (err) { banner('err', 'This file is not a valid settings JSON.'); }

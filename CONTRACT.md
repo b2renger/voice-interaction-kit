@@ -135,7 +135,7 @@ Every client sees the same conversation, and any of them can drive it. The mic a
 
 ## The audio protocol (lab window ↔ local engine)
 
-The lab window streams the mic to the local engine and plays its voice through a WebSocket: `ws://localhost:8790/voice`. Clients never use it: they use the hub.
+The lab window streams the mic to the local engine and plays its voice through a WebSocket: `ws://localhost:8790/voice`. Clients never use it: they use the hub. The app only accepts its own page there.
 
 **The browser sends:**
 

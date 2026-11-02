@@ -122,7 +122,17 @@ export class Session {
     this.warmFillers();
   }
 
-  async updateSettings(patch) {
+  /**
+   * One change after the other. Otherwise a 2nd change arriving during a reload finds the recognition stream
+   * already closed, so it doesn't close the one the 1st reopens, and its own reload waits forever for it to drain.
+   */
+  updateSettings(patch) {
+    const run = (this.settingsDone || Promise.resolve()).then(() => this.applySettings(patch));
+    this.settingsDone = run.catch(() => {});
+    return run;
+  }
+
+  async applySettings(patch) {
     const prev = this.s;
     this.s = { ...this.s, ...patch };
     if (!this.started) return;

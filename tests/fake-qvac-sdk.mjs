@@ -4,12 +4,15 @@
 import { writeFileSync } from 'node:fs';
 export const calls = [];
 // When the process exits, the report (calls + problems) is written for the test.
-if (process.env.FAKE_QVAC_REPORT) process.on('exit', () => { try { writeFileSync(process.env.FAKE_QVAC_REPORT, JSON.stringify({ calls, problems })); } catch { /* */ } });
+// Also every 200 ms: on Windows, kill('SIGTERM') ends the process without an 'exit' event.
+const writeReport = () => { try { writeFileSync(process.env.FAKE_QVAC_REPORT, JSON.stringify({ calls, problems })); } catch { /* */ } };
+if (process.env.FAKE_QVAC_REPORT) { process.on('exit', writeReport); setInterval(writeReport, 200).unref(); }
 const problems = [];
 export function getProblems() { return problems.slice(); }
 const need = (cond, what) => { if (!cond) problems.push(what); };
 
-const entry = (name, source, path) => ({ name, src: `registry://${source}/${path}`, registrySource: source, registryPath: path });
+// expectedSize: odd sizes, so that no real download in ~/.qvac/models can pass for one of these
+const entry = (name, source, path) => ({ name, src: `registry://${source}/${path}`, registrySource: source, registryPath: path, expectedSize: 1000 + name.length });
 export const WHISPER_SMALL_Q8_0 = entry('WHISPER_SMALL_Q8_0', 'hf', 'ggerganov/whisper.cpp/resolve/x/ggml-small-q8_0.bin');
 export const VAD_SILERO_5_1_2 = entry('VAD_SILERO_5_1_2', 'hf', 'ggml-org/whisper-vad/resolve/x/ggml-silero-v5.1.2.bin');
 export const QWEN3_1_7B_INST_Q4 = entry('QWEN3_1_7B_INST_Q4', 'hf', 'unsloth/Qwen3-1.7B-GGUF/resolve/x/Qwen3-1.7B-Q4_0.gguf');
@@ -39,7 +42,10 @@ let nextId = 1;
 const models = new Map();
 const running = new Map();
 
+const failedOnce = new Set();
 export async function loadModel(o) {
+  // FAKE_LOAD_FAIL=tts: the first load of that type fails (a blocked download), the next ones work
+  if (process.env.FAKE_LOAD_FAIL === o.modelType && !failedOnce.has(o.modelType)) { failedOnce.add(o.modelType); throw new Error('fake: this download is blocked'); }
   const mc = o.modelConfig || {};
   calls.push({
     fn: 'loadModel', modelType: o.modelType, fallbackSrc: o.fallbackSrc, src: typeof o.modelSrc === 'string' ? o.modelSrc : o.modelSrc && o.modelSrc.name,
@@ -99,6 +105,22 @@ export async function cancel({ requestId }) {
   calls.push({ fn: 'cancel', requestId });
   const r = running.get(requestId);
   if (r) r.cancel();
+}
+
+// Download only. FAKE_P2P=blocked: a peer-to-peer download (a catalogue entry) never receives anything, until cancelled.
+export function downloadAsset(o) {
+  const requestId = `d${nextId++}`;
+  calls.push({ fn: 'downloadAsset', requestId, src: typeof o.assetSrc === 'string' ? o.assetSrc : o.assetSrc && o.assetSrc.name });
+  need(o.assetSrc, 'downloadAsset without assetSrc');
+  const p = new Promise((resolve, reject) => {
+    if (typeof o.assetSrc !== 'string' && process.env.FAKE_P2P === 'blocked') {
+      running.set(requestId, { cancel: () => reject(new Error(`INFERENCE_CANCELLED: Inference request "${requestId}" was cancelled`)) });
+      return;
+    }
+    if (o.onProgress) o.onProgress({ percentage: 100, downloaded: 1e7, total: 1e7 });
+    resolve(requestId);
+  });
+  return Object.assign(p, { requestId });
 }
 
 export async function close() { calls.push({ fn: 'close' }); }

@@ -185,9 +185,26 @@ function connect() {
   };
   ws.onclose = () => {
     outApp.set(false);
-    op.setUiError('app', 'Cannot reach the Voice Lab app at ' + url + ': open the app (it reconnects on its own).', 1);
+    // the app may have quit in the middle of a reply: nothing is speaking or listening any more
+    paintState('idle');
+    outUserLevel.set(0); outBotLevel.set(0);
+    showChoices('', []);
+    explainClose(url);
     if (!closed) retry = setTimeout(connect, 2000);
   };
+}
+
+/** Why the connection fails. The app's /health answers every page, so it can tell "too old" from "refused". */
+function explainClose(url) {
+  let health;
+  try { health = new URL(url); health.protocol = health.protocol === 'wss:' ? 'https:' : 'http:'; health.pathname = '/health'; } catch (e) { return; }
+  fetch(health.href).then((r) => r.json()).then(
+    (h) => (/\/voice$/.test(h.wsUrl || '')
+      ? 'The Voice Lab app on this computer is too old for this op (it has no /events): install its latest version.'
+      : 'The Voice Lab app refuses this page (' + location.origin + '): add it to "allowedOrigins" in its config.json (Files → Open settings folder).'),
+    () => 'Cannot reach the Voice Lab app at ' + url + ': open the app (it reconnects on its own). If it is open: in the cables editor, Chrome blocks '
+      + 'connections to this computer; open the patch on its own page (cables.gl/p/…) and allow "Apps on your device" (or "Local network").',
+  ).then((msg) => { if (!ws || ws.readyState !== 1) op.setUiError('app', msg, 1); });
 }
 connect();
 inUrl.onChange = connect;

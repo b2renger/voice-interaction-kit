@@ -17,6 +17,7 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-text.mjs` | sentence splitting, cleanup for the voice, the `[[choices: …]]` tags, the same prompt on the browser side and the server side, and the Gemini tools as text or as an array | Node |
 | `node tests/test-protocol.mjs` | the local server protocol (simulated engine): turns, audio, typed text, interruption, voice change, Smart Turn (with a fake verdict), the voice dipping for a backchannel, stop phrases, spoken fillers | Node 22+ |
 | `node tests/test-protocol.mjs fake-qvac` | the same, with the QVAC adapter connected to a fake SDK that checks the options passed to QVAC, including the Parler and Chatterbox voices | Node 22+ |
+| `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final | Node 22+ |
 | `node tests/test-electron-main.mjs` | the Electron app with a fake Electron: Windows installer (shortcuts), built-in server, window, mic permission, menus, personas and their knowledge files, closing | Node 22+ |
 | `node tests/test-hub.mjs` | the hub (`2_qvac_local/src/hub.mjs`) through the real server: a fake lab window publishes, two clients follow; snapshots, events, levels, commands, refused commands, who may connect | Node 22+ |
 | `node tests/test-smart-turn.mjs` | the Smart Turn end-of-turn pipeline (`2_qvac_local/src/turn/`), see below | Node 22+ (optional: Python 3 with numpy and onnxruntime) |
@@ -32,12 +33,13 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-text | 36 | 0 |
 | test-protocol (simulated engine) | 49 | 0 |
 | test-protocol fake-qvac | 46 | 0 |
+| test-models | 19 | 0 |
 | test-electron-main | 25 | 0 |
 | test-smart-turn | 41 | 1 |
 | test-gemini | 89 | 0 |
-| test-hub | 18 | 0 |
+| test-hub | 19 | 0 |
 | test-local | 74 | 0 |
-| **total** | **378** | **1** |
+| **total** | **398** | **1** |
 
 The skipped check is the real Smart Turn prediction through `onnxruntime-node`, which could not be installed where the kit was built. It runs when `onnxruntime-node` is installed (`npm install` in `2_qvac_local`).
 

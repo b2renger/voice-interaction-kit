@@ -84,7 +84,8 @@ check(await upgrade('/events', 'https://cables.gl') === 101, '... and cables.gl'
 check(await upgrade('/events', 'https://evil.example') === 403, 'an unknown website may not');
 check(await upgrade('/brain', 'https://cables.gl') === 403, 'only the lab window page may be the brain, not another page');
 check(await upgrade('/brain', `http://127.0.0.1:${srv.port}`) === 101, 'the lab window page may');
-check(await upgrade('/voice', 'https://cables.gl') === 101, '/voice (the lab window\'s audio) still answers');
+check(await upgrade('/voice', 'https://cables.gl') === 403, '/voice (the lab window\'s audio): not another page, which could take over the conversation');
+check(await upgrade('/voice', `http://127.0.0.1:${srv.port}`) === 101, '/voice: the lab window page may');
 
 for (const c of [a, b]) c.ws.close();
 await srv.close();
