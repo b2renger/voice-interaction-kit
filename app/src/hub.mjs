@@ -5,13 +5,13 @@
 //   /events  the clients: get {type:'hello', …snapshot}, then every event and the levels; send commands
 // The messages are described in CONTRACT.md ("The clients protocol").
 
-const COMMANDS = new Set(['start', 'stop', 'interrupt', 'text', 'context', 'choose', 'tool.result']);
+const COMMANDS = new Set(['start', 'stop', 'interrupt', 'text', 'context', 'choose', 'tool.result', 'signal']);
 const MAX_TEXT = 20000;
 
 export function createHub(log = () => {}) {
   let brain = null;
   const clients = new Set();
-  const snap = { name: '', engine: null, state: 'idle', userText: '', botText: '', question: '', choices: [], mood: 'neutral', status: '', levels: { user: 0, bot: 0 } };
+  const snap = { name: '', engine: null, state: 'idle', stage: '', userText: '', botText: '', question: '', choices: [], mood: 'neutral', status: '', levels: { user: 0, bot: 0 } };
 
   const hello = () => ({ type: 'hello', app: !!brain, ...snap });
   const broadcast = (m) => { const s = JSON.stringify(m); for (const c of clients) c.send(s); };
@@ -26,6 +26,7 @@ export function createHub(log = () => {}) {
     else if (ev.type === 'thinking') { snap.question = ''; snap.choices = []; }
     else if (ev.type === 'ui.mood') snap.mood = String(ev.mood || 'neutral');
     else if (ev.type === 'status') snap.status = String(ev.text || '');
+    else if (ev.type === 'stage') snap.stage = String(ev.stage || '');
     else if (ev.type === 'ended') { snap.mood = 'neutral'; snap.levels = { user: 0, bot: 0 }; }
   }
 
@@ -38,7 +39,8 @@ export function createHub(log = () => {}) {
   function fromClient(ws, m) {
     const bad = (message) => ws.sendJson({ type: 'error', code: 'bad-command', message, fatal: false });
     if (!COMMANDS.has(m.type)) return bad(`Unknown command "${m.type}". Commands: ${[...COMMANDS].join(', ')}.`);
-    for (const k of ['text', 'option']) if (m[k] != null && (typeof m[k] !== 'string' || m[k].length > MAX_TEXT)) return bad(`"${k}" must be a string (at most ${MAX_TEXT} characters).`);
+    for (const k of ['text', 'option', 'name', 'value']) if (m[k] != null && (typeof m[k] !== 'string' || m[k].length > MAX_TEXT)) return bad(`"${k}" must be a string (at most ${MAX_TEXT} characters).`);
+    if (m.type === 'signal' && !m.name) return bad('A signal needs a "name".');
     if (!brain) return ws.sendJson({ type: 'error', code: 'no-app', message: 'The VIK window is not open.', fatal: false });
     brain.sendJson({ type: 'command', command: m });
   }

@@ -7,7 +7,8 @@
 //     address. We only listen once the lab window asks for farms (Windows then asks to allow the app).
 //   - a farm the beacon does not reach (another subnet): its address, asked at http://<host>:41997/lol/self.
 // The snapshot: {v, id, name, proxyPort, endpoint, requiresKey, models: [{id, underlying, default}], healthy, ...}.
-// The replies: POST http://<host>:<proxyPort>/v1/chat/completions, streamed, with the farm password as the key.
+// The replies: POST http://<host>:<proxyPort>/v1/chat/completions, streamed, with the farm password as the key
+// (src/llm.mjs, the same client as for any OpenAI-compatible service).
 import dgram from 'node:dgram';
 import { networkInterfaces } from 'node:os';
 
@@ -113,82 +114,4 @@ async function getSelf(host, port) {
   const r = await fetch(`http://${host}:${port}/lol/self`, { signal: AbortSignal.timeout(3000) });
   if (!r.ok) throw new Error(`answer ${r.status}`);
   return r.json();
-}
-
-/**
- * A reply from a farm, streamed: the same interface as the engines' generate().
- * @param {{farm: {url: string, model: string, key?: string}, system: string, history: any[], temperature: number,
- *   maxTokens: number, onDelta: (d: string) => void}} o
- */
-export function farmGenerate({ farm, system, history, temperature, maxTokens, onDelta }) {
-  const t0 = Date.now();
-  const ac = new AbortController();
-  let cancelled = false;
-  const done = (async () => {
-    let text = '';
-    let firstTokenMs = null;
-    if (!farm.model) throw new Error('no model is chosen on the LLM farm: choose it again in Engine → Language model.');
-    let res;
-    try {
-      res = await fetch(`${String(farm.url).replace(/\/+$/, '')}/chat/completions`, {
-        method: 'POST',
-        signal: ac.signal,
-        // a farm without a password takes any key (LlmOnLan's client sends this one)
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${farm.key || 'sk-lol-lan'}` },
-        body: JSON.stringify({ model: farm.model, stream: true, temperature, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, ...history] }),
-      });
-    } catch (e) {
-      if (cancelled) return { text, firstTokenMs, cancelled };
-      throw new Error(`the LLM farm (${farm.url}) does not answer: is it on, and on this network? (${(e.cause && (e.cause.code || e.cause.message)) || e.message})`);
-    }
-    if (!res.ok) throw new Error(await refusal(res, farm));
-    const decoder = new TextDecoder();
-    let buf = '';
-    try {
-      for await (const chunk of res.body) {
-        buf += decoder.decode(chunk, { stream: true });
-        let nl;
-        while ((nl = buf.indexOf('\n')) >= 0) {
-          const line = buf.slice(0, nl).trim();
-          buf = buf.slice(nl + 1);
-          if (!line.startsWith('data:')) continue;
-          const data = line.slice(5).trim();
-          if (data === '[DONE]') return { text, firstTokenMs, cancelled };
-          let ev;
-          try { ev = JSON.parse(data); } catch { continue; }
-          if (ev.error) throw new Error(`the LLM farm stopped: ${ev.error.message || JSON.stringify(ev.error)}`);
-          const d = ev.choices && ev.choices[0] && ev.choices[0].delta && ev.choices[0].delta.content;
-          if (d) {
-            if (firstTokenMs === null) firstTokenMs = Date.now() - t0;
-            text += d;
-            onDelta(d);
-          }
-        }
-      }
-    } catch (e) { if (!cancelled) throw e; }
-    return { text, firstTokenMs, cancelled };
-  })();
-  return {
-    done,
-    cancel() { if (cancelled) return; cancelled = true; ac.abort(); },
-  };
-}
-
-/** Why a farm refused, in words. */
-async function refusal(res, farm) {
-  const body = await res.text().catch(() => '');
-  let msg = body;
-  try { const j = JSON.parse(body); msg = (j.error && (j.error.message || j.error)) || j.message || body; } catch { /* not JSON */ }
-  msg = String(msg).slice(0, 300);
-  if (res.status === 401 || res.status === 403) {
-    return farm.key ? 'the LLM farm refused the password (Engine → Farm password).' : 'this LLM farm needs a password: type it in Engine → Farm password.';
-  }
-  if (res.status === 429) {
-    const wait = Number(res.headers.get('retry-after'));
-    return `the LLM farm is full: all its places are taken${wait > 0 ? ` (one frees in about ${Math.ceil(wait / 60)} min)` : ''}. Try again later, or ask the person running it to raise "People served at once".`;
-  }
-  if ((res.status === 400 || res.status === 404) && /model/i.test(msg)) {
-    return `the LLM farm no longer serves the model "${farm.model}": choose the language model again (Engine). (${msg})`;
-  }
-  return `the LLM farm answered ${res.status}: ${msg}`;
 }

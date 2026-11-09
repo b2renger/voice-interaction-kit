@@ -27,6 +27,9 @@ export function loadConfig(file) {
           { src: 'QWEN3_8B_INST_Q4_K_M', label: 'Qwen3 8B — the smartest here, needs a strong graphics card' },
         ],
       },
+      // the decision model (docs/DESIGN.md, 3): an embedding model, and the range of its cosines (unrelated → same
+      // meaning) when it compares two sentences, and when it searches the knowledge (agent/matcher.mjs)
+      decide: { src: 'EMBEDDINGGEMMA_300M_Q8_0', name: 'EmbeddingGemma 300M', calibration: { similar: [0.55, 0.95], search: [0.35, 0.7] }, useGpu: true },
       tts: {
         src: 'TTS_MULTILINGUAL_SUPERTONIC3_Q8_0', engine: 'supertonic', language: 'en', voice: 'F1', speed: 1, steps: 5, useGpu: true, mode: 'sentence',
         // the other local voice engines (setting localVoiceEngine): Parler (a voice described in words, English)
@@ -56,6 +59,7 @@ export function mergeConfig(base, user) {
     models: {
       asr: { ...base.models.asr, ...m.asr },
       llm: { ...base.models.llm, ...m.llm },
+      decide: { ...base.models.decide, ...m.decide },
       tts: { ...bt, ...tts, parler: { ...bt.parler, ...tts.parler }, chatterbox: { ...bt.chatterbox, ...tts.chatterbox } },
     },
     turn: { ...base.turn, ...turn, smartTurn: { ...(base.turn || {}).smartTurn, ...turn.smartTurn } },

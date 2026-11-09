@@ -70,7 +70,9 @@ Water Lilies,Claude Monet,1916,3,"A pond seen from above, with no horizon."
 The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a makeshift raft.
 ```
 
-**Links.** A cell that holds the name of an entry of another table links the two: above, `Claude Monet` links to the row `Claude Monet` of `artists.csv`. When an entry is used, its linked entries come with it (one step). This makes the tables a light graph, without a graph editor.
+**Other names.** The first cell can give several names, separated by `|`: `Water Lilies | Nymphéas`. The entry is found by any of them (useful when people speak another language than the table), and shown by the first. A leading article need not be said: "du Penseur" names `Le Penseur`.
+
+**Links.** A cell that holds a name of an entry of another table links the two: above, `Claude Monet` links to the row `Claude Monet` of `artists.csv`. When an entry is used, its linked entries come with it (one step). This makes the tables a light graph, without a graph editor.
 
 ### 2.3 Interactions: `interactions.json`
 
@@ -82,7 +84,7 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
     { "id": "welcome", "name": "Welcome" },
     { "id": "tour", "name": "Tour" }
   ],
-  "sensitivity": 0.5,
+  "confidence": 0.5,
   "patterns": [
     {
       "id": "hours",
@@ -134,18 +136,20 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 
 Every time the person finishes speaking (or types, or picks a choice), the agent decides **before** any language model runs:
 
-1. **Score the patterns of the current stage.** A `says` pattern scores the similarity between the sentence and its closest example. A `mentions` pattern scores the best entry of its table (the sentence against the entry's name and its whole row; a name said word for word scores at least 0.95).
-2. **The best score above the sensitivity wins**, and its actions run. Otherwise the stage's `otherwise` pattern runs, if there is one.
-3. **Otherwise, a free answer:** the language model replies with the persona, and the knowledge entries closest to the sentence (at most three, plus the entry in focus).
+1. **Score the patterns of the current stage.** A `says` pattern scores the similarity between the sentence and its closest example (an example said exactly scores 1). A `mentions` pattern scores the best entry of its table: the sentence against the entry's names, and against its whole row. A name said word for word scores at least 0.95. Without a name said, an entry that hardly beats the next one in its table ("who painted it?" fits every painting) is doubtful: its score shrinks with its lead (less than 0.15 ahead: proportionally less).
+2. **The best score at or above the confidence wins** (`confidence`, 0 to 1: how sure the agent must be; 0.5 by default), and its actions run. Otherwise the stage's `otherwise` pattern runs, if there is one.
+3. **Otherwise, a free answer:** the language model replies with the persona, and the knowledge entries closest to the sentence (at most three, plus the entry in focus, plus their links).
 
 **The entry in focus.** The last entry found stays in focus, so that "who painted it?" after "tell me about the Water Lilies" is answered from the right row.
 
-**The matcher.** Similarity is the cosine between two embeddings. The studio uses:
+**A choice button** arrives as `(The user chose: "Paintings")`: the decision is made on the option itself.
 
-- **EmbeddingGemma 300M** (Google, multilingual, 330 MB, through QVAC) when it is downloaded and loaded. Queries and entries get the prefixes the model was trained with (`task: sentence similarity | query: …`, `title: … | text: …`).
-- **Words** otherwise: a vector of the words and letter trigrams of each text (accents and case ignored). It needs no model and gives the same result every time; it is what the simulated engine and the tests use. It only matches close wordings.
+**The matcher.** Similarity is the cosine between two embeddings, mapped to a 0–1 score. The studio uses:
 
-The studio says which one is active. Embeddings of examples and entries are computed once and cached (in memory, and on disk next to the agent's files: `.cache/`).
+- **EmbeddingGemma 300M** (Google, multilingual, 330 MB from Hugging Face, through QVAC) when it is loaded. Sentences and entries get the prompts the model was trained with (`task: sentence similarity | query: …`, `task: search result | query: …`, `title: … | text: …`). Its raw cosines do not start at 0: measured with QVAC 0.21, two sentences that mean the same score 0.79–0.97 and two unrelated ones 0.43–0.65; a sentence against the row it means 0.53–0.66, against another row 0.24–0.43. So a score is the cosine rescaled from [0.55, 0.95] for two sentences and from [0.35, 0.70] for a sentence against a row (`models.decide.calibration` in `config.json`). It understands paraphrases ("I need a taxi" → the taxis entry) and other languages (French sentences against English patterns and tables score 0.7–0.95). The model takes one job at a time: the studio sends its requests one after the other.
+- **Words** otherwise: a vector of the words (plurals made singular, common English and French words left out) and of their letter trigrams. It needs no model and gives the same result every time; it is what the simulated engine and the tests use. It only matches close wordings.
+
+The studio says which one decided. Embeddings of the examples and entries are computed when the agent is first used (about 10–20 ms per text with EmbeddingGemma, after a first batch that warms the model up), then kept in memory; a decision then takes about 20 ms. **Write examples as whole sentences:** one word ("paintings") matches too many things ("who painted it?").
 
 **Explaining a decision.** Each decision is an event (`decision`) with the sentence, the stage, the pattern chosen (or none), its score, the entry found, and the next best candidates. The studio shows it in the conversation's trace, and the **Interactions** view has a test field: type a sentence, see what the agent would decide, and why.
 

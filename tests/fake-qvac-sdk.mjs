@@ -28,6 +28,8 @@ export const QWEN3_600M_INST_Q4 = entry('QWEN3_600M_INST_Q4', 'hf', 'unsloth/Qwe
 export const LLAMA_3_2_1B_INST_Q4_0 = entry('LLAMA_3_2_1B_INST_Q4_0', 'hf', 'unsloth/Llama-3.2-1B-Instruct-GGUF/blob/x/Llama-3.2-1B-Instruct-Q4_0.gguf');
 export const QWEN3_4B_Q4_K_M = entry('QWEN3_4B_Q4_K_M', 'hf', 'unsloth/Qwen3-4B-GGUF/resolve/x/Qwen3-4B-Q4_K_M.gguf');
 export const QWEN3_8B_INST_Q4_K_M = entry('QWEN3_8B_INST_Q4_K_M', 'hf', 'Qwen/Qwen3-8B-GGUF/blob/main/Qwen3-8B-Q4_K_M.gguf');
+// the decision model (an embedding model)
+export const EMBEDDINGGEMMA_300M_Q8_0 = entry('EMBEDDINGGEMMA_300M_Q8_0', 'hf', 'unsloth/embeddinggemma-300m-GGUF/resolve/x/embeddinggemma-300M-Q8_0.gguf');
 
 // Text-to-speech, per engine (QVAC 0.21: docs ai-capabilities/text-to-speech.mdx, schemas/text-to-speech.ts).
 // The load schemas are STRICT: an unknown key is refused.
@@ -60,7 +62,8 @@ export async function loadModel(o) {
     modelConfig: { ...mc, ...(mc.s3genModelSrc ? { s3genModelSrc: srcName(mc.s3genModelSrc) } : {}) },
   });
   need(o.modelSrc, 'loadModel without modelSrc');
-  need(['whisper', 'llm', 'tts'].includes(o.modelType), `unexpected modelType: ${o.modelType}`);
+  need(['whisper', 'llm', 'tts', 'embeddings'].includes(o.modelType), `unexpected modelType: ${o.modelType}`);
+  if (o.modelType === 'embeddings') need(Object.keys(o.modelConfig || {}).every((k) => ['gpuLayers', 'device', 'batchSize', 'pooling', 'attention', 'embdNormalize'].includes(k)), 'embeddings: unknown modelConfig keys');
   const c = o.modelConfig || {};
   if (o.modelType === 'whisper') {
     need(c.vadModelSrc, 'whisper without vadModelSrc (required for streaming)');
@@ -99,6 +102,39 @@ export async function loadModel(o) {
   const id = `m${nextId++}`;
   models.set(id, { type: o.modelType, config: c });
   return id;
+}
+
+/**
+ * embed({modelId, text}): one vector per text (EmbeddingGemma's prompts expected). The fake vector: the words
+ * after the prompt, hashed into 256 numbers, so that close sentences get close vectors.
+ */
+export function embed({ modelId, text }) {
+  const m = models.get(modelId);
+  need(m && m.type === 'embeddings', 'embed on a model that is not an embedding model');
+  // like the real one: one job at a time per model ("Cannot set new job: a job is already set or being processed")
+  if (m && m.embedding) {
+    need(false, 'embed: a second job while one is running (QVAC refuses it)');
+    const p = Promise.reject(new Error('Cannot set new job: a job is already set or being processed'));
+    p.requestId = `e${nextId++}`;
+    return p;
+  }
+  if (m) m.embedding = true;
+  const list = Array.isArray(text) ? text : [text];
+  need(list.every((x) => /^(task: [a-z ]+ \| query: |title: .* \| text: )/.test(x)), `embed: a text without EmbeddingGemma's prompt: ${list.find((x) => !/^(task|title): /.test(x))}`);
+  calls.push({ fn: 'embed', n: list.length });
+  const vec = (s) => {
+    const v = new Array(256).fill(0);
+    for (const w of s.replace(/^.*? \| (?:query|text): /, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)) {
+      let h = 7; for (const c of w) h = (h * 31 + c.charCodeAt(0)) >>> 0; v[h % 256] += 1;
+    }
+    return v;
+  };
+  const p = new Promise((resolve) => setTimeout(() => {
+    if (m) m.embedding = false;
+    resolve({ embedding: Array.isArray(text) ? list.map(vec) : vec(list[0]) });
+  }, 5));
+  p.requestId = `e${nextId++}`;
+  return p;
 }
 
 export async function unloadModel({ modelId, autoClose }) {

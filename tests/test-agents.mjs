@@ -48,15 +48,15 @@ const fails = (fn) => { try { fn(); return null; } catch (e) { return e; } };
 {
   const n = normalizeInteractions({
     stages: [{ name: 'Welcome' }, { id: 'tour', name: 'Tour' }, { name: 'Welcome' }],
-    start: 'nowhere', sensitivity: 7,
+    start: 'nowhere', confidence: 7,
     patterns: [
       { name: 'Hours', when: { kind: 'says', examples: 'when do you open|what time' }, then: [{ do: 'say', text: 'Ten to six.' }, { do: 'explode' }] },
       { name: 'Hours', stage: 'mars', when: { kind: 'telepathy' }, then: [{ do: 'choices', options: 'A|B' }, { do: 'mood', mood: 'grumpy' }] },
       'junk',
     ],
   });
-  check(n.stages.map((s) => s.id).join('|') === 'welcome|tour|welcome-2' && n.start === 'welcome' && n.sensitivity === 1,
-    'interactions: stages get unique ids, an unknown start becomes the first stage, sensitivity stays within 0–1', n);
+  check(n.stages.map((s) => s.id).join('|') === 'welcome|tour|welcome-2' && n.start === 'welcome' && n.confidence === 1,
+    'interactions: stages get unique ids, an unknown start becomes the first stage, confidence stays within 0–1', n);
   check(n.patterns.length === 2 && n.patterns[0].id === 'hours' && n.patterns[1].id === 'hours-2' && n.patterns[0].when.examples.length === 2,
     'interactions: patterns get unique ids, examples a list', n.patterns.map((p) => p.id));
   check(n.patterns[0].then.length === 1 && n.patterns[1].stage === '' && n.patterns[1].when.kind === 'says' && n.patterns[1].then[0].options.join() === 'A,B' && n.patterns[1].then[1].mood === 'neutral',

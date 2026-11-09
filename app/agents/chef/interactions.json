@@ -9,7 +9,7 @@
     { "id": "rest", "name": "4 · Rest" },
     { "id": "cook", "name": "5 · Cook" }
   ],
-  "sensitivity": 0.5,
+  "confidence": 0.5,
   "patterns": [
     {
       "id": "start-recipe", "name": "Let's go", "stage": "ready", "on": true,

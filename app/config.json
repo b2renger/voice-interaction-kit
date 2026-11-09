@@ -42,6 +42,12 @@
         { "src": "QWEN3_8B_INST_Q4_K_M", "label": "Qwen3 8B — the smartest here, needs a strong graphics card" }
       ]
     },
+    "decide": {
+      "src": "EMBEDDINGGEMMA_300M_Q8_0",
+      "name": "EmbeddingGemma 300M",
+      "calibration": { "similar": [0.55, 0.95], "search": [0.35, 0.7] },
+      "useGpu": true
+    },
     "tts": {
       "src": "TTS_MULTILINGUAL_SUPERTONIC3_Q8_0",
       "language": "en",

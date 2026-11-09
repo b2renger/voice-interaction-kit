@@ -15,6 +15,7 @@ const SUITES = [
   { name: 'test-protocol', args: ['tests/test-protocol.mjs'] },
   { name: 'test-protocol fake-qvac', args: ['tests/test-protocol.mjs', 'fake-qvac'] },
   { name: 'test-agents', args: ['tests/test-agents.mjs'] },
+  { name: 'test-decide', args: ['tests/test-decide.mjs'] },
   { name: 'test-models', args: ['tests/test-models.mjs'] },
   { name: 'test-farm', args: ['tests/test-farm.mjs'] },
   { name: 'test-electron-main', args: ['tests/test-electron-main.mjs'] },

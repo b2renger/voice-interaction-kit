@@ -3,6 +3,8 @@
 // Outgoing audio: binary frames [u32 sample rate][u32 turn id][16-bit mono PCM].
 import { ReplyParser, systemPrompt, heardNothing, speakable, trimHistory, classifyInterjection } from './text.mjs';
 import { delay, clamp, num, progressText } from './util.mjs';
+import { fill } from './agent/knowledge.mjs';
+import { knowledgePrompt } from './agent/decide.mjs';
 
 const DEFAULTS = {
   name: 'Ada', persona: '', language: 'en', greeting: '', shortAnswers: true, creativity: 1,
@@ -11,10 +13,12 @@ const DEFAULTS = {
   turnDetection: 'silence', interruptAfterMs: 0, fillerLines: '', fillerAfterMs: 1200,
   localVoiceEngine: 'supertonic', voiceDescription: '',
   // the models (config.json "choices"; '' = the config's), or an LLM farm on the network instead of the local model
-  localAsr: '', localLlm: '', llmFarm: '', llmFarmModel: '', llmFarmKey: '',
+  // the language model: 'local' (QVAC: localLlm), or 'farm' / 'service' (llmUrl, llmModel, llmKey)
+  localAsr: '', localLlm: '', llm: 'local', llmUrl: '', llmModel: '', llmKey: '',
+  agent: '',                     // the agent (its folder name): its knowledge and its patterns (docs/DESIGN.md)
 };
 const ASR_KEYS = ['language', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'localAsr'];
-const LLM_KEYS = ['localLlm', 'llmFarm'];        // a change loads (or frees) the local language model
+const LLM_KEYS = ['localLlm', 'llm'];        // a change loads (or frees) the local language model
 const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox'];
 const voiceEngine = (s) => (VOICE_ENGINES.includes(s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic');
 /** The settings a voice model is LOADED with (a change reloads it). Parler's description is per request. */
@@ -52,6 +56,8 @@ export class Session {
     this.s = { ...DEFAULTS };
     this.history = [];
     this.context = [];
+    this.stage = '';              // the agent's current stage
+    this.focus = null;            // the entry in focus {table, key}: the last one found
     this.asr = null;
     this.userText = '';
     this.eotTimer = 0;
@@ -98,6 +104,7 @@ export class Session {
       case 'text': this.onTyped(String(m.text || '')); break;
       case 'say': this.onSay(String(m.text || '')); break;
       case 'context': this.addContext(String(m.text || '')); break;
+      case 'signal': this.onSignal(String(m.name || '').slice(0, 80), m.value == null ? '' : String(m.value).slice(0, 2000)); break;
       case 'interrupt': this.interrupt('client'); break;
       case 'playback': if (m.state === 'ended') this.onPlaybackEnded(Number(m.turnId) || 0); break;
       case 'tool.result': this.log(`(tool result ignored by the local engine: ${m.id})`); break;
@@ -117,12 +124,35 @@ export class Session {
     this.started = true;
     this.status('', null);
     this.send({ type: 'ready', ...this.engine.info() });
-    this.log(`▸ conversation opened (${this.s.name || 'agent'}, voice ${voiceEngine(this.s)}${voiceEngine(this.s) === 'supertonic' ? ' ' + this.s.localVoice : ''}, ${this.s.language}${this.s.llmFarm ? `, LLM farm ${this.s.llmFarm} ${this.s.llmFarmModel}` : ''})`);
+    this.log(`▸ conversation opened (${this.s.name || 'agent'}, voice ${voiceEngine(this.s)}${voiceEngine(this.s) === 'supertonic' ? ' ' + this.s.localVoice : ''}, ${this.s.language}${remoteOf(this.s) ? `, ${this.s.llm === 'farm' ? 'LLM farm' : 'service'} ${this.s.llmUrl} ${this.s.llmModel}` : ''})`);
     if (parlerNotEnglish(this.s)) this.status(PARLER_ENGLISH_ONLY, null);
     this.useTurnDetection();
-    const greeting = String(this.s.greeting || '').trim();
-    if (greeting) this.sayFixed(greeting, true);
+    // the agent: its first stage, then its "start" pattern if it has one, otherwise the greeting
+    const moment = await this.enterAgent();
+    if (this.closed) return;
+    if (moment) { this.announce(moment); this.perform(this.newBot('speaking'), moment).catch((e) => this.error('start', e.message)); } else {
+      const greeting = String(this.s.greeting || '').trim();
+      if (greeting) this.sayFixed(greeting, true);
+    }
     this.warmFillers();
+  }
+
+  /** The agent of the settings: back to its first stage, its embeddings computed ahead; returns its "start" pattern, or null. */
+  async enterAgent() {
+    const decider = this.engine.decider;
+    this.focus = null;
+    this.stage = '';
+    if (!this.s.agent || !decider) return null;
+    const id = String(this.s.agent);
+    try {
+      this.stage = decider.startStage(id);
+      if (this.stage) this.send({ type: 'stage', stage: this.stage, from: '' });
+      decider.warm(id);
+      return await decider.onMoment(id, 'start', { stage: this.stage });
+    } catch (e) {
+      this.log(`(agent "${id}": ${e.message})`);
+      return null;
+    }
   }
 
   /**
@@ -152,6 +182,7 @@ export class Session {
     if (parlerNotEnglish(this.s) && (!parlerNotEnglish(prev) || changed(['language']))) this.status(PARLER_ENGLISH_ONLY, null);
     if (asrChanged && !this.closed && !this.asr) this.openAsr();
     if (changed(['turnDetection'])) this.useTurnDetection();
+    if (changed(['agent'])) this.enterAgent();
     this.warmFillers();
   }
 
@@ -397,20 +428,66 @@ export class Session {
   }
 
   // — the reply ———————————————————————————————————————————————————————————————
-  async respond(userText, timing) {
+  /** A new turn of the agent (it replaces any other). */
+  newBot(phase) {
     this.endDuck();
-    const id = ++this.turnId;
-    const abort = new AbortController();
-    const bot = { id, phase: 'thinking', abort, gen: null, tts: null, said: [], parser: new ReplyParser() };
+    const bot = { id: ++this.turnId, phase, abort: new AbortController(), gen: null, tts: null, said: [], parser: new ReplyParser() };
     this.bot = bot;
+    return bot;
+  }
+
+  async respond(userText, timing) {
+    const bot = this.newBot('thinking');
     this.history.push({ role: 'user', content: userText });
     const t0 = Date.now();
     this.scheduleFiller(bot);                         // counted from the end of the user's turn (reply delay included)
     const ms = { asr: timing.asrMs };
     if (timing.smartTurnMs != null) ms.smartTurn = timing.smartTurnMs;     // Smart Turn's inference time
 
-    if (!(await delay(clamp(num(this.s.replyDelayMs, 0), 0, 10000), abort.signal))) return;
-    this.send({ type: 'thinking', turnId: id });
+    if (!(await delay(clamp(num(this.s.replyDelayMs, 0), 0, 10000), bot.abort.signal))) return;
+    this.send({ type: 'thinking', turnId: bot.id });
+    // the decision model first: a pattern, the stage's "otherwise", or a free answer (docs/DESIGN.md, 3)
+    const d = await this.decide(userText);
+    if (bot.abort.signal.aborted) return;
+    if (d) ms.decide = d.ms;
+    await this.perform(bot, d, { userText, t0, ms });
+  }
+
+  /** What the agent decides to do with this sentence (null without an agent, or if the decision fails). */
+  async decide(text) {
+    const decider = this.engine.decider;
+    if (!this.s.agent || !decider) return null;
+    try {
+      // a choice button arrives as '(The user chose: "Paintings")': decide on the option itself
+      const chose = /^\(The user chose: "([\s\S]*)"\)$/.exec(String(text).trim());
+      const d = await decider.decide(String(this.s.agent), chose ? chose[1] : text, { stage: this.stage, focus: this.focus });
+      this.announce(d);
+      return d;
+    } catch (e) {
+      this.log(`(decision model: ${e.message})`);
+      return null;
+    }
+  }
+
+  /** The decision, explained, for the studio and the clients. */
+  announce(d) {
+    this.send({
+      type: 'decision', text: d.text, stage: d.stage, kind: d.kind, pattern: d.pattern, score: d.score, example: d.example,
+      entry: d.entry, candidates: d.candidates, matcher: d.matcher, ms: d.ms,
+    });
+    if (d.pattern) this.log(`▸ decided: ${d.pattern.name}${d.score != null ? ` (${d.score})` : ''}${d.entry ? ` · ${d.entry.key}` : ''}`);
+  }
+
+  /**
+   * Does what was decided, in one turn of the agent: the interface actions at once (choices, mood, signals, stage),
+   * then the speech in order (fixed lines, and the language model's answers). No decision: a free answer.
+   */
+  async perform(bot, d, { userText = '', t0 = Date.now(), ms = {} } = {}) {
+    const { id, abort } = bot;
+    const actions = d ? d.then : [];
+    const plan = d && d.kind !== 'free' ? actions.filter((a) => a.do === 'say' || a.do === 'answer') : [{ do: 'answer', instruction: '' }];
+    if (d && d.entry) this.focus = d.entry;
+    for (const a of actions) this.act(a, d, userText);
 
     const tts = this.engine.speak(this.voiceParams());
     bot.tts = tts;
@@ -428,33 +505,40 @@ export class Session {
     })();
 
     const parser = bot.parser;
-    const onDelta = (d) => {
+    const onDelta = (delta) => {
       if (abort.signal.aborted) return;
-      const out = parser.push(d);
+      const out = parser.push(delta);
       for (const ui of out.ui) this.send(ui);
       if (out.changed) this.send({ type: 'bot.text', text: parser.text, turnId: id });
       for (const s of out.sentences) tts.write(s);
     };
-    const system = systemPrompt(this.s, 'local') + (this.context.length ? `\n\nWhat the interface knows right now: ${this.context.join('; ')}` : '');
-    let result = null;
-    try {
-      const farm = this.s.llmFarm ? { url: String(this.s.llmFarm), model: String(this.s.llmFarmModel || ''), key: String(this.s.llmFarmKey || '') } : null;
-      bot.gen = this.engine.generate({ system, history: trimHistory(this.history), temperature: num(this.s.creativity, 1) * 0.7, onDelta, farm });
-      result = await bot.gen.done;
-    } catch (e) {
-      if (!abort.signal.aborted) this.error('llm', `Language model: ${e.message}`);
+    for (const step of plan) {
+      if (abort.signal.aborted) return;
+      if (step.do === 'say') {
+        const line = fill(pickLine(step.text), d && d.entryCells, { said: userText });
+        if (line) onDelta(`${line} `);
+        continue;
+      }
+      let result = null;
+      try {
+        const system = this.systemFor(d, step.instruction, parser.text);
+        bot.gen = this.engine.generate({ system, history: trimHistory(this.history), temperature: num(this.s.creativity, 1) * 0.7, onDelta, remote: remoteOf(this.s) });
+        result = await bot.gen.done;
+      } catch (e) {
+        if (!abort.signal.aborted) this.error('llm', `Language model: ${e.message}`);
+      }
+      if (result && ms.firstToken == null) ms.firstToken = result.firstTokenMs;
     }
     if (abort.signal.aborted) return;
     const tail = parser.end();
     for (const ui of tail.ui) this.send(ui);
     for (const s of tail.sentences) tts.write(s);
     tts.end();
-    if (result) ms.firstToken = result.firstTokenMs;
     await pump;
     if (abort.signal.aborted) return;
     const text = parser.text;
     if (text) this.history.push({ role: 'assistant', content: text });
-    else this.history.pop();                         // no reply: don't teach the model an empty turn
+    else if (userText) this.history.pop();            // no reply: don't teach the model an empty turn
     ms.reply = Date.now() - t0;
     this.send({ type: 'bot.done', turnId: id, text });
     this.send({ type: 'timing', turnId: id, ms });
@@ -462,6 +546,58 @@ export class Session {
     // the browser says when it has finished playing; without news, consider it finished a bit later
     bot.safety = setTimeout(() => this.onPlaybackEnded(id), 60000);
     if (!bot.audio) this.onPlaybackEnded(id);
+  }
+
+  /** An interface action of a pattern: choices, mood, a signal to the clients, another stage. */
+  act(a, d, said) {
+    const entry = d && d.entryCells;
+    if (a.do === 'choices') {
+      const options = a.options.map((o) => fill(o, entry, { said })).filter(Boolean);
+      if (options.length) this.send({ type: 'ui.choices', question: fill(a.question, entry, { said }), options });
+    } else if (a.do === 'mood') {
+      this.send({ type: 'ui.mood', mood: a.mood });
+    } else if (a.do === 'signal') {
+      this.send({ type: 'signal', name: a.name, value: fill(a.value, entry, { said }) });
+    } else if (a.do === 'go') {
+      this.goTo(a.stage);
+    }
+  }
+
+  /** Moves to another stage of the agent (an unknown stage is ignored). */
+  goTo(stage) {
+    const decider = this.engine.decider;
+    if (!stage || stage === this.stage || !this.s.agent || !decider) return;
+    if (!decider.hasStage(String(this.s.agent), stage)) { this.log(`(no stage "${stage}": ignored)`); return; }
+    const from = this.stage;
+    this.stage = stage;
+    this.send({ type: 'stage', stage, from });
+  }
+
+  /** The system prompt of an answer: the persona, the interface's context, the knowledge, the pattern's instruction. */
+  systemFor(d, instruction, saidSoFar) {
+    const parts = [systemPrompt(this.s, 'local')];
+    if (this.context.length) parts.push(`What the interface knows right now: ${this.context.join('; ')}`);
+    const k = knowledgePrompt(d ? d.knowledge : []);
+    if (k) parts.push(k);
+    if (instruction) parts.push(`For this reply: ${instruction}`);
+    if (saidSoFar) parts.push(`You have just said: "${saidSoFar}". Go on from there, without repeating it.`);
+    return parts.join('\n\n');
+  }
+
+  /** A client's signal (a sensor, a button): the pattern "when a client sends this signal", if there is one. */
+  async onSignal(name, value) {
+    const decider = this.engine.decider;
+    if (!this.started || this.closed || !name) return;
+    this.addContext(`signal "${name}"${value != null && value !== '' ? ` = ${String(value).slice(0, 200)}` : ''}`);
+    if (!this.s.agent || !decider) return;
+    let d = null;
+    try { d = await decider.onMoment(String(this.s.agent), 'signal', { stage: this.stage, focus: this.focus }, name); } catch (e) { this.log(`(signal: ${e.message})`); }
+    if (!d || this.closed) return;
+    this.announce(d);
+    const bot = this.bot;
+    if (bot && bot.phase === 'playing') this.onPlaybackEnded(bot.id);     // finished, only the "played" news is missing
+    if (this.bot) this.interrupt('client');
+    this.perform(this.newBot('speaking'), d).catch((e) => this.error('signal', e.message));
   }
 
   /** A fixed line (greeting, repair line), said without going through the model. */
@@ -644,3 +780,10 @@ export class Session {
 }
 
 function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+/** The language model elsewhere (an LLM farm, a service), or null for the local one. */
+export function remoteOf(s) {
+  if (s.llm !== 'farm' && s.llm !== 'service') return null;
+  return { kind: s.llm, url: String(s.llmUrl || ''), model: String(s.llmModel || ''), key: String(s.llmKey || '') };
+}
+/** A line of a "say" action: several lines separated by | → one of them, at random. */
+function pickLine(text) { const l = String(text || '').split('|').map((x) => x.trim()).filter(Boolean); return l.length ? pick(l) : ''; }

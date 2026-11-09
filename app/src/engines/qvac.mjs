@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { AsyncQueue, clamp, num } from '../util.mjs';
+import { modelMatcher } from '../agent/matcher.mjs';
 
 const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MODELS_DIR = join(homedir(), '.qvac', 'models');   // QVAC's download folder (qvac.config.json sets no cacheDirectory)
@@ -64,6 +65,7 @@ export async function createQvacEngine(config, log) {
     asr: null, asrKey: '', asrSrc: String(M.asr.src), llm: null, llmKey: '', llmSrc: String(M.llm.src),
     tts: null, ttsKey: '', ttsRate: 44100, ttsEngine: 'supertonic', ttsSrc: String(M.tts.src),
     asrClosing: null, asrDrainedAt: 0,
+    embed: null, embedTried: false, matcher: null,   // the decision model (EmbeddingGemma), loaded once
   };
   /**
    * The model a setting asks for (localAsr, localLlm), if config.json offers it in "choices"; otherwise the
@@ -130,6 +132,7 @@ export async function createQvacEngine(config, log) {
       ['speech recognition', st.asrSrc], ['voice detection', M.asr.vad], ['language model', st.llmSrc], ['voice (supertonic)', M.tts.src],
       ['voice (parler)', P.src || 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0'], ['voice (chatterbox)', C.src || 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0'],
       ['voice (chatterbox, part 2)', C.s3gen || 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0'],
+      ['decision model', (M.decide || {}).src],
     ];
     const seen = new Set();
     return wanted.filter(([, n]) => sdk[n] && sdk[n].src && !seen.has(n) && seen.add(n))
@@ -212,13 +215,15 @@ export async function createQvacEngine(config, log) {
     install,
     /** The models the window offers for speech recognition and the language model (config.json "choices"). */
     choices() { return { asr: offer(M.asr), llm: offer(M.llm) }; },
+    /** The decision model's matcher, once loaded (otherwise null: the words matcher decides). */
+    matcher() { return st.matcher; },
     info() {
       return {
         engine: 'qvac',
         voiceEngine: st.ttsEngine,
         // only Supertonic has preset voices: an interface hides its voice picker otherwise
         voices: st.ttsEngine === 'supertonic' ? (M.tts.voices || SUPERTONIC_VOICES) : [],
-        // llm: '' while an LLM farm answers (no local language model loaded)
+        // llm: '' while a farm or a service answers (no local language model loaded)
         models: { asr: st.asrSrc, llm: st.llm ? st.llmSrc : '', tts: st.ttsSrc },
       };
     },
@@ -255,8 +260,8 @@ export async function createQvacEngine(config, log) {
         st.asr = await load('speech recognition', source(asrSrc, 'whisper'), asrConfig, onProgress);
         st.asrKey = asrKey; st.asrSrc = asrSrc;
       }
-      // — the language model: none while an LLM farm answers (llmFarm), so its memory is free —
-      if (s.llmFarm) {
+      // — the language model: none while a farm or a service answers (llm), so its memory is free —
+      if (s.llm === 'farm' || s.llm === 'service') {
         await unload(st.llm);
         st.llm = null; st.llmKey = '';
       } else {
@@ -308,6 +313,20 @@ export async function createQvacEngine(config, log) {
         st.tts = null; st.ttsKey = '';
         st.tts = await load(`voice (${engine})`, source(ttsSrc, 'tts'), ttsConfig, onProgress);
         st.ttsKey = ttsKey; st.ttsEngine = engine; st.ttsSrc = ttsSrc; st.ttsRate = NATIVE_RATE[engine];
+      }
+      // — the decision model: loaded once; if it cannot be (not downloaded, offline), the words matcher decides —
+      const D = M.decide || {};
+      if (D.src && !st.embed && !st.embedTried) {
+        st.embedTried = true;
+        try {
+          st.embed = await load('decision model', source(String(D.src), 'embeddings'), { device: D.useGpu === false ? 'cpu' : 'gpu' }, onProgress);
+          st.matcher = modelMatcher({
+            id: String(D.src), name: String(D.name || 'EmbeddingGemma 300M'), ...(D.calibration ? { calibration: D.calibration } : {}),
+            embed: async (texts) => { const r = await sdk.embed({ modelId: st.embed, text: texts }); return r.embedding; },
+          });
+        } catch (e) {
+          log(`✖ decision model: ${e.message} The words matcher decides instead (Files → Download all models).`);
+        }
       }
     },
 
@@ -478,7 +497,7 @@ export async function createQvacEngine(config, log) {
 
     async close() {
       await asrReleased();                               // a recognition stream closing: let it drain first
-      for (const id of [st.asr, st.llm, st.tts]) await unload(id);
+      for (const id of [st.asr, st.llm, st.tts, st.embed]) await unload(id);
       try { await sdk.close(); } catch { /* closed */ }
     },
   };

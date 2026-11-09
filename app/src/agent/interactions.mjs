@@ -20,7 +20,7 @@ export const THEN = {
   go: 'go to another stage',
 };
 export const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
-export const DEFAULT_SENSITIVITY = 0.5;
+export const DEFAULT_CONFIDENCE = 0.5;   // the score (0–1) a pattern needs to fire
 const MAX_TEXT = 4000;
 
 /** An id made from a name: lower case, no accents, dashes ("Opening hours" → "opening-hours"). */
@@ -42,14 +42,14 @@ function uniqueId(wanted, name, taken, fallback) {
   return id;
 }
 
-/** @returns {{version: 1, start: string, stages: {id: string, name: string}[], sensitivity: number, patterns: object[]}} */
+/** @returns {{version: 1, start: string, stages: {id: string, name: string}[], confidence: number, patterns: object[]}} */
 export function normalizeInteractions(raw) {
   const o = raw && typeof raw === 'object' ? raw : {};
   const stageIds = new Set();
   const stages = (Array.isArray(o.stages) ? o.stages : []).filter((s) => s && (s.id || s.name)).slice(0, 50)
     .map((s) => { const name = text(s.name || s.id, 80); return { id: uniqueId(s.id, name, stageIds, 'stage'), name }; });
   const start = stageIds.has(o.start) ? o.start : (stages[0] ? stages[0].id : '');
-  const sens = Number(o.sensitivity);
+  const conf = Number(o.confidence);
   const patternIds = new Set();
   const patterns = (Array.isArray(o.patterns) ? o.patterns : []).filter((p) => p && typeof p === 'object').slice(0, 500).map((p) => {
     const name = text(p.name, 80) || 'Pattern';
@@ -68,7 +68,7 @@ export function normalizeInteractions(raw) {
       then: (Array.isArray(p.then) ? p.then : []).filter((a) => a && a.do in THEN).slice(0, 20).map(action),
     };
   });
-  return { version: 1, start, stages, sensitivity: Number.isFinite(sens) ? Math.min(1, Math.max(0, sens)) : DEFAULT_SENSITIVITY, patterns };
+  return { version: 1, start, stages, confidence: Number.isFinite(conf) ? Math.min(1, Math.max(0, conf)) : DEFAULT_CONFIDENCE, patterns };
 }
 
 function action(a) {

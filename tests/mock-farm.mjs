@@ -11,6 +11,10 @@ export async function startMockFarm({ key = '', model = 'assistant', underlying 
   const json = (res, status, o) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); };
   const server = createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/lol/self') return json(res, 200, snapshot());
+    if (req.method === 'GET' && req.url === '/v1/models') {
+      if (key && req.headers.authorization !== `Bearer ${key}`) return json(res, 401, { error: { message: 'Authentication Error' } });
+      return json(res, 200, { object: 'list', data: [{ id: model, object: 'model' }, { id: 'other-model', object: 'model' }] });
+    }
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
       let body = '';
       for await (const c of req) body += c;

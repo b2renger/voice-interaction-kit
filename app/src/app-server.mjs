@@ -8,8 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { attachWebSocket } from './ws.mjs';
 import { Session } from './session.mjs';
 import { createHub } from './hub.mjs';
-import { createFarmFinder, farmGenerate } from './farm.mjs';
+import { createFarmFinder } from './farm.mjs';
+import { remoteGenerate, remoteModels } from './llm.mjs';
 import { createAgentStore } from './agent/agents.mjs';
+import { createDecider } from './agent/decide.mjs';
+import { wordsMatcher } from './agent/matcher.mjs';
 import { handleApi } from './api.mjs';
 import { mutex, progressText } from './util.mjs';
 
@@ -45,6 +48,9 @@ export async function startServer(o) {
     legacy: o.legacyDirs || [],
     log,
   });
+  // the decision model: the engine's embedding model when it is loaded, the words matcher otherwise
+  const words = wordsMatcher();
+  const decider = createDecider({ store, matcher: () => (engine && engine.matcher && engine.matcher()) || words, log });
 
   let engine = null;
   let engineError = null;        // no engine at all (SDK missing): every conversation fails
@@ -100,6 +106,15 @@ export async function startServer(o) {
     if (!warmupError) log('▸ models ready.');
   }
 
+  function json(res, code, o) { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(o)); }
+  function readJson(req) {
+    return new Promise((resolve) => {
+      let b = '';
+      req.on('data', (c) => { b += c; if (b.length > 100000) req.destroy(); });
+      req.on('end', () => { try { resolve(JSON.parse(b || '{}')); } catch { resolve({}); } });
+      req.on('error', () => resolve({}));
+    });
+  }
   function sendFile(res, file) {
     if (!existsSync(file) || statSync(file).isDirectory()) { res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Not found'); return; }
     res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
@@ -134,7 +149,12 @@ export async function startServer(o) {
       return;
     }
     if ((path.startsWith('/api/') || path === '/farms') && !samePage(req)) { res.writeHead(403); res.end(); return; }
-    if (handleApi(req, res, path, { store })) return;
+    // the models a farm or a service offers: {url, key} → [ids] (POST: the key stays out of the address)
+    if (path === '/api/llm/models' && req.method === 'POST') {
+      readJson(req).then((q) => remoteModels(q)).then((models) => json(res, 200, { models }), (e) => json(res, 200, { error: e.message, models: [] }));
+      return;
+    }
+    if (handleApi(req, res, path, { store, decide: decideForStudio })) return;
     // The models offered for listening and thinking (config.json "choices"), and whether each is on this computer.
     if (path === '/models') {
       waitEngine().then(() => (engine.choices ? engine.choices() : null), () => null).then((c) => {
@@ -182,9 +202,10 @@ export async function startServer(o) {
         info: () => (engine ? engine.info() : {}),
         prepare: async (s, p) => { await waitEngine(); await engine.prepare(s, p); warmupError = null; },
         openAsr: (x, cb) => engine.openAsr(x, cb),
-        // an LLM farm chosen (llmFarm): the reply comes from it, the rest stays on this computer
-        generate: (x) => (x.farm ? farmGenerate({ ...x, maxTokens: config.models.llm.maxTokens || 320 }) : engine.generate(x)),
+        // an LLM farm or a service chosen (llm): the reply comes from it, the rest stays on this computer
+        generate: (x) => (x.remote ? remoteGenerate({ ...x, maxTokens: config.models.llm.maxTokens || 320 }) : engine.generate(x)),
         speak: (x) => engine.speak(x),
+        decider,
         newConversation: () => { if (engine && engine.newConversation) engine.newConversation(); },
         smartTurn: () => getSmartTurn(),
       }, prepareLock, log);
@@ -194,6 +215,14 @@ export async function startServer(o) {
       else if (warm !== 'ready') session.status('Loading the models… (the first launch downloads about 1.5 GB)', null);
     },
   });
+
+  /** The studio's test field: what the agent would decide (POST /api/decide {agent, text, stage, focus}). */
+  async function decideForStudio(q) {
+    await waitEngine().catch(() => {});
+    const d = await decider.decide(String(q.agent || ''), String(q.text || '').slice(0, 2000), { stage: q.stage, focus: q.focus });
+    const { then, entryCells, knowledge, ...shown } = d;
+    return { ...shown, then, knowledge: knowledge.map((e) => ({ table: e.table, key: e.key })) };
+  }
 
   async function waitEngine() {
     while (!engine && !engineError) await new Promise((r) => setTimeout(r, 100));

@@ -2,7 +2,7 @@
   "version": 1,
   "start": "main",
   "stages": [{ "id": "main", "name": "Main" }],
-  "sensitivity": 0.5,
+  "confidence": 0.5,
   "patterns": [
     {
       "id": "plant", "name": "A plant", "stage": "", "on": true,

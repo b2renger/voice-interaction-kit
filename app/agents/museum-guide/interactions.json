@@ -5,7 +5,7 @@
     { "id": "welcome", "name": "Welcome" },
     { "id": "tour", "name": "Tour" }
   ],
-  "sensitivity": 0.5,
+  "confidence": 0.5,
   "patterns": [
     {
       "id": "opening-hours", "name": "Opening hours", "stage": "", "on": true,
@@ -42,7 +42,7 @@
     },
     {
       "id": "kind", "name": "Paintings or sculptures", "stage": "tour", "on": true,
-      "when": { "kind": "says", "examples": ["paintings", "I prefer paintings", "sculptures", "I prefer sculptures", "surprise me"] },
+      "when": { "kind": "says", "examples": ["I prefer the paintings", "show me the paintings", "I prefer the sculptures", "show me the sculptures", "surprise me"] },
       "then": [
         { "do": "answer", "instruction": "Recommend one artwork of the kind they chose (any one if they want a surprise), say which room it is in, and tell it in two sentences." },
         { "do": "mood", "mood": "excited" }

@@ -2,6 +2,7 @@
   "plugins": [
     "@qvac/sdk/whispercpp-transcription/plugin",
     "@qvac/sdk/llamacpp-completion/plugin",
-    "@qvac/sdk/tts-ggml/plugin"
+    "@qvac/sdk/tts-ggml/plugin",
+    "@qvac/sdk/llamacpp-embedding/plugin"
   ]
 }

@@ -366,7 +366,7 @@ const setField = (page, key, value) => page.evaluate(([k, v]) => {
     'lab: "Language model" offers the 5 local models, then "Find a farm on the network…"', llm);
   check(await page.$eval('#farmBox', (e) => e.style.display) === 'none', 'lab: no farm box while a local model is chosen');
   await page.selectOption('#llmModels', 'QWEN3_4B_Q4_K_M');
-  check(await page.evaluate(() => window.agent.settings.localLlm === 'QWEN3_4B_Q4_K_M' && window.agent.settings.llmFarm === ''), 'lab: choosing "Qwen3 4B" sets localLlm');
+  check(await page.evaluate(() => window.agent.settings.localLlm === 'QWEN3_4B_Q4_K_M' && window.agent.settings.llm === 'local'), 'lab: choosing "Qwen3 4B" sets localLlm');
   await page.selectOption('#asrModels', 'WHISPER_BASE_Q8_0');
   check(await page.evaluate(() => window.agent.settings.localAsr) === 'WHISPER_BASE_Q8_0', 'lab: choosing "Whisper base" sets localAsr');
   // look for a farm: the box opens and says it is listening; a farm added by its address gets chosen
@@ -375,16 +375,16 @@ const setField = (page, key, value) => page.evaluate(([k, v]) => {
     'lab: "Find a farm on the network…" opens the farm box, listening', await page.textContent('#farmStatus'));
   await page.fill('#farmAddress', '127.0.0.1:' + farm.port);
   await page.click('#farmAdd');
-  const chosen = await until(() => page.evaluate(() => window.agent.settings.llmFarm), 5000);
-  check(chosen === farm.url && (await page.evaluate(() => window.agent.settings.llmFarmModel)) === 'assistant', 'lab: "Add" asks that address, and the farm\'s default model is chosen', chosen);
+  const chosen = await until(() => page.evaluate(() => window.agent.settings.llmUrl), 5000);
+  check(chosen === farm.url && (await page.evaluate(() => window.agent.settings.llmModel)) === 'assistant', 'lab: "Add" asks that address, and the farm\'s default model is chosen', chosen);
   const shownFarm = await until(async () => { const t = await page.$eval('#llmModels', (s) => s.selectedOptions[0] && s.selectedOptions[0].textContent); return /Mock farm/.test(t || '') && t; }, 4000);
   check(shownFarm === 'Mock farm — gemma4:12b · password · 1/4 people' && (await page.$eval('#farmKeyField', (e) => e.style.display !== 'none')),
     'lab: the list shows the farm, its real model, that it has a password, how busy it is; the password field appears', shownFarm);
-  await setField(page, 'llmFarmKey', 'secret');
+  await setField(page, 'llmKey', 'secret');
   // a shared file cannot point the replies (and the password) to another server
-  await page.setInputFiles('#importFile', { name: 'agent.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ name: 'Bo', llmFarm: 'http://elsewhere.example/v1', llmFarmKey: 'x', localLlm: 'QWEN3_600M_INST_Q4' })) });
+  await page.setInputFiles('#importFile', { name: 'agent.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ name: 'Bo', llm: 'service', llmUrl: 'http://elsewhere.example/v1', llmKey: 'x', localLlm: 'QWEN3_600M_INST_Q4' })) });
   await until(() => page.evaluate(() => window.agent.settings.name === 'Bo'), 3000);
-  check(await page.evaluate(([u]) => window.agent.settings.llmFarm === u && window.agent.settings.llmFarmKey === 'secret' && window.agent.settings.localLlm === 'QWEN3_600M_INST_Q4', [farm.url]),
+  check(await page.evaluate(([u]) => window.agent.settings.llmUrl === u && window.agent.settings.llmKey === 'secret' && window.agent.settings.llm === 'farm' && window.agent.settings.localLlm === 'QWEN3_600M_INST_Q4', [farm.url]),
     'lab: an imported file cannot change the farm or its password (its model choice, yes)');
   await page.evaluate(() => { window.__ev = []; window.agent.on('*', (e) => window.__ev.push({ type: e.type, text: e.text, message: e.message })); });
   await page.click('#start');

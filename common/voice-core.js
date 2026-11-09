@@ -33,6 +33,7 @@ const VoiceCore = (function () {
     'thinking', 'bot.start', 'bot.text', 'bot.sentence', 'bot.end', 'interrupted', 'turn',
     'ui.choices', 'ui.mood', 'tool.call', 'tool.cancel', 'timing', 'error', 'ended',
     'turn.prediction', 'interruption.pending', 'interruption.cancelled', 'bot.filler', 'user.away',
+    'decision', 'stage', 'signal',
   ];
   const EVENT_SET = new Set(EVENTS);
 
@@ -80,10 +81,12 @@ const VoiceCore = (function () {
     // — models (local) —
     localAsr: '',                     // local: speech recognition model, one of config.json's "choices" ('' = its default)
     localLlm: '',                     // local: language model, one of config.json's "choices" ('' = its default)
-    llmFarm: '',                      // local: an LLM farm's OpenAI address (LlmOnLan, http://<host>:4000/v1): it writes the
-                                      // replies instead of the local model ('' = the local model)
-    llmFarmModel: '',                 // the model on that farm
-    llmFarmKey: '',                   // the farm password, if it has one
+    llm: 'local',                     // local: who writes the replies: 'local' (localLlm, on this computer), 'farm' (an LLM farm,
+                                      // LlmOnLan) or 'service' (any OpenAI-compatible address: Ollama, OpenAI, Gemini…)
+    llmUrl: '',                       // the farm's or the service's OpenAI address (http://<host>:4000/v1)
+    llmModel: '',                     // the model there
+    llmKey: '',                       // its key or password, if it needs one
+    agent: '',                        // local: the agent (its folder name): its knowledge and its patterns decide (docs/DESIGN.md)
     // — turn-taking —
     endSilenceMs: 800,                // silence that ends a turn (patient ↔ impatient)
     startSensitivity: 'high',         // 'high' | 'low': how easily the start of speech is detected
@@ -134,7 +137,7 @@ const VoiceCore = (function () {
   const LOCAL_KEYS = ['name', 'persona', 'language', 'greeting', 'shortAnswers', 'creativity', 'localVoice',
     'localSpeed', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'interruptible', 'repairLine',
     'replyDelayMs', 'uiTools', 'turnDetection', 'interruptAfterMs', 'fillerLines', 'fillerAfterMs',
-    'localVoiceEngine', 'voiceDescription', 'localAsr', 'localLlm', 'llmFarm', 'llmFarmModel', 'llmFarmKey'];
+    'localVoiceEngine', 'voiceDescription', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'agent'];
 
   const GEMINI_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService';
   const IN_RATE = 16000;              // what both engines listen to
@@ -710,6 +713,9 @@ const VoiceCore = (function () {
       case 'bot.filler': h.filler(m.text || ''); break;
       case 'bot.duck': h.duck(true, m); break;
       case 'bot.unduck': h.duck(false, m); break;
+      case 'decision': h.decision(m); break;
+      case 'stage': h.stage(String(m.stage || ''), String(m.from || '')); break;
+      case 'signal': h.signal(String(m.name || ''), m.value == null ? '' : String(m.value)); break;
       case 'error':
         // Another page took over the conversation: this one is over, and THIS message must stay on screen
         // (the close that follows must not replace it with a generic "connection closed").
@@ -726,6 +732,8 @@ const VoiceCore = (function () {
   };
   LocalEngine.prototype.sendText = function (text) { return this.send({ type: 'text', text: String(text) }); };
   LocalEngine.prototype.sendContext = function (text) { return this.send({ type: 'context', text: String(text) }); };
+  /** A client's signal (a sensor, a button): the agent's patterns "when a client sends this signal" decide. */
+  LocalEngine.prototype.sendSignal = function (name, value) { return this.send({ type: 'signal', name: String(name), value: value == null ? '' : String(value) }); };
   LocalEngine.prototype.interrupt = function () { this.send({ type: 'interrupt' }); };
   /** The person stays silent (awayAfterMs): the local server says the line as written, as an agent turn. */
   LocalEngine.prototype.reprompt = function (line) { return this.send({ type: 'say', text: String(line).trim() }); };
@@ -1136,6 +1144,13 @@ const VoiceCore = (function () {
         if (kind === 'mood') emit('ui.mood', data);
       },
       toolCall: function (call) { emit('tool.call', call); },
+      /** The local decision model's choice, explained (docs/DESIGN.md, 3). */
+      decision: function (m) {
+        emit('decision', { text: String(m.text || ''), stage: String(m.stage || ''), kind: String(m.kind || ''), pattern: m.pattern || null, score: m.score == null ? null : Number(m.score),
+          example: String(m.example || ''), entry: m.entry || null, candidates: Array.isArray(m.candidates) ? m.candidates : [], matcher: String(m.matcher || ''), ms: Number(m.ms) || 0 });
+      },
+      stage: function (stage, from) { emit('stage', { stage: stage, from: from }); },
+      signal: function (name, value) { emit('signal', { name: name, value: value }); },
       toolCancel: function (ids) { emit('tool.cancel', { ids: ids }); },
       timing: function (turnId, ms) { Object.assign(turn.ms, ms || {}); emit('timing', { turnId: turnId, ms: ms || {} }); },
       /** The local server lowers the agent's voice (someone talks over it), or brings it back (it was "mm-hm"). */
@@ -1342,6 +1357,12 @@ const VoiceCore = (function () {
       on: on, off: off, start: start, stop: function (r) { return stop(r || 'stop'); }, update: update,
       interrupt: interrupt, sendText: sendText,
       sendContext: function (text) { return !!(engine && active && engine.sendContext(String(text || ''))); },
+      /** A signal for the agent's patterns (local engine); Gemini gets it as context. */
+      sendSignal: function (name, value) {
+        if (!engine || !active || !name) return false;
+        if (engine.sendSignal) return engine.sendSignal(String(name), value);
+        return engine.sendContext('Signal "' + String(name) + '"' + (value != null && value !== '' ? ': ' + String(value) : ''));
+      },
       choose: function (option) { return sendText('(The user chose: "' + String(option) + '")'); },
       sendToolResult: function (id, result) { return !!(engine && engine.sendToolResult(id, result)); },
       get state() { return state; },

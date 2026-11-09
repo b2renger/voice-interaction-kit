@@ -13,7 +13,8 @@ import { startMockFarm } from './mock-farm.mjs';
 const BEACON_PORT = 42100 + Math.floor(Math.random() * 800);
 process.env.LOL_FED_PORT = String(BEACON_PORT);
 const src = (f) => pathToFileURL(join(ROOT, 'app', 'src', f)).href;
-const { createFarmFinder, farmGenerate } = await import(src('farm.mjs'));
+const { createFarmFinder } = await import(src('farm.mjs'));
+const { remoteGenerate, remoteModels } = await import(src('llm.mjs'));
 
 const farm = await startMockFarm({ key: 'secret' });
 const rejects = async (p) => { try { await p; return null; } catch (e) { return e.message; } };
@@ -55,8 +56,8 @@ const rejects = async (p) => { try { await p; return null; } catch (e) { return 
 }
 
 // — 3. the replies —
-const ask = (o = {}, onDelta = () => {}) => farmGenerate({
-  farm: { url: farm.url, model: 'assistant', key: 'secret', ...o },
+const ask = (o = {}, onDelta = () => {}) => remoteGenerate({
+  remote: { kind: 'farm', url: farm.url, model: 'assistant', key: 'secret', ...o },
   system: 'You are Ada.', history: [{ role: 'user', content: 'Hello?' }], temperature: 0.7, maxTokens: 320, onDelta,
 });
 {
@@ -67,15 +68,28 @@ const ask = (o = {}, onDelta = () => {}) => farmGenerate({
   check(q.authorization === 'Bearer secret' && q.body.model === 'assistant' && q.body.stream === true && q.body.max_tokens === 320 && q.body.temperature === 0.7,
     'reply: the farm password as the key, the model, stream, max_tokens', { ...q.body, messages: undefined, authorization: q.authorization });
   check(q.body.messages[0].role === 'system' && q.body.messages[0].content === 'You are Ada.' && q.body.messages[1].content === 'Hello?', 'reply: the system prompt first, then the history', q.body.messages);
-  check(/needs a password: type it in Engine → Farm password/.test(await rejects(ask({ key: '' }).done) || ''), 'refusal: no password → "this LLM farm needs a password"');
+  check(/needs a password: type it in Settings → Language model/.test(await rejects(ask({ key: '' }).done) || ''), 'refusal: no password → "this LLM farm needs a password"');
   check(farm.requests[farm.requests.length - 1].authorization === 'Bearer sk-lol-lan', 'refusal: … (without a password, the key LlmOnLan\'s client sends)');
   check(/refused the password/.test(await rejects(ask({ key: 'wrong' }).done) || ''), 'refusal: a wrong password → "refused the password"');
-  check(/no longer serves the model "gone"/.test(await rejects(ask({ model: 'gone' }).done) || ''), 'refusal: a model it does not serve → "no longer serves the model"');
+  check(/does not serve the model "gone"/.test(await rejects(ask({ model: 'gone' }).done) || ''), 'refusal: a model it does not serve → "does not serve the model"');
   check(/no model is chosen/.test(await rejects(ask({ model: '' }).done) || ''), 'refusal: no model → said so, nothing sent');
   farm.state.full = true;
   check(/is full: all its places are taken \(one frees in about 2 min\)/.test(await rejects(ask().done) || ''), 'refusal: a full farm (429 lol_seats_full) → "is full", and when a place frees');
   farm.state.full = false;
   check(/does not answer: is it on, and on this network\?/.test(await rejects(ask({ url: 'http://127.0.0.1:1/v1' }).done) || ''), 'refusal: a farm that is off → "does not answer"');
+  // any OpenAI-compatible service (Ollama, OpenAI, Gemini…): the same client, its own words
+  const svc = (o = {}) => remoteGenerate({ remote: { kind: 'service', url: farm.url, model: 'assistant', key: 'secret', ...o }, system: 'S', history: [], temperature: 0.7, maxTokens: 50, onDelta: () => {} });
+  check((await svc().done).text === 'Hello from the farm.', 'service: a reply from an OpenAI-compatible address');
+  check(new RegExp(`the language model service at 127\\.0\\.0\\.1:${farm.port} needs a key: type it in Settings → Language model`).test(await rejects(svc({ key: '' }).done) || ''), 'service: no key → "… needs a key", naming the service by its address');
+  check(/refused the key/.test(await rejects(svc({ key: 'nope' }).done) || ''), 'service: a wrong key → "refused the key"');
+  farm.state.full = true;
+  check(/too many requests \(or the account has no credit left\)/.test(await rejects(svc().done) || ''), 'service: 429 → "too many requests (or no credit)", not the farm\'s "full"');
+  farm.state.full = false;
+  check(/no address is set/.test(await rejects(svc({ url: '' }).done) || '') && /does not answer: is the address right, and is it running\?/.test(await rejects(svc({ url: 'http://localhost:1/v1' }).done) || ''),
+    'service: no address, or nothing there (on this computer: "is it running?")');
+  const ids = await remoteModels({ url: farm.url, key: 'secret' });
+  check(ids.join() === 'assistant,other-model', 'service: GET /models lists what it serves', ids);
+  check(/key was refused/.test(await rejects(remoteModels({ url: farm.url, key: 'nope' })) || '') && /must start with http/.test(await rejects(remoteModels({ url: 'ftp://x' })) || ''), 'service: the list says when the key is refused, or the address is wrong');
   // cancelled while it writes (the person interrupts): no error, the words so far
   farm.state.wordMs = 400;
   const words = [];
@@ -103,6 +117,8 @@ const ask = (o = {}, onDelta = () => {}) => farmGenerate({
   check(added.added === 'mock-farm' && added.farms.some((f) => f.id === 'mock-farm' && f.url === farm.url), 'server: /farms?add=<address> adds a farm', added);
   const bad = await (await fetch(`${base}/farms?add=127.0.0.1:1`)).json();
   check(/No LLM farm answers/.test(bad.error || '') && Array.isArray(bad.farms), 'server: … and says when nothing answers there', bad);
+  const listed = await (await fetch(`${base}/api/llm/models`, { method: 'POST', body: JSON.stringify({ url: farm.url, key: 'secret' }) })).json();
+  check(listed.models && listed.models.includes('assistant'), 'server: /api/llm/models lists a service\'s models (the key in the body, not the address)', listed);
   const cross = await fetch(`${base}/farms?add=10.0.0.1`, { headers: { 'sec-fetch-site': 'cross-site' } });
   check(cross.status === 403, 'server: another website cannot use /farms (no probing from a web page)', cross.status);
 
@@ -111,7 +127,7 @@ const ask = (o = {}, onDelta = () => {}) => farmGenerate({
   ws.onmessage = (e) => { if (typeof e.data === 'string') msgs.push(JSON.parse(e.data)); };
   await new Promise((r) => { ws.onopen = r; });
   const n0 = farm.requests.length;
-  ws.send(JSON.stringify({ type: 'start', settings: { name: 'Ada', persona: 'A test.', llmFarm: farm.url, llmFarmModel: 'assistant', llmFarmKey: 'secret' } }));
+  ws.send(JSON.stringify({ type: 'start', settings: { name: 'Ada', persona: 'A test.', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant', llmKey: 'secret' } }));
   check(await until(() => msgs.some((m) => m.type === 'ready'), 5000), 'conversation: opens with an LLM farm chosen');
   ws.send(JSON.stringify({ type: 'text', text: 'Hello?' }));
   const done = await until(() => msgs.find((m) => m.type === 'bot.done'), 8000);
@@ -119,18 +135,18 @@ const ask = (o = {}, onDelta = () => {}) => farmGenerate({
   check(farm.requests.length === n0 + 1 && /Ada/.test(farm.requests[n0].body.messages[0].content), 'conversation: the farm gets the persona\'s system prompt', farm.requests.length - n0);
   check(logs.some((l) => /conversation opened .*LLM farm http:\/\/127\.0\.0\.1/.test(l)), 'conversation: the log names the farm', logs.filter((l) => /opened/.test(l)));
   // the password changes: no reload, the next reply uses it (and the farm's refusal is said)
-  ws.send(JSON.stringify({ type: 'settings', settings: { llmFarmKey: 'wrong' } }));
+  ws.send(JSON.stringify({ type: 'settings', settings: { llmKey: 'wrong' } }));
   await sleep(100);
   ws.send(JSON.stringify({ type: 'text', text: 'Again?' }));
   const err = await until(() => msgs.find((m) => m.type === 'error' && m.code === 'llm'), 8000);
   check(err && /^Language model: the LLM farm refused the password/.test(err.message) && !err.fatal, 'conversation: a refusal is an error the window shows, not the end', err);
   // back to the local model: the simulated one answers again
   const before = msgs.filter((m) => m.type === 'bot.done').length;
-  ws.send(JSON.stringify({ type: 'settings', settings: { llmFarm: '' } }));
+  ws.send(JSON.stringify({ type: 'settings', settings: { llm: 'local' } }));
   await sleep(200);
   ws.send(JSON.stringify({ type: 'text', text: 'Hello again.' }));
   const local = await until(() => msgs.filter((m) => m.type === 'bot.done')[before], 8000);
-  check(local && local.text && local.text !== 'Hello from the farm.' && farm.requests.length === n0 + 2, 'conversation: llmFarm "" → the local model answers again', local);
+  check(local && local.text && local.text !== 'Hello from the farm.' && farm.requests.length === n0 + 2, 'conversation: llm "local" → the local model answers again', local);
   ws.close();
   await srv.close();
 }
