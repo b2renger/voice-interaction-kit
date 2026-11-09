@@ -26,7 +26,7 @@ jobs:
         include:
           - os: windows-latest
             label: windows-x64
-          - os: macos-14            # Apple Silicon (M1 and later)
+          - os: macos-15            # Apple Silicon (M1 and later); GitHub retired macos-14 in 2026
             label: mac-arm64
     runs-on: ${{ matrix.os }}
     defaults:
