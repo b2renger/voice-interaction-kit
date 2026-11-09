@@ -1,4 +1,4 @@
-// The VIK app: the QVAC voice server runs INSIDE the app, and the window shows the lab window page.
+// The VIK app: the voice server runs INSIDE the app, and the window shows the studio.
 // While the app is open, the cables op ("Local" engine) can connect to it.
 'use strict';
 

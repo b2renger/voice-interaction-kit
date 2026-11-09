@@ -1,4 +1,4 @@
-// A conversation: what happens between a browser (cables op or lab window) and the local engine.
+// A conversation: what happens between a browser (the studio) and the local engine.
 // Protocol: see CONTRACT.md ("Local engine"). Incoming audio: 16-bit PCM, mono, 16 kHz, in binary frames.
 // Outgoing audio: binary frames [u32 sample rate][u32 turn id][16-bit mono PCM].
 import { ReplyParser, systemPrompt, heardNothing, speakable, trimHistory, classifyInterjection } from './text.mjs';

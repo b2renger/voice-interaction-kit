@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 export function loadConfig(file) {
   const base = {
     port: 8790, host: '127.0.0.1', download: 'http', warmup: true,
-    // the pages that can open a conversation (cables.gl, the lab window, offline cables); ["*"] = all
+    // the pages that can open a conversation (cables.gl, the studio, offline cables); ["*"] = all
     allowedOrigins: ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*', 'https://editor.p5js.org', 'https://preview.p5js.org'],
     models: {
       // choices: the models the window offers (QVAC catalogue names, Hugging Face downloads); src is the default

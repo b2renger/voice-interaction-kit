@@ -1,13 +1,14 @@
-# 1. The cables.gl op "VoiceAgent"
+# The cables.gl op "VoiceAgent"
 
-An op you paste into the cables.gl editor, **without touching the cables code**. It connects your patch to the **VIK app** (folder [`app`](../app/)), which is the brain: the app listens, thinks and speaks, with its local engine (QVAC) or with Gemini Live, and it holds the persona, the knowledge and the settings. The op follows that conversation and gives you everything you need to design the interaction:
+An op you paste into the cables.gl editor, **without touching the cables code**. It connects your patch to the **VIK studio** (folder [`app`](../app/)), which is the brain: it listens, decides and speaks, and it holds the agent (persona, knowledge, interactions, voice). The op follows that conversation and gives you everything you need to design the interaction:
 
 - the state of the conversation: listening, hearing, thinking, speaking;
 - the voice and mic levels, about 30 times a second;
 - the transcripts;
 - the choices offered, the mood, the tool calls;
+- what the agent decided: the pattern, the entry, the stage, and the **signals** its patterns send ("show-artwork: Water Lilies");
 - triggers for every moment of the turn;
-- commands: Start, Stop, Interrupt, a typed message, context, a choice.
+- commands: Start, Stop, Interrupt, a typed message, context, a choice, and **signals** to the agent (a sensor, a button: its patterns "when a client sends this signal" answer).
 
 The op is one client among others: a p5.js sketch or a web page can follow the same conversation at the same time (see [`../examples/`](../examples/)). Whichever engine the app uses, the op's ports behave the same.
 
@@ -22,7 +23,7 @@ The op is one client among others: a p5.js sketch or a web page can follow the s
 
 A "patch op" travels with the patch: if you share or clone the patch, the op comes along.
 
-**The persona, the voice, the engine (local or Gemini) and the turn-taking settings are chosen in the VIK window**, not on the op: see [`../app/README.md`](../app/README.md). That's also where you give the agent its knowledge, and where Gemini's key or token server goes.
+**The agent (persona, knowledge, patterns, voice, timing) and the engine are chosen in the VIK studio**, not on the op: see [`../app/README.md`](../app/README.md). That's also where Gemini's key or token server goes.
 
 > **Upgrading a patch made with the earlier op** (which ran Gemini itself): paste the new code over it. The outputs and triggers keep their names, so their links stay. The settings ports are gone (they live in the app now), and so are the two audio outputs: use `Voice level` and `Mic level`.
 
@@ -32,13 +33,14 @@ A "patch op" travels with the patch: if you share or clone the patch, the op com
 
 | port | role |
 |---|---|
-| App address | the app's address for clients: `ws://localhost:8790/events` (VIK menu **Engine → Copy address for clients**) |
+| App address | the studio's address for clients: `ws://localhost:8790/events` (VIK: **Settings → Clients**) |
 | Start, Stop | open or close the conversation in the app (Start during a conversation = restart) |
 | Text + Send text | type instead of talking, or a button that "says" something: the agent replies |
 | Context + Send context | inform the agent without it replying ("the user is looking at room 2"). Sent while the agent speaks, it waits for the end of the reply, so it does not cut it off |
 | Choice index + Choose | answer a choice by its number (0 = the first one) |
 | Interrupt | cut it off with a gesture |
 | Tool result + Send tool result | answer a tool call |
+| Signal name, Signal value + Send signal | a signal for the agent: a sensor, a button, a moment of the scene (`visitor-near`). Its pattern "when a client sends this signal" answers, if it has one |
 | Render | optional: put the op in a render chain (`Render` → `Next`) |
 
 ### What it gives you (outputs)
@@ -60,6 +62,9 @@ A "patch op" travels with the patch: if you share or clone the patch, the op com
 | Turn probability (local) | 0 to 1: how sure the Smart Turn model is that you have finished (end of turn = `silence + Smart Turn` in the app). It updates at each pause in your speech; above 0.5, the turn ends |
 | Turn timing | `{speech, firstSound, total}` in milliseconds |
 | Status, Error | readable messages (also shown on the op) |
+| Decision, Decision score, Entry | what the agent decided for the last sentence (local engine): the pattern's name (empty for a free answer), its score from 0 to 1, the entry found ("Water Lilies") |
+| Stage | the agent's current stage (local engine): `welcome`, `tour`… |
+| Agent signal, Agent signal value | the last signal the agent's patterns sent: `show-artwork`, `Water Lilies` |
 | Event + On event | any event (see [`../CONTRACT.md`](../CONTRACT.md)) |
 
 The triggers: `On state change`, `On user start`, `On user end`, `On thinking`, `On reply start`, `On reply end`, `On interruption`, `On not understood`, `On turn`, `On choices`, `On mood`, `On tool call`, `On error`, and:
@@ -70,6 +75,9 @@ The triggers: `On state change`, `On user start`, `On user end`, `On thinking`, 
 | On interruption cancelled | (local) it was only a "mm-hm" or a noise: the voice comes back and the reply carries on |
 | On filler | (local) a filler starts ("Hmm, let me see…") |
 | On away | the person has stayed silent for "Away after" (both engines) |
+| On decision | (local) the agent has decided what to do with a sentence: read `Decision`, `Decision score`, `Entry` |
+| On stage | (local) the agent moves to another stage: read `Stage` |
+| On agent signal | (local) one of the agent's patterns sends a signal: read `Agent signal` and `Agent signal value` |
 
 ## Design recipes
 
@@ -79,6 +87,9 @@ cables op names sometimes change between versions. To find an op, type the keywo
 - **Subtitles.** `User text` and `Agent text` → a text op (search for *text*), in HTML or WebGL.
 - **A gesture that interrupts.** A click or a key (search for *mouse*, *keyboard*) → `Interrupt`.
 - **Call-to-action buttons.** `Choices` → an array of strings (search for *array* to read an item). A click on button number *i* → `Choice index` = *i* (counting from 0), then `Choose`. The agent receives "the user chose X" and carries on.
+- **The agent drives the scene.** A pattern of the agent sends a signal (`show-artwork` = `{name}`): on `On agent signal`, read `Agent signal value` and show that artwork, light that lamp. The voice and the scene stay in step, decided by the agent's patterns.
+- **The scene wakes the agent up.** A sensor (a mouse zone, a webcam's motion, a pressure pad) sets `Signal name` = `visitor-near` and triggers `Send signal`: the agent's pattern for that signal greets the visitor.
+- **Follow the stages.** `On stage` → `Stage`: one look per stage (welcome, tour, goodbye).
 - **The scene informs the agent.** When the visitor moves to another room, or picks up an object, set `Context` ("The visitor is in front of the blue painting.") and trigger `Send context`: the agent knows it for its next reply.
 - **Making thinking visible or audible.** `On thinking` starts an animation, `On reply start` stops it. Or, in the app, Thinking sound = hum.
 - **Latency as a design material.** In the app, raise Reply delay to 2,000 ms: what should the interface do during that time?
@@ -110,4 +121,4 @@ cables op names sometimes change between versions. To find an op, type the keywo
 
 ## Testing
 
-`node tests/test-local.mjs` (Playwright required) runs the op in a fake cables, in Chromium, against the real lab window with the simulated engine: connection, states, texts, choices, mood, levels, the commands, and the app closing. `node tests/test-hub.mjs` tests the hub itself. `npm test`, at the root of the kit, runs all the suites (see [`../tests/README.md`](../tests/README.md)).
+`node tests/test-local.mjs` (Playwright required) runs the op in a fake cables, in Chromium, against the real studio with the simulated engine: connection, states, texts, choices, mood, levels, the commands, and the app closing. `node tests/test-hub.mjs` tests the hub itself. `npm test`, at the root of the kit, runs all the suites (see [`../tests/README.md`](../tests/README.md)).

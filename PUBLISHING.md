@@ -67,9 +67,9 @@ The **Release** workflow builds the Windows installer on a Windows machine and t
 | file | for |
 |---|---|
 | `VIK-Setup-1.0.0-windows-x64.exe` | Windows installer |
-| `VoiceLab-1.0.0-windows-x64.zip` | Windows, portable (no installation) |
-| `VoiceLab-1.0.0-mac-arm64.dmg` | Mac installer (M1 and later) |
-| `VoiceLab-1.0.0-mac-arm64.zip` | Mac, the app in a zip |
+| `VIK-1.0.0-windows-x64.zip` | Windows, portable (no installation) |
+| `VIK-1.0.0-mac-arm64.dmg` | Mac installer (M1 and later) |
+| `VIK-1.0.0-mac-arm64.zip` | Mac, the app in a zip |
 
 It takes about 15–25 minutes. Students then download from the repository's **Releases** page.
 

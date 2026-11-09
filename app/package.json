@@ -3,7 +3,7 @@
   "productName": "VIK",
   "version": "1.0.0",
   "private": true,
-  "description": "VIK: a 100% local voice agent (QVAC: Whisper + Qwen3 + Supertonic) for prototyping voice interactions.",
+  "description": "VIK, the Voice Interaction Kit: a studio to build voice agents (persona in markdown, knowledge as CSV, patterns decided by a local model), that listens, decides and speaks on the computer.",
   "author": "Voice interaction workshop",
   "license": "MIT",
   "type": "module",

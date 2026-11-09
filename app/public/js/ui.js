@@ -28,6 +28,7 @@ export function debounce(fn, ms) {
   let t = 0;
   const run = (...a) => { clearTimeout(t); t = setTimeout(() => { t = 0; fn(...a); }, ms); };
   run.flush = (...a) => { if (t) { clearTimeout(t); t = 0; fn(...a); } };
+  run.pending = () => !!t;
   return run;
 }
 

@@ -4,7 +4,7 @@
 //
 // Finding a farm works as in LlmOnLan's own client (shell/src/main/discovery.ts):
 //   - each farm sends a small JSON snapshot every 5 s over UDP, to 239.255.43.10:41998 and to the broadcast
-//     address. We only listen once the lab window asks for farms (Windows then asks to allow the app).
+//     address. We only listen once the studio asks for farms (Windows then asks to allow the app).
 //   - a farm the beacon does not reach (another subnet): its address, asked at http://<host>:41997/lol/self.
 // The snapshot: {v, id, name, proxyPort, endpoint, requiresKey, models: [{id, underlying, default}], healthy, ...}.
 // The replies: POST http://<host>:<proxyPort>/v1/chat/completions, streamed, with the farm password as the key
@@ -57,7 +57,7 @@ export function createFarmFinder(log = () => {}) {
   }
 
   return {
-    /** The farms, for the lab window. The first call starts listening. */
+    /** The farms, for the studio. The first call starts listening. */
     list() {
       listen();
       const now = Date.now();

@@ -505,6 +505,11 @@ await browser.close();
   const bundle = JSON.parse(await (await import('node:fs')).promises.readFile(await download.path(), 'utf8'));
   check(download.suggestedFilename() === 'bike-shop.vik.json' && bundle.vik === 'agent' && /Racing bike/.test(bundle.knowledge.bikes) && !/llmKey|apiKey/.test(JSON.stringify(bundle)),
     'studio: "Export to a file" gives bike-shop.vik.json: persona, knowledge, interactions, no key', download.suggestedFilename());
+  // the table changes outside the studio (a spreadsheet): seen when the window comes back to the front
+  await fetch(`${base}/api/agents/bike-shop/tables/bikes`, { method: 'PUT', body: JSON.stringify({ headers: ['name', 'price'], rows: [['City bike', '300 euros'], ['Racing bike', '900 euros'], ['Cargo bike', '1500 euros']] }) });
+  await page.click('.nav button[data-view="knowledge"]');
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  check(await until(async () => (await page.$$eval('.sheet tbody tr', (r) => r.length)) === 3, 3000), 'studio: a table changed outside the studio (a spreadsheet) shows when its window comes back to the front');
   await page.close();
   await browser5.close();
 }

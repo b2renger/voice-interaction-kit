@@ -182,7 +182,7 @@ export async function startServer(o) {
     res.end('Not found');
   });
 
-  // /voice: the lab window's audio (local engine). /brain: the lab window publishes to the hub. Only the
+  // /voice: the studio's audio (local engine). /brain: the studio publishes to the hub. Only the
   // app's own page may use them, so no website can take over the conversation or pose as the agent.
   // /events: the clients (cables, p5.js, pages).
   const ownOrigin = (origin) => [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`].includes(origin);
@@ -267,7 +267,7 @@ export async function startServer(o) {
   const shown = host === '0.0.0.0' ? 'localhost' : host;
   const url = `http://${shown}:${actualPort}/`;
   wsUrl = `ws://${shown === '127.0.0.1' ? 'localhost' : shown}:${actualPort}/events`;
-  log(`▸ lab window: ${url}`);
+  log(`▸ studio: ${url}`);
   log(`▸ WebSocket for the clients (cables, p5.js, web pages): ${wsUrl}`);
   const ready = boot();
 

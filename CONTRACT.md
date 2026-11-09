@@ -1,8 +1,8 @@
 # The shared vocabulary
 
-The **VIK app** is the brain of the kit: it listens, thinks and speaks, with the local QVAC engine or with Gemini Live, and it holds the persona, its knowledge and the settings. Its **clients** (the cables.gl op, a p5.js sketch, a web page) all follow the same conversation through the app's hub, and drive it with the same commands. Both engines produce **the same states and the same events**, so an interface designed with one works with the other: you only switch the engine in the app.
+The **VIK studio** is the brain of the kit: it listens, decides and speaks with the local engine (or lets Gemini Live do it all), and it holds the agent: its persona, its knowledge, its patterns and its settings ([`docs/DESIGN.md`](docs/DESIGN.md)). Its **clients** (the cables.gl op, a p5.js sketch, a web page) all follow the same conversation through the app's hub, and drive it with the same commands. Both engines produce **the same states and the same events**, so an interface designed with one works with the other: you only switch the engine in the app.
 
-Everything is defined in [`common/voice-core.js`](common/voice-core.js), which the lab window runs. This file describes that vocabulary, then the two protocols: the clients protocol (the hub), and the audio protocol between the lab window and the local engine.
+Everything is defined in [`common/voice-core.js`](common/voice-core.js), which the studio runs. This file describes that vocabulary, then the two protocols: the clients protocol (the hub), and the audio protocol between the studio and the local engine.
 
 ## The states
 
@@ -55,22 +55,26 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `tool.call` | the agent calls a tool declared in the settings (`extraTools`, Gemini). A client sends the result back (`tool.result`) | `id`, `name`, `args` | `On tool call` |
 | `tool.cancel` | Gemini cancels tool calls | `ids` | — |
 | `timing` | measurements from the local server | `turnId`, `ms` | — |
+| `decision` | the local decision model has decided what to do with a sentence, a signal or the start (docs/DESIGN.md §3) | `text`, `stage`, `kind` (`pattern`, `otherwise` or `free`), `pattern` (`{id, name, kind}` or null), `score` (0 to 1), `example` (the closest one), `entry` (`{table, key}` or null), `candidates` (the next best: `{id, name, score, example, entry}`), `matcher` (`EmbeddingGemma 300M` or `Words`), `ms` | `On decision` (`Decision`, `Decision score`, `Entry` ports) |
+| `stage` | the agent moves to another stage (and once at the start) | `stage`, `from` | `On stage` (`Stage` port) |
+| `signal` | a pattern sends a signal to the clients ("show-artwork: Water Lilies") | `name`, `value` | `On agent signal` (`Agent signal`, `Agent signal value` ports) |
 | `error` | an error | `code`, `message`, `fatal` | `On error` |
 | `ended` | conversation closed | `reason` | — |
 
-**Turn timing** (`turn.ms`): `speech` is how long the person's sentence lasted. `firstSound` runs from the end of their sentence to the agent's first sound: it is the wait you feel. `total` runs from the end of their sentence to the end of the reply. The local engine adds `asr` (waiting for the transcript), `firstToken` (the model's first word), `firstAudio` (first voice frame), `reply`, `filler` (from the end of the person's turn to the start of the filler, when there is one) and `smartTurn` (how long the Smart Turn model took). A filler does not count as the reply: `firstSound` and `Wait (ms)` still measure the wait for the real reply.
+**Turn timing** (`turn.ms`): `speech` is how long the person's sentence lasted. `decide` is how long the decision model took. `firstSound` runs from the end of their sentence to the agent's first sound: it is the wait you feel. `total` runs from the end of their sentence to the end of the reply. The local engine adds `asr` (waiting for the transcript), `firstToken` (the model's first word), `firstAudio` (first voice frame), `reply`, `filler` (from the end of the person's turn to the start of the filler, when there is one) and `smartTurn` (how long the Smart Turn model took). A filler does not count as the reply: `firstSound` and `Wait (ms)` still measure the wait for the real reply.
 
-**The levels** are not events: the lab window reads them on every frame (`agent.levels()` → `{user, bot}`, from 0 to 1), and the clients get them in `levels` messages, about 30 times a second (`Mic level` and `Voice level` ports). For debugging, `agent.debug()` also gives `duck` (1, or 0.3 while the voice is lowered because someone talks over it) and `gain`.
+**The levels** are not events: the studio reads them on every frame (`agent.levels()` → `{user, bot}`, from 0 to 1), and the clients get them in `levels` messages, about 30 times a second (`Mic level` and `Voice level` ports). For debugging, `agent.debug()` also gives `duck` (1, or 0.3 while the voice is lowered because someone talks over it) and `gain`.
 
 **The moods**: `neutral`, `happy`, `curious`, `focused`, `sorry`, `surprised`, `excited`.
 
 ## The settings
 
-They are set in the VIK window, or in a persona file. Clients don't change them.
+They are set in the studio. Clients don't change them. Most belong to the **agent** and are saved in its `persona.md`; those marked **(this computer)** belong to the computer: they are kept in the studio, never in an agent, never exported, and an imported agent cannot set them.
 
 | key | default | what it changes | Gemini | local |
 |---|---|---|---|---|
-| `engine` | `gemini` | the engine | | |
+| `engine` (this computer) | `local` in the studio | the engine: `local` (VIK hears, decides, speaks) or `gemini` (Gemini Live does it all) | | |
+| `agent` | empty | the agent (its folder name): its knowledge and its patterns decide | — | the decision model |
 | `name`, `persona` | Ada, a museum guide | who the agent is | system prompt | system prompt |
 | `language` | `en` | the language | in the prompt (Gemini picks on its own) | Whisper + voice + prompt |
 | `greeting` | empty | what it says first (empty = it waits) | asked of the model | said as written |
@@ -81,8 +85,9 @@ They are set in the VIK window, or in a persona file. Clients don't change them.
 | `localVoiceEngine` | `supertonic` | the local voice engine: `supertonic` (10 preset voices), `parler` (a voice described in words, English only) or `chatterbox` (multilingual, can clone a voice) | — | voice reload |
 | `localVoice`, `localSpeed` | F1, 1 | Supertonic voice (F1–F5, M1–M5); speed (Supertonic and Chatterbox) | — | voice reload |
 | `voiceDescription` | empty | Parler only: the voice described in words ("A warm, low-pitched female voice…"). Empty = Parler's template voice | — | sent with each sentence (no reload) |
-| `localAsr`, `localLlm` | empty (= `src` in `config.json`) | the speech recognition and language models: a QVAC name among the `choices` in `config.json` (any other value = the default) | — | model reload |
-| `llmFarm`, `llmFarmModel`, `llmFarmKey` | empty | an LLM farm on the network ([LlmOnLan](https://github.com/b2renger/LlmOnLan)): its OpenAI address (`http://<host>:4000/v1`), the model on it, its password. Set, the farm writes the replies instead of the local model. This computer only: never exported, never taken from a persona or an imported file | — | sent with each reply (switching between the farm and a local model loads or frees the local model) |
+| `localAsr`, `localLlm` (this computer) | empty (= `src` in `config.json`) | the speech recognition and local language models: a QVAC name among the `choices` in `config.json` (any other value = the default) | — | model reload |
+| `llm` (this computer) | `local` | who writes the replies: `local` (`localLlm`), `farm` (an [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm on the network) or `service` (any OpenAI-compatible address: Ollama, LM Studio, OpenAI, Gemini, Mistral, OpenRouter) | — | switching loads or frees the local model |
+| `llmUrl`, `llmModel`, `llmKey` (this computer) | empty | the farm's or the service's OpenAI address (`http://<host>:4000/v1`), the model there, its key or password | — | sent with each reply |
 | `endSilenceMs` | 800 | silence that ends a turn | `silenceDurationMs` | Whisper end of turn (with Smart Turn: the longest wait) |
 | `turnDetection` | `silence` | how the end of turn is decided: `silence` (the end silence alone) or `smart` (silence + the Smart Turn model: a sentence that sounds finished ends the turn at once) | — | Smart Turn model |
 | `startSensitivity` | `high` | how easily the start of speech is detected | `startOfSpeechSensitivity` | Silero VAD threshold |
@@ -90,8 +95,8 @@ They are set in the VIK window, or in a persona file. Clients don't change them.
 | `prefixPaddingMs` | 20 | minimum speech before a start counts | `prefixPaddingMs` | — |
 | `interruptible` | yes | can you interrupt it? | `activityHandling` | cancels the reply |
 | `interruptAfterMs` | 0 | 0 = any speech over the agent stops it at once. Above 0 (up to 2,000 ms), its voice dips first, and it only stops if the person keeps talking this long. A backchannel ("mm-hm") or a noise lets it carry on; a stop phrase ("stop") makes it stop and listen | — | server |
-| `listenWhileSpeaking` | yes | the mic stays open while it speaks | browser | browser |
-| `micMuted` | no | mic muted | browser | browser |
+| `listenWhileSpeaking` (this computer) | yes | the mic stays open while it speaks (untick with speakers) | browser | browser |
+| `micMuted` (this computer) | no | mic muted | browser | browser |
 | `awayAfterMs` | 0 (never) | silence while listening before `user.away` (up to 3,600,000 ms) | browser | browser |
 | `repromptLine` | empty | what the agent says **once** when the person stays silent (at the first `user.away`) | asked of the model, in its own words | said as written |
 | `replyDelayMs` | 0 | delay added before the voice | browser | server |
@@ -100,13 +105,14 @@ They are set in the VIK window, or in a persona file. Clients don't change them.
 | `repairLine` | empty | what it says when it understood nothing | — | server |
 | `fillerLines` | empty (off) | short phrases said while it thinks, separated by `\|` (up to 20): "Hmm, let me see…\|Good question…" | — | server |
 | `fillerAfterMs` | 1200 | say a filler if the reply's voice has not started this long after the end of the person's turn (0 = never; up to 30,000) | — | server |
-| `volume`, `playVoice` | 1, yes | volume, play through speakers | browser | browser |
+| `volume`, `playVoice` (this computer) | 1, yes | volume, play through speakers | browser | browser |
 | `uiTools` | yes | it can show choices and a mood | `show_choices`, `set_mood` tools | `[[choices: …]]`, `[[mood: …]]` tags |
 | `extraTools` | empty | extra tools (JSON) | function declarations | — |
-| `geminiModel`, `apiKey`, `tokenUrl`, `geminiEndpoint` | gemini-3.8-live | connection to Gemini | | |
-| `serverUrl` | `ws://localhost:8790/voice` | address of the local backend | | |
+| `geminiModel`, `apiKey`, `tokenUrl`, `geminiEndpoint` (this computer) | gemini-3.8-live | connection to Gemini | | |
+| `serverUrl` (this computer) | the studio's own server | address of the local backend | | |
+| `title` | the name | the agent's name in the studio's list (persona.md only) | | |
 
-On the Gemini side, an open session cannot change persona, voice or turn rules. The lab window then says "click Start to restart". On the local side, everything applies live, except the server address. The settings added with the open-source borrowings (`turnDetection`, `interruptAfterMs`, `awayAfterMs`, `repromptLine`, `fillerLines`, `fillerAfterMs`, `localVoiceEngine`, `voiceDescription`) never need a restart, nor do the model choices (`localAsr`, `localLlm`, `llmFarm`…). A "—" in the Gemini column means Gemini ignores the setting.
+On the Gemini side, an open session cannot change persona, voice or turn rules. The studio then says "click Start to restart". On the local side, everything applies live, except the server address. The settings added with the open-source borrowings (`turnDetection`, `interruptAfterMs`, `awayAfterMs`, `repromptLine`, `fillerLines`, `fillerAfterMs`, `localVoiceEngine`, `voiceDescription`) never need a restart, nor do the model choices (`localAsr`, `localLlm`, `llm`…) or the agent (`agent`: back to its first stage). A "—" in the Gemini column means Gemini ignores the setting.
 
 ## The clients protocol (the hub)
 
@@ -116,28 +122,29 @@ Allowed pages: those served from this computer (`http://localhost:*`, `http://12
 
 **The app sends** (JSON):
 
-- `{type:'hello', app, name, engine, state, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the lab window opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when no lab window is connected (the server runs on its own, `npm run server`, with no lab page open): nothing happens until one opens;
+- `{type:'hello', app, name, engine, state, stage, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the studio opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when no studio is connected (the server runs on its own, `npm run server`, with no lab page open): nothing happens until one opens;
 - every event of the table above, as it is: `{type, state, t, …data}`;
 - `{type:'levels', user, bot}`: the mic and the voice, from 0 to 1, about 30 times a second while they move;
-- `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the lab window is closed) or `bad-command`.
+- `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the studio is closed) or `bad-command`.
 
 **The client sends** (JSON):
 
 | command | what it does |
 |---|---|
-| `{type:'start'}` | starts the conversation, like the lab window's Start button |
+| `{type:'start'}` | starts the conversation, like the studio's Start button |
 | `{type:'stop'}` | stops it |
 | `{type:'interrupt'}` | cuts the agent's reply |
 | `{type:'text', text}` | a typed message: the agent replies to it |
 | `{type:'context', text}` | information for the agent, with no reply ("the visitor is in room 2") |
 | `{type:'choose', option}` | picks one of the choices the agent offered |
 | `{type:'tool.result', id, result}` | the result of a `tool.call` (Gemini) |
+| `{type:'signal', name, value}` | a signal (a sensor, a button, a moment of a scene): the agent's pattern "when a client sends this signal" answers it, if there is one; otherwise the agent knows it as context (Gemini: as context) |
 
 Every client sees the same conversation, and any of them can drive it. The mic and the speakers are the app's: clients only show and command.
 
-## The audio protocol (lab window ↔ local engine)
+## The audio protocol (studio ↔ local engine)
 
-The lab window streams the mic to the local engine and plays its voice through a WebSocket: `ws://localhost:8790/voice`. Clients never use it: they use the hub. The app only accepts its own page there.
+The studio streams the mic to the local engine and plays its voice through a WebSocket: `ws://localhost:8790/voice`. Clients never use it: they use the hub. The app only accepts its own page there.
 
 **The browser sends:**
 
@@ -145,10 +152,11 @@ The lab window streams the mic to the local engine and plays its voice through a
 - as JSON:
   - `{type:'start', settings}`: start;
   - `{type:'settings', settings}`: change a setting;
-  - `{type:'text', text}`: a typed message, or a choice;
+  - `{type:'text', text}`: a typed message, or a choice (`(The user chose: "…")`: the decision is made on the option itself);
   - `{type:'context', text}`: information for the agent, with no reply. It never cuts the agent off: the local engine keeps it for the next reply (the last 5), and the Gemini engine holds it while the agent is speaking, then sends it at the end of the reply;
   - `{type:'interrupt'}`: cut the reply;
   - `{type:'say', text}`: the agent says this line as written, with no thinking state, and it goes into the history as the agent's message (used for the reprompt line);
+  - `{type:'signal', name, value}`: a client's signal, for the agent's patterns "when a client sends this signal";
   - `{type:'playback', state:'ended', turnId}`: the voice has finished playing;
   - `{type:'stop'}`: stop.
 
@@ -170,13 +178,14 @@ The lab window streams the mic to the local engine and plays its voice through a
   - `{type:'bot.filler', text, turnId}`: a spoken filler, followed by its audio frames;
   - `{type:'ui.choices', question, options}`;
   - `{type:'ui.mood', mood}`;
-  - `{type:'timing', turnId, ms}`: `ms` includes `smartTurn` when the model was used;
+  - `{type:'timing', turnId, ms}`: `ms` includes `smartTurn` when the model was used, and `decide` (the decision model);
+  - `{type:'decision', …}`, `{type:'stage', stage, from}`, `{type:'signal', name, value}`: as the events of the same names. A decision comes after `thinking`; a pattern's choices, mood, signals and stage come right after it, before the reply's sentences;
   - `{type:'error', code, message, fatal}`.
 
   Two `status` texts are warnings, not errors: "Smart Turn is unavailable here: using silence only." (once per conversation) and "Parler only speaks English: replies will sound English-accented."
 - as binary: the voice, with an 8-byte header followed by the sound. The first 4 bytes give the sample rate (unsigned 32-bit integer, little-endian), the next 4 the turn number (same format), then comes the 16-bit mono PCM. The browser ignores the voice of a turn it has interrupted. A turn number of `0xFFFFFFFF` (4294967295) marks the audio of a **filler**: the browser plays it, but it is not part of the reply.
 
-One conversation at a time. A second lab window that connects takes over, and the first one receives the `replaced` error.
+One conversation at a time. A second studio that connects takes over, and the first one receives the `replaced` error.
 
 ## Mapping to other toolkits
 

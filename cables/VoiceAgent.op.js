@@ -116,7 +116,7 @@ function showChoices(question, options) {
   outChoices.setRef(choices);
 }
 
-/** The snapshot sent on connecting, and again when the lab window opens or closes. */
+/** The snapshot sent on connecting, and again when the studio opens or closes. */
 function onHello(m) {
   outApp.set(!!m.app);
   op.setUiError('app', m.app ? null : 'The VIK app is running, but its window is closed.', 1);

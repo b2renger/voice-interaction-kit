@@ -1,109 +1,98 @@
-<p align="center"><img src="app/public/logo.svg" width="128" alt="Voice Interaction Kit logo: a person's voice and a smiling agent taking turns in speech bubbles, with a wrench"></p>
+<p align="center"><img src="app/public/logo.svg" width="112" alt="VIK logo: an agent's presence and the ring of its voice, on ultramarine"></p>
 
-# VIK, the Voice Interaction Kit: designing an agent that talks
+# VIK, the Voice Interaction Kit
 
-A kit that lets design students work on the **identity of a voice agent** (its voice, its personality) and on the **basic vocabulary of voice UX**: taking turns, knowing when someone has finished, interrupting, thinking, not understanding, visual and sound feedback, and calls to action.
+A kit for design students to build **agents you talk to**, and to work on the vocabulary of voice interaction: who the agent is and how it sounds, what it knows, how it decides what to say, when it takes its turn, how it can be interrupted, what it does while it thinks, and what an interface shows of all this.
 
-It has **one brain and several clients**:
+It has **one studio and several clients**:
 
 | | what it is | for what |
 |---|---|---|
-| [**The VIK app**](app/) | **the brain.** It listens, thinks and speaks, with QVAC (100% local, open models, no key) or with Gemini Live (online, the smoothest voice available today). It holds the persona, its knowledge and the settings, in its lab window. | a Windows / Mac M1 app, installed once on each computer |
-| **Its clients** | they follow the conversation and drive it: [**the cables.gl op "VoiceAgent"**](cables/), and [**p5.js and HTML/CSS/JS examples**](examples/) to start your own pages | designing the interface: visuals, animations, subtitles, buttons. Several clients can follow the same conversation at once |
+| [**The VIK studio**](app/) | **the brain**, a Windows / Mac app. You build an agent (persona, knowledge, interactions, voice), you talk to it, and you see why it answered. It listens, decides and speaks on the computer. | designing the agent and the conversation |
+| **Its clients** | [**the cables.gl op "VoiceAgent"**](cables/), and [**p5.js and HTML/CSS/JS examples**](examples/): they follow the conversation, show it, and drive it | designing the interface: visuals, animation, subtitles, buttons, sensors |
 
-Both engines produce **the same states and the same events** ([`CONTRACT.md`](CONTRACT.md)). A client designed with the local engine works with Gemini, and the other way round: only the engine chosen in the app changes.
+## How an agent works
+
+```
+ microphone ─► HEAR ─────────► DECIDE ─────────────────────► REPLY ──────────────────► SPEAK ─► speakers
+              Whisper          the decision model:            a line, as written, or     the local voice
+              (local)          the patterns you wrote,        a language model: on this  (Supertonic, Parler,
+                               the knowledge you gave         computer, an LLM farm on   Chatterbox)
+                               (local, always)                the network, or a service
+```
+
+An agent is made of four things, all edited in the studio:
+
+- **a persona**: who it is and how it speaks, in markdown;
+- **knowledge**: tables of what it knows (artworks, dishes, departures, plants), edited like a spreadsheet and imported or exported as CSV. A cell that names an entry of another table links the two;
+- **interactions**: **patterns**, "When … → Then …" ("when the visitor mentions an artwork, tell it in two sentences, then show it on screen"), grouped in **stages** (welcome, tour, goodbye). Before any language model writes a word, a small local **decision model** (EmbeddingGemma 300M) compares what was said with the patterns and the knowledge. The closest pattern fires; if none is close enough, the language model answers freely, with what the agent knows. The studio shows **why** each answer was chosen, with scores;
+- **a voice and a timing**: which voice, how long a silence ends a turn, what it does while it thinks.
+
+Four example agents come with the app: a museum guide, a station kiosk, a chef who guides a recipe step by step, and a gardener.
+
+**Gemini Live** is also there, as an all-online mode: Gemini hears, decides and speaks by itself, with the persona and the knowledge but without the patterns. It is a reference to compare a designed agent with.
 
 ## What you can explore, and with what
 
-The settings are in the VIK window; the signals reach every client.
-
-| design question | settings | signals for the interface |
+| design question | in the studio | signals for the interface (clients) |
 |---|---|---|
-| **Who is the agent?** | Name, Persona, Creativity, Short answers, Greeting | — |
-| **What does it know?** | the persona, and a knowledge file next to it (a menu, opening hours, the artworks of a room) | — |
-| **Which voice?** | Voice (30 Gemini voices; locally, 10 Supertonic voices, a voice described in words with Parler, or Chatterbox), Speaking style, Speed | Voice level (a mouth, a glow) |
-| **When have you finished speaking?** | End silence (impatient ↔ patient), Start sensitivity and End sensitivity, End of turn (local: silence only, or silence + Smart Turn) | Hearing, On user end, Mic level, Turn probability (local) |
-| **Can you interrupt it?** | Interruptible, Listen while speaking, Interrupt button, Interrupt after (local: a "mm-hm" lets it carry on, "stop" makes it stop) | On interruption, On interruption pending, On interruption cancelled |
-| **What happens while it thinks?** | Reply delay (latency as a design material), Thinking sound, Filler lines (local: "Hmm, let me see…") | Thinking, On thinking, On filler, Wait (ms) |
-| **How smart, how fast?** | Language model (local: five sizes, or an LLM farm on the network), Speech recognition (four Whisper sizes) | Wait (ms), Turn timing |
-| **What if it didn't understand?** | Repair line (local) | On not understood, live transcripts |
-| **What if the person says nothing?** | Away after, Reprompt line ("Are you still there?") | On away |
-| **How do you show it's listening?** | Earcons (off, soft, clear) | the states, the levels, the subtitles |
-| **How do you offer an action?** | On-screen choices and mood, tools (`extraTools`, Gemini) | Choices, Question, Mood, Tool call → Choose, Tool result |
-| **Typing instead of talking, informing without interrupting** | — | commands from any client: text, context |
+| **Who is the agent?** | Persona: name, text, greeting, short answers, creativity | — |
+| **What does it know?** | Knowledge: tables, links between them, other names (`Water Lilies \| Nymphéas`) | — |
+| **How does it decide?** | Interactions: patterns, stages, confidence, a field to try a sentence | Decision, Stage, Entry, On decision, On stage |
+| **What does it make happen?** | patterns that show choices, set a mood, move to a stage, send a signal | Choices, Mood, Agent signal, On agent signal |
+| **What makes it react?** | patterns "when a client sends this signal": a sensor, a button, a moment of a scene | Send signal (from cables, p5.js, a page) |
+| **Which voice?** | Voice & timing: 10 Supertonic voices, a voice described in words (Parler), Chatterbox; 30 Gemini voices | Voice level |
+| **When have you finished speaking?** | end-of-turn silence, sensitivities, the Smart Turn model | Hearing, On user end, Mic level, Turn probability |
+| **Can you interrupt it?** | interruptible, listen while speaking, talk over it this long (a "mm-hm" lets it carry on) | On interruption, On interruption pending / cancelled |
+| **What happens while it thinks?** | reply delay, thinking sound, filler lines | Thinking, On filler, Wait (ms) |
+| **How smart, how fast?** | Settings: the language model (5 local sizes, an LLM farm, a service), speech recognition (4 Whisper sizes) | Wait (ms), Turn timing |
+| **What if it didn't understand, or nobody speaks?** | repair line, away after, reprompt line | On not understood, On away |
 
-Every turn is measured: `speech` (how long the person spoke), `firstSound` (the wait you feel, between the end of your sentence and the agent's voice) and `total`. So you can compare design choices with numbers.
-
-### Borrowed from open source
-
-Some features come from what other open-source voice projects do well (see [the open-source landscape](docs/OPEN_SOURCE_LANDSCAPE.md)). Most of them work with the local engine only:
-
-- **the Smart Turn end-of-turn model** (Pipecat's Smart Turn v3.2, BSD-2): a small model that hears whether your sentence sounds finished. A complete sentence ends the turn quickly; a pause in the middle waits for the silence;
-- **interruption that tolerates backchannels**: when you talk over the agent, its voice dips first. A "mm-hm" lets it carry on, "stop" makes it stop and listen, and a real sentence interrupts it;
-- **spoken fillers**: a short "Hmm, let me see…" when the reply is slow;
-- **away and reprompt** (both engines): an event when the person stays silent, and a line said once ("Are you still there?");
-- **three local voice engines**: Supertonic (10 preset voices, the default), **Parler** (you describe the voice in words, English only) and **Chatterbox** (multilingual, and it can clone a voice).
-
-## The documentation
-
-- [**`docs/GUIDE.md`**](docs/GUIDE.md): the full guide. It covers getting started, the edge cases one by one (voice, personality, end of turn, interruption, thinking, not understanding, silence from the person, calls to action), workshop exercises, visual references and open course resources, the architecture, troubleshooting and the limits.
-- [**`docs/HUMAN_TESTS.md`**](docs/HUMAN_TESTS.md): the test protocol to run yourself, on real machines and with real students, to check that the kit does what was asked. The ★ tests make up a quick run of about 2½ hours.
-- [**`docs/OPEN_SOURCE_LANDSCAPE.md`**](docs/OPEN_SOURCE_LANDSCAPE.md): what already exists in open source, and what the kit borrowed from it.
-- [**`CONTRACT.md`**](CONTRACT.md): the shared vocabulary (states, events, settings), the clients protocol (the hub), the local engine's audio protocol, and how it maps to other toolkits (LiveKit, Pipecat, ElevenLabs, Home Assistant).
-- [**`examples/README.md`**](examples/README.md): your own clients in p5.js or plain HTML/CSS/JS.
-- [**`PUBLISHING.md`**](PUBLISHING.md): how to put the kit on GitHub and publish the VIK installers as a release.
+Every turn is measured: how long the person spoke, the **felt wait** (from the end of their sentence to the agent's voice), the whole reply, and how long the decision took. Design choices can be compared with numbers.
 
 ## Getting started
 
-1. **Install the app**: [`app/README.md`](app/README.md). The installers come from the repository's **Releases** page on GitHub: GitHub Actions builds them for Windows and Apple Silicon Macs each time you tag a version (see [`PUBLISHING.md`](PUBLISHING.md)). You can also build them yourself with `npm run make`. Choose the engine in its window: local (nothing else needed) or Gemini (a key, or a token server).
-2. **Connect a client**: the cables op ([`cables/README.md`](cables/README.md): "Code a new op", paste `VoiceAgent.op.js`, click Start), or an example ([`examples/`](examples/): p5.js, HTML/CSS/JS).
+1. **Install the studio**: [`app/README.md`](app/README.md). The installers are on the repository's **Releases** page (built by GitHub Actions for Windows and Apple Silicon Macs, see [`PUBLISHING.md`](PUBLISHING.md)).
+2. **Open an example agent**, click **Start** and talk. Then open **Interactions**, type a sentence in "Try a sentence", and change a pattern.
+3. **Connect a client**: the cables op ([`cables/README.md`](cables/README.md)) or an example ([`examples/`](examples/)).
+
+## The documentation
+
+- [**`docs/GUIDE.md`**](docs/GUIDE.md): the guide for the workshop: getting started, building an agent, the edge cases of a voice conversation one by one, exercises, troubleshooting, limits.
+- [**`docs/DESIGN.md`**](docs/DESIGN.md): how VIK is built: the pipeline, the agent's files (`persona.md`, CSV tables, `interactions.json`), the decision model and its measurements, the language models, the studio.
+- [**`CONTRACT.md`**](CONTRACT.md): the shared vocabulary (states, events, settings), the clients protocol, the local engine's protocol.
+- [**`docs/HUMAN_TESTS.md`**](docs/HUMAN_TESTS.md): the protocol to check the kit yourself, on real machines, with real students.
+- [**`docs/OPEN_SOURCE_LANDSCAPE.md`**](docs/OPEN_SOURCE_LANDSCAPE.md): what already exists in open source, and what the kit borrowed.
+- [**`PUBLISHING.md`**](PUBLISHING.md): publishing the installers as a GitHub release.
 
 ## The folder
 
 ```
-common/voice-core.js          the core the lab window runs: mic, voice, states, events, Gemini and local engines
-CONTRACT.md                   the vocabulary: states, events, settings, clients protocol, audio protocol, mapping to other toolkits
-cables/
-  VoiceAgent.op.js            ← the op to paste into cables: a client of the app
-  token-server/               small Gemini token server (so the key stays out of the lab window)
-examples/                     your own clients: p5js/ and html-css-js/
-app/                 the Electron app "VIK"
-  electron/main.cjs           the app: built-in server, window, mic, menus
-  src/                        the voice server (session, QVAC engine, simulated engine, text), the hub (clients), the self-test
-  src/turn/                   Smart Turn: the end-of-turn model and its audio features (a JavaScript port of Pipecat's)
-  models/                     the Smart Turn v3.2 model (8.7 MB, BSD-2) and its license
-  public/index.html           the lab window (persona, sliders, face, subtitles, measurements)
-  personas/                   example personas (museum, station, gardener, chef)
-  forge.config.cjs            packaging (Windows .exe, Mac .dmg) with QVAC's Forge plugin
-docs/GUIDE.md                 the full guide (getting started, edge cases, exercises, architecture, troubleshooting)
-docs/HUMAN_TESTS.md           the human test protocol
-docs/OPEN_SOURCE_LANDSCAPE.md what already exists in open source
-tests/                        the automated tests (see tests/README.md)
-  run-all.mjs                 runs every suite and prints a summary (npm test)
-  tools/, fixtures/           Smart Turn reference scripts (Python) and their reference values
-.github/workflows/            tests.yml (the tests, on every push to main) and release.yml (installers → GitHub Release)
-package.json                  npm test, and Playwright for the browser tests
-PUBLISHING.md                 how to publish on GitHub and cut a release
-LICENSE                       MIT, for the kit's own code
-THIRD_PARTY_NOTICES.md        the licenses of the parts that come from elsewhere
+app/                          the VIK studio (Electron)
+  agents/                     the example agents (copied into the app's settings folder on first launch)
+  public/                     the studio: index.html, vik.css, js/ (one module per view), fonts/, logo.svg
+  src/                        the server: the studio's API, the hub, the conversation (session.mjs)
+    agent/                    agents on disk, CSV, persona.md, interactions, knowledge, the decision model
+    engines/                  QVAC (Whisper, Qwen3…, voices, EmbeddingGemma) and a simulated engine
+    llm.mjs, farm.mjs         language models elsewhere: LLM farms (LlmOnLan), OpenAI-compatible services
+    turn/                     Smart Turn, the end-of-turn model
+  electron/main.cjs           the window, menus, microphone, settings folder
+  config.json                 the models (and the choices offered), the defaults
+cables/VoiceAgent.op.js       the cables op, a client (and token-server/ for Gemini keys)
+examples/                     p5.js and HTML/CSS/JS clients
+common/voice-core.js          the conversation in the browser: microphone, voice, states, events, Gemini Live
+docs/                         the guide, the design, the human tests, the landscape
+tests/                        the automated tests (npm test)
 ```
 
 ## What has been checked
 
-In total, **446 automated checks** pass (1 more is skipped here, see below). Run them all from the root with `npm test` (or `node tests/run-all.mjs`). On GitHub, they run on every push to `main` and on every pull request.
+More than **560 automated checks** pass (`npm test` at the root, see [`tests/README.md`](tests/README.md)). They run without models and without a Gemini key, against faithful fakes: Gemini Live, the QVAC SDK (which refuses what the real one refuses), Electron, an LLM farm. They include an agent built entirely in the studio, in Chromium (persona, table, pattern, a try, a conversation that follows the pattern, a signal, an export).
 
-- **The Gemini engine** (run by the lab window): 89 checks in Chromium, with a fake mic, against a fake Gemini Live server. This fake server speaks the official protocol, and it is just as strict: an unknown field closes the session. They cover the setup sent, audio, turns, choices, tools, interruptions (by voice, by gesture, by text or a choice while it speaks, with or without Gemini's confirmation), context, away and the reprompt, stopping during connection or the mic request, the token server, session resumption and errors.
-- **The local app**: 86 checks in Chromium (the lab window with the simulated engine, including the voice dipping for a "mm-hm", spoken fillers, away, the voice engine fields and the model pickers; and its clients through the hub: the cables op, run exactly as cables runs it, and the HTML and p5.js examples) and 49 protocol checks (including Smart Turn, stop phrases and fillers). On top of that, 46 checks of the QVAC adapter against a fake SDK, which checks the options passed to QVAC (Supertonic, Parler and Chatterbox) and accepts only one recognition stream at a time, like QVAC. Then 25 checks of the Electron process with a fake Electron, including the Windows installer and the personas' knowledge files, and 19 checks of the hub (snapshots, events, levels, commands, who may connect). The models offered in the window: 26 checks against the fake SDK. The LLM farm (LlmOnLan): 29 checks against a fake farm (found by its beacon or its address, replies, refusals, a whole conversation).
-- **Smart Turn**: 41 checks. The JavaScript audio features match Pipecat's Python reference, and the real model, run through Python's onnxruntime, gives exactly the same probabilities on both. The skipped check is the real prediction through `onnxruntime-node`, which could not be installed here.
-- **The text** (sentence splitting, cleanup for the voice, tags, tools): 36 checks.
-- **Not yet checked for real**:
-  - **the real Gemini API**, since there was no key here;
-  - **the real QVAC models** (including Parler and Chatterbox, and the models other than the defaults) and **the Electron packaging**, which the build environment could not install;
-  - **a real LlmOnLan farm**;
-  - **Smart Turn inside the app** (`onnxruntime-node` in Electron, the model in the installers) and its accuracy on real voices.
+**Checked with the real models**, on a Windows computer with QVAC 0.21: Whisper, Qwen3 1.7B and Supertonic load from their files; **EmbeddingGemma 300M** downloads from Hugging Face and runs the decision model: 34 sentences on the example agents, in English and in French, all decided as intended, in about 20 ms each. Its score ranges were measured there.
 
-  First steps on a real machine: tests A1 to A7 and A12 of the [human test protocol](docs/HUMAN_TESTS.md). The full list of what remains to be checked is in [the guide](docs/GUIDE.md) (section 8).
+**Not yet checked for real**: the Gemini API, the packaged installers, a real LlmOnLan farm and online services, the local models other than the defaults (Llama 3.2 above all), Smart Turn inside the packaged app. The [human test protocol](docs/HUMAN_TESTS.md) starts with these.
 
 ## License
 
-The kit's own code is under the MIT license ([`LICENSE`](LICENSE)). The parts that come from elsewhere (the Smart Turn model, QVAC, the voice models…) keep their own licenses: see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+The kit's own code is under the MIT license ([`LICENSE`](LICENSE)). The parts that come from elsewhere (models, QVAC, the font…) keep their own licenses: see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

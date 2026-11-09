@@ -1,8 +1,7 @@
 /* =============================================================================
- * voice-core.js — the shared core of the two voice-interaction prototypes.
+ * voice-core.js — the conversation in the browser, for VIK (the Voice Interaction Kit).
  *
- * It runs in the browser (inside a cables.gl op, or in the lab window of the
- * QVAC backend). It handles everything the two engines have in common:
+ * It runs in the VIK studio (app/public). It handles everything the two engines have in common:
  *   - the microphone (capture, level, client-side speech detection),
  *   - the bot's voice (playback, level, interruption),
  *   - the state machine of a turn (listening → hearing → thinking → speaking),
@@ -11,7 +10,8 @@
  *
  * Two engines:
  *   - "gemini": the Gemini Live API (WebSocket, native voice, online);
- *   - "local":  the QVAC backend in the app folder (local WebSocket).
+ *   - "local":  the VIK server (app/src): it hears, decides with the agent's patterns, has the reply written
+ *               and speaks it (local WebSocket).
  *
  * No dependencies. This file defines a single constant: VoiceCore.
  * ========================================================================== */

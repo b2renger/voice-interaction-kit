@@ -2,7 +2,7 @@
 // (the voice core, common/voice-core.js). docs/DESIGN.md, 5.
 import { $, $$, h, toast, ask, menu, seconds } from './ui.js';
 import { api } from './api.js';
-import { state, settings, valueOf, set, onChange, openAgent, lastAgent, flush } from './state.js';
+import { state, settings, valueOf, set, onChange, openAgent, lastAgent, flush, reloadAgent } from './state.js';
 import { initTalk, banner } from './talk.js';
 import { initKnowledge, renderKnowledge } from './knowledge.js';
 import { initInteractions, renderInteractions } from './interactions.js';
@@ -212,6 +212,9 @@ async function pollHealth() {
   if (wasLoading && !agent.active && !hl.error) { banner('', 'The models are ready: click Start.'); wasLoading = false; loadModels(); }
   setTimeout(pollHealth, 15000);
 }
+
+// a table edited in a spreadsheet, a persona in a text editor: seen when the studio comes back to the front
+window.addEventListener('focus', () => { reloadAgent().catch(() => {}); });
 
 // ———————————————————————————— boot ————————————————————————————
 (async () => {

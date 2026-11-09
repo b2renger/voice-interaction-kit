@@ -1,7 +1,7 @@
 // The hub: the VIK window is the brain (it runs the conversation, with the local engine or Gemini,
 // with its persona, knowledge and settings), and any number of clients (a cables.gl patch, a p5.js sketch,
 // a web page) follow that conversation and drive it.
-//   /brain   the lab window: publishes the agent's events and levels, runs the clients' commands
+//   /brain   the studio: publishes the agent's events and levels, runs the clients' commands
 //   /events  the clients: get {type:'hello', …snapshot}, then every event and the levels; send commands
 // The messages are described in CONTRACT.md ("The clients protocol").
 
@@ -56,7 +56,7 @@ export function createHub(log = () => {}) {
     brain(ws) {
       if (brain) brain.close(1000, 'another lab window took over');
       brain = ws;
-      log('▸ hub: the lab window is connected');
+      log('▸ hub: the studio is connected');
       ws.on('message', (d) => onMessage(ws, d, fromBrain));
       ws.on('close', () => {
         if (brain !== ws) return;

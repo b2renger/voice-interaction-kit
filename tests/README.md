@@ -20,12 +20,12 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final; the models offered in the window (`choices`), and that nothing else loads; an LLM farm frees the local model | Node 22+ |
 | `node tests/test-agents.mjs` | the agents on disk (`app/src/agent/`): `persona.md` (front matter + markdown), CSV tables (separators, quotes, Excel's UTF-8 mark), `interactions.json` (normalized), the store (examples on first launch, old personas imported, trash, copy, export/import, hand edits seen, names that cannot leave the folder), and the studio's API through the server | Node 22+ |
 | `node tests/test-decide.mjs` | the decision model (`app/src/agent/`): knowledge (links, other names, placeholders), the words matcher, the decider on the example agents (patterns, stages, `otherwise`, free answers, the entry in focus, confidence, ambiguity, signals), the model matcher (prompts, batches, cache), and conversations that follow the decisions (lines filled from rows, signals out and in, `answer` with the entry and its links sent to a fake farm, `start` patterns) | Node 22+ |
-| `node tests/test-farm.mjs` | LLM farms (LlmOnLan) against a fake farm (`mock-farm.mjs`): found by their UDP beacon or by their address, replies streamed, refusals said in words (password, full, model gone, off), cancelling; `/models` and `/farms`; a conversation whose replies come from the farm | Node 22+ |
+| `node tests/test-farm.mjs` | language models elsewhere against a fake farm (`mock-farm.mjs`): LLM farms found by their UDP beacon or by their address; replies streamed from a farm or a service; refusals said in words (password or key, full, model gone, off, too many requests); a service's model list; cancelling; `/models`, `/farms`, `/api/llm/models`; a conversation whose replies come from the farm | Node 22+ |
 | `node tests/test-electron-main.mjs` | the Electron app with a fake Electron: Windows installer (shortcuts), built-in server, window, mic permission, menus, personas and their knowledge files, closing | Node 22+ |
-| `node tests/test-hub.mjs` | the hub (`app/src/hub.mjs`) through the real server: a fake lab window publishes, two clients follow; snapshots, events, levels, commands, refused commands, who may connect | Node 22+ |
+| `node tests/test-hub.mjs` | the hub (`app/src/hub.mjs`) through the real server: a fake studio publishes, two clients follow; snapshots, events, levels, commands, refused commands, who may connect | Node 22+ |
 | `node tests/test-smart-turn.mjs` | the Smart Turn end-of-turn pipeline (`app/src/turn/`), see below | Node 22+ (optional: Python 3 with numpy and onnxruntime) |
-| `node tests/test-gemini.mjs` | voice-core's Gemini Live engine (run by the lab window) in Chromium, with a fake mic, against a fake Gemini Live server, including away and the reprompt | Node + Playwright |
-| `node tests/test-local.mjs` | the lab window in Chromium, with the simulated engine and a fake mic, including the voice dipping, fillers, away, the voice engine fields, and the model pickers with an LLM farm added by its address; and its clients through the hub: the cables op, the HTML and p5.js examples (p5.js comes from its CDN) | Node + Playwright |
+| `node tests/test-gemini.mjs` | voice-core's Gemini Live engine (run by the studio) in Chromium, with a fake mic, against a fake Gemini Live server, including away and the reprompt | Node + Playwright |
+| `node tests/test-local.mjs` | the studio in Chromium, with the simulated engine and a fake mic: a conversation (the voice dipping, fillers, away, the voice fields); Settings (the models, an LLM farm added by its address, a service, an imported agent that cannot change them); an agent built entirely in the studio (persona, a table, a pattern, a try, a conversation that follows it, its signal, an export, a table changed outside); and its clients through the hub: the cables op (signals, stage, decisions), the HTML and p5.js examples (p5.js comes from its CDN) | Node + Playwright |
 
 Playwright: `npm install` at the root of the kit (it is a development dependency there), then `npx playwright install chromium`.
 
@@ -36,16 +36,20 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-text | 36 | 0 |
 | test-protocol (simulated engine) | 49 | 0 |
 | test-protocol fake-qvac | 46 | 0 |
-| test-models | 26 | 0 |
-| test-farm | 29 | 0 |
-| test-electron-main | 25 | 0 |
+| test-agents | 51 | 0 |
+| test-decide | 50 | 0 |
+| test-models | 30 | 0 |
+| test-farm | 37 | 0 |
+| test-electron-main | 28 | 0 |
 | test-smart-turn | 41 | 1 |
 | test-gemini | 89 | 0 |
-| test-hub | 19 | 0 |
-| test-local | 86 | 0 |
-| **total** | **446** | **1** |
+| test-hub | 22 | 0 |
+| test-local | 103 | 0 |
+| **total** | **582** | **1** |
 
-The skipped check is the real Smart Turn prediction through `onnxruntime-node`, which could not be installed where the kit was built. It runs when `onnxruntime-node` is installed (`npm install` in `app`).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (567 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+
+**Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 
 ## The Smart Turn suite
 

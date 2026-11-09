@@ -178,9 +178,15 @@ One window, a few views, saved as you type:
 | **Voice & timing** | the voice, turn-taking, feedback |
 | **Settings** | the engine, the models, the language model, the clients' address |
 
-A small talk bar stays at the bottom of every view, so an agent can be tested while it is being edited.
+The top bar holds the agent (and **Manage**: new, duplicate, export, import, delete, the examples), "Saved", the live state with the last words said, and **Start** / **Stop**: an agent can be tested from any view while it is being edited.
 
-The server behind the window (`app/src/app-server.mjs`) serves the page and a small API: `GET/PUT /api/agents/…` (the files), `POST /api/decide` (the test field), `GET /models` and `GET /farms`. The API only answers the studio's own page.
+**The look.** One family, Schibsted Grotesk (bundled: the studio works offline); a cool studio grey; one pigment, ultramarine; and the colours of the conversation's states (listening ultramarine, hearing cerulean, thinking violet, speaking amber). The agent's presence in Talk is the one bold element: a body and rings that leave it with the voices, in the state's colour. Light and dark follow the system.
+
+**Saving.** Each field is saved a moment after you stop typing (`persona.md`, the CSV of a table, `interactions.json`). When the window comes back to the front, the agent is read again from disk (a table edited in a spreadsheet), unless the studio still has edits of its own to save.
+
+**This computer's settings** (the engine, the language model and its address and key, the models, the speakers) are kept in the window, never in an agent: the server drops them from any `persona.md` it reads, writes or imports, and the page ignores them in an agent. An agent from someone else cannot send the conversation elsewhere.
+
+The server behind the window (`app/src/app-server.mjs`) serves the page and a small API (`app/src/api.mjs`): `GET/PUT/POST/DELETE /api/agents/…` (the files), `POST /api/decide` (the test field), `POST /api/llm/models` (a service's models), `GET /models` and `GET /farms`. The API only answers the studio's own page (`sec-fetch-site`, `origin`).
 
 ## 6. Protocol additions
 
@@ -192,6 +198,6 @@ On top of [`CONTRACT.md`](../CONTRACT.md):
 
 ## 7. Not in this version
 
-- A canvas to draw the stages (the Interactions view shows them as a list and a small map).
+- A canvas to draw the stages (the Interactions view shows them as chips, and the patterns per stage).
 - Patterns that remember an answer for later (slot filling), and `silence` patterns (the persona's reprompt line covers silence).
 - The patterns with Gemini Live.

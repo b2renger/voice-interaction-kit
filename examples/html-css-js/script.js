@@ -28,7 +28,7 @@ function send(command) {
 
 function onMessage(m) {
   switch (m.type) {
-    case 'hello':          // on connecting, and when the lab window opens or closes: the conversation as it is
+    case 'hello':          // on connecting, and when the studio opens or closes: the conversation as it is
       $('app').textContent = m.app ? `Connected to ${m.name || 'the agent'} (${m.engine})` : 'The VIK app is running, but its window is closed.';
       $('name').textContent = m.name || 'Agent';
       showState(m.state);

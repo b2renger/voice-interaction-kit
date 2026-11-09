@@ -112,6 +112,24 @@ export function saveTableSoon(t) {
 const saveInteractionsNow = () => { const id = state.agentId; const data = state.agent.interactions; return guard(() => api.saveInteractions(id, data)); };
 export const saveInteractionsSoon = debounce(saveInteractionsNow, 500);
 
+/** Edits not yet on disk (waiting, or being sent). */
+export function busy() {
+  return saving > 0 || savePersonaSoon.pending() || saveInteractionsSoon.pending() || [...tableSavers.values()].some((s) => s.pending());
+}
+
+/**
+ * The agent's files again, from disk: they may have been edited by hand (a table in a spreadsheet) while the
+ * studio was in the background. Never over edits of the studio not yet saved. Tells the views if anything changed.
+ */
+export async function reloadAgent() {
+  if (!state.agentId || busy()) return false;
+  const a = await api.agent(state.agentId);
+  if (busy() || a.id !== state.agentId || JSON.stringify(a) === JSON.stringify(state.agent)) return false;
+  state.agent = a;
+  emit('agent', a);
+  return true;
+}
+
 /** Everything still waiting to be saved, now (before opening another agent). */
 export function flush() {
   savePersonaSoon.flush();
