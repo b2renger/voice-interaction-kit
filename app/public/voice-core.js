@@ -1409,6 +1409,8 @@ const VoiceCore = (function () {
     LOCAL_VOICE_ENGINES: LOCAL_VOICE_ENGINES, LOCAL_KEYS: LOCAL_KEYS,
     MOODS: MOODS, LANGUAGES: LANGUAGES, RESTART_KEYS: RESTART_KEYS,
     createVoiceAgent: createVoiceAgent,
+    /** The system prompt for these settings: what the language model reads (engine 'local' or 'gemini'). */
+    systemPrompt: systemPrompt,
     // exposed for tests
     _: { systemPrompt: systemPrompt, geminiSetup: geminiSetup, parseExtraTools: parseExtraTools, bytesToB64: bytesToB64, b64ToInt16: b64ToInt16, floatToInt16: floatToInt16, makeDownsampler: makeDownsampler, makeClientVad: makeClientVad },
   };

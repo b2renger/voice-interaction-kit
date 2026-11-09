@@ -17,6 +17,13 @@ export const ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const MARKER = '.vik';
 const MAX_ROWS = 5000;
 const MAX_COLUMNS = 50;
+/**
+ * This computer's settings: where the conversation goes (engine, language model, keys) and its devices. They never
+ * come from an agent: an agent shared by someone else must not send the conversation (or a key) elsewhere.
+ */
+export const MACHINE_KEYS = ['engine', 'apiKey', 'tokenUrl', 'geminiEndpoint', 'geminiModel', 'serverUrl', 'localAsr', 'localLlm',
+  'llm', 'llmUrl', 'llmModel', 'llmKey', 'llmFarm', 'llmFarmModel', 'llmFarmKey', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'agent', 'persona', 'knowledge', 'id'];
+const agentOnly = (s) => Object.fromEntries(Object.entries(s || {}).filter(([k]) => !MACHINE_KEYS.includes(k)));
 
 /** "opening-hours" → "Opening hours" */
 export function tableName(id) { const s = String(id).replace(/-/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -65,7 +72,9 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
     const sig = signature(f);
     const hit = cache.get(id);
     if (hit && hit.sig === sig) return hit.agent;
-    const { settings, body } = parsePersona(readText(join(f, 'persona.md')));
+    const parsed = parsePersona(readText(join(f, 'persona.md')));
+    const settings = agentOnly(parsed.settings);
+    const body = parsed.body;
     const tables = [];
     const k = join(f, 'knowledge');
     if (existsSync(k)) {
@@ -125,7 +134,9 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
     saveTable(id, table, data) {
       const f = must(id);
       mkdirSync(join(f, 'knowledge'), { recursive: true });
-      atomicWrite(join(f, 'knowledge', `${tableId(table)}.csv`), writeCsv(cleanTable(data)));
+      // {csv: text}: a spreadsheet's CSV, as it is (an import); otherwise {headers, rows}
+      const parsed = data && typeof data.csv === 'string' ? parseCsv(data.csv) : data;
+      atomicWrite(join(f, 'knowledge', `${tableId(table)}.csv`), writeCsv(cleanTable(parsed)));
       changed(id);
       return compiled(id).tables.find((t) => t.id === tableId(table));
     },
@@ -213,7 +224,7 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
       const title = String(p.settings.title || p.settings.name || b.id || 'Imported agent');
       const tables = Object.entries(b.knowledge && typeof b.knowledge === 'object' ? b.knowledge : {})
         .filter(([t]) => ID.test(slug(t, ''))).map(([t, csv]) => ({ id: slug(t, ''), ...parseCsv(String(csv)) }));
-      return writeAgent(newId(b.id || title), { persona: { settings: p.settings, body: p.body }, tables, interactions: b.interactions || {} });
+      return writeAgent(newId(b.id || title), { persona: { settings: agentOnly(p.settings), body: p.body }, tables, interactions: b.interactions || {} });
     }
     if (typeof b.persona === 'string' || typeof b.name === 'string') return writeAgent(newId(b.title || b.name || 'Imported agent'), fromLegacy(b, ''));
     throw httpError(400, 'This file is not an agent (no persona).');
@@ -243,7 +254,7 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
 function fromLegacy(old, knowledge) {
   const settings = {};
   for (const [k, v] of Object.entries(old)) {
-    if (['persona', 'knowledge', 'id', 'apiKey', 'tokenUrl', 'geminiEndpoint', 'serverUrl', 'engine'].includes(k)) continue;
+    if (MACHINE_KEYS.includes(k)) continue;
     if (['string', 'number', 'boolean'].includes(typeof v)) settings[k] = v;
   }
   const body = [String(old.persona || '').trim(), knowledge ? `## What you know\n\n${knowledge.trim()}` : ''].filter(Boolean).join('\n\n');
@@ -253,7 +264,7 @@ function fromLegacy(old, knowledge) {
 /** Only plain values go in the front matter (no objects from a buggy page). */
 function plainSettings(s) {
   const out = {};
-  for (const [k, v] of Object.entries(s || {})) if (['string', 'number', 'boolean'].includes(typeof v)) out[k] = typeof v === 'string' ? v.slice(0, 20000) : v;
+  for (const [k, v] of Object.entries(agentOnly(s))) if (['string', 'number', 'boolean'].includes(typeof v)) out[k] = typeof v === 'string' ? v.slice(0, 20000) : v;
   return out;
 }
 

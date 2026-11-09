@@ -145,7 +145,8 @@ export async function startServer(o) {
     if (path === '/health') {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
       const error = engineError ? engineError.message : warmupError ? `${warmupError.message} (Click Start to try again.)` : null;
-      res.end(JSON.stringify({ engine: engine ? engine.name : null, models: warm, error, port: actualPort, status: lastStatus, wsUrl }));
+      const m = engine && engine.matcher ? engine.matcher() : null;
+      res.end(JSON.stringify({ engine: engine ? engine.name : null, models: warm, error, port: actualPort, status: lastStatus, wsUrl, matcher: m ? m.name : 'Words', matcherModel: !!m, agentsDir: store.dir }));
       return;
     }
     if ((path.startsWith('/api/') || path === '/farms') && !samePage(req)) { res.writeHead(403); res.end(); return; }
