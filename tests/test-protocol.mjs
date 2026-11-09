@@ -19,7 +19,7 @@ const servers = [];
 
 /** Starts a local server (simulated engine, or the QVAC adapter on the fake SDK) on a port. */
 function startServer(port, { env: extraEnv = {}, engine = mode, cwd, config } = {}) {
-  const env = { ...process.env, ...extraEnv };
+  const env = { ...process.env, VIK_AGENTS: mkdtempSync(join(tmpdir(), 'vik-agents-protocol-')), ...extraEnv };   // never the user's agents
   const args = [join(ROOT, 'app', 'src', 'server.mjs'), '--port', String(port)];
   if (engine === 'mock') args.push('--mock');
   else { env.QVAC_SDK = pathToFileURL(join(ROOT, 'tests', 'fake-qvac-sdk.mjs')).href; env.FAKE_QVAC_REPORT = report; }

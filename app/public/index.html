@@ -459,7 +459,9 @@
   const builtIn = [
     { id: 'guide', title: 'Museum guide', name: 'Ada', persona: 'You are a curious, warm museum guide. You help visitors discover the artworks of the great gallery. You ask questions to find out what interests them.', greeting: 'Hello, welcome to the museum!' },
   ];
-  fetch('/personas').then((r) => r.ok ? r.json() : []).catch(() => []).then((list) => {
+  fetch('/api/agents').then((r) => r.ok ? r.json() : []).catch(() => [])
+    .then((list) => Promise.all(list.map((a) => fetch('/api/agents/' + a.id).then((r) => r.json()).then((x) => Object.assign({ id: a.id, title: a.title }, x.settings, { persona: x.body })))))
+    .catch(() => []).then((list) => {
     const all = list.length ? list : builtIn;
     $('#presets').innerHTML = '<option value="">— choose —</option>';
     all.forEach((p, i) => $('#presets').add(new Option(String(p.title || p.name || p.id || i), String(i))));   // text, never HTML

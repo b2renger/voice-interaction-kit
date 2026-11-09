@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "start": "main",
+  "stages": [{ "id": "main", "name": "Main" }],
+  "sensitivity": 0.5,
+  "patterns": [
+    {
+      "id": "plant", "name": "A plant", "stage": "", "on": true,
+      "when": { "kind": "mentions", "table": "plants" },
+      "then": [
+        { "do": "answer", "instruction": "Give advice for this plant from what you know, with a little joke, then ask about the light in their room." },
+        { "do": "mood", "mood": "curious" }
+      ]
+    },
+    {
+      "id": "yellow-leaves", "name": "Yellow leaves", "stage": "", "on": true,
+      "when": { "kind": "says", "examples": ["my leaves are turning yellow", "yellow leaves", "the leaves are going brown", "my plant is dying"] },
+      "then": [
+        { "do": "answer", "instruction": "Explain that yellow leaves usually come from too much water, sometimes too little light, and ask how often they water." },
+        { "do": "mood", "mood": "sorry" }
+      ]
+    }
+  ]
+}

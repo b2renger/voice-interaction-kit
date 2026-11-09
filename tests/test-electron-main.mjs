@@ -4,7 +4,7 @@
 //   node tests/test-electron-main.mjs
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { ROOT, check, summary, until, sleep } from './helpers.mjs';
 
 // require('electron') always gets the stub, even when app/node_modules has the real package
@@ -17,6 +17,16 @@ Module._resolveFilename = function (request, ...rest) {
   return resolveFilename.call(this, request === 'electron' ? ELECTRON_STUB : request, ...rest);
 };
 process.argv.push('--mock');
+// the settings folder of the earlier "Voice Lab" app: personas (one with a knowledge file) and a config.json
+{
+  const old = join(require(ELECTRON_STUB).app.getPath('appData'), 'Voice Lab');
+  mkdirSync(join(old, 'personas'), { recursive: true });
+  writeFileSync(join(old, 'personas', 'shop.json'), JSON.stringify({ title: 'Bike shop', name: 'Bo', persona: 'You sell bikes.', knowledge: 'shop.md', endSilenceMs: 700 }));
+  writeFileSync(join(old, 'personas', 'shop.md'), 'Opening hours: 9 to 18.\n');
+  writeFileSync(join(old, 'secret.txt'), 'TOP SECRET');
+  writeFileSync(join(old, 'personas', 'sneaky.json'), JSON.stringify({ title: 'Sneaky', persona: 'Hi.', knowledge: '../secret.txt' }));
+  writeFileSync(join(old, 'config.json'), JSON.stringify({ defaults: { language: 'fr' } }));
+}
 const { handleSquirrelEvent } = require(join(ROOT, 'app', 'electron', 'main.cjs'));
 const st = globalThis.__electronStub;
 
@@ -51,20 +61,21 @@ check(health && health.engine === 'mock' && /^ws:\/\/localhost:\d+\/events$/.tes
 const core = await (await fetch(base + '/voice-core.js')).text();
 check(/const VoiceCore/.test(core), 'the shared core is served');
 
-// personas in the settings folder, with a "knowledge" text file next to them
+// the agents: in the settings folder, the examples copied there, the earlier "Voice Lab" personas imported
 {
   const userData = require('electron').app.getPath('userData');
-  const dir = join(userData, 'personas');
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'zz-shop.json'), JSON.stringify({ title: 'Shop', persona: 'You sell bikes.', knowledge: 'shop.md' }));
-  writeFileSync(join(dir, 'shop.md'), 'Opening hours: 9 to 18.\n');
-  writeFileSync(join(userData, 'secret.txt'), 'TOP SECRET');
-  writeFileSync(join(dir, 'zz-sneaky.json'), JSON.stringify({ title: 'Sneaky', persona: 'Hi.', knowledge: '../secret.txt' }));
-  const list = await (await fetch(base + '/personas')).json();
-  const shop = list.find((p) => p.id === 'zz-shop');
-  check(shop && shop.persona === 'You sell bikes.\n\nWhat you know:\nOpening hours: 9 to 18.', 'a persona\'s "knowledge" file is added to its text', shop);
-  const sneaky = list.find((p) => p.id === 'zz-sneaky');
-  check(sneaky && sneaky.persona === 'Hi.', '"knowledge" never reads outside the personas folder (the persona still loads)', sneaky);
+  const list = await (await fetch(base + '/api/agents')).json();
+  const ids = list.map((a) => a.id);
+  check(['chef', 'gardener', 'museum-guide', 'station-kiosk'].every((id) => ids.includes(id)) && existsSync(join(userData, 'agents', 'museum-guide', 'persona.md')),
+    'the example agents are copied into the settings folder (agents/), where they can be edited', ids);
+  const shop = await (await fetch(base + '/api/agents/bike-shop')).json();
+  check(shop.settings && shop.settings.name === 'Bo' && shop.settings.endSilenceMs === 700 && shop.body === 'You sell bikes.\n\n## What you know\n\nOpening hours: 9 to 18.',
+    'a persona of the earlier "Voice Lab" app becomes an agent, its knowledge file in its text', shop);
+  const sneaky = await (await fetch(base + '/api/agents/sneaky')).json();
+  check(sneaky.body === 'Hi.', '"knowledge" never reads outside the old personas folder (the persona still comes)', sneaky.body);
+  check(JSON.parse(readFileSync(join(userData, 'config.json'), 'utf8')).defaults.language === 'fr', 'the earlier app\'s config.json is kept');
+  const cross = await fetch(base + '/api/agents', { headers: { 'sec-fetch-site': 'cross-site' } });
+  check(cross.status === 403, 'another website cannot read the agents', cross.status);
 }
 
 // the microphone
@@ -77,7 +88,7 @@ check(st.permissionCheck(null, 'media', base) === true && st.permissionCheck(nul
 
 // the menus
 const labels = JSON.stringify(st.menu || []);
-check(/Engine/.test(labels) && /Simulated/.test(labels) && /models folder/.test(labels) && /Copy address for clients/.test(labels), 'menus: engine, folders, clients address');
+check(/Engine/.test(labels) && /Simulated/.test(labels) && /models folder/.test(labels) && /agents folder/.test(labels) && /Copy address for clients/.test(labels), 'menus: engine, folders (agents, models), clients address');
 const engineMenu = st.menu.find((m) => m.label === 'Engine');
 engineMenu.submenu.find((i) => /Copy address/.test(i.label || '')).click();
 check(st.clipboard === health.wsUrl, '"Copy address for clients" copies the clients\' WebSocket address', st.clipboard);

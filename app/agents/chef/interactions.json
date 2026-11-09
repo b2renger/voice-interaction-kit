@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "start": "ready",
+  "stages": [
+    { "id": "ready", "name": "Ready?" },
+    { "id": "flour", "name": "1 · Flour" },
+    { "id": "eggs", "name": "2 · Eggs" },
+    { "id": "milk", "name": "3 · Milk" },
+    { "id": "rest", "name": "4 · Rest" },
+    { "id": "cook", "name": "5 · Cook" }
+  ],
+  "sensitivity": 0.5,
+  "patterns": [
+    {
+      "id": "start-recipe", "name": "Let's go", "stage": "ready", "on": true,
+      "when": { "kind": "says", "examples": ["yes", "I have everything", "let's go", "I'm ready", "ready"] },
+      "then": [
+        { "do": "say", "text": "Step one: put the flour and the salt in a large bowl, and make a well in the middle." },
+        { "do": "choices", "question": "", "options": ["Next", "Repeat"] },
+        { "do": "go", "stage": "flour" }
+      ]
+    },
+    {
+      "id": "step-eggs", "name": "Next: eggs", "stage": "flour", "on": true,
+      "when": { "kind": "says", "examples": ["next", "done", "okay what's next", "next step"] },
+      "then": [
+        { "do": "say", "text": "Step two: break the four eggs into the well, and whisk them into the flour, little by little." },
+        { "do": "choices", "question": "", "options": ["Next", "Repeat"] },
+        { "do": "go", "stage": "eggs" }
+      ]
+    },
+    {
+      "id": "step-milk", "name": "Next: milk", "stage": "eggs", "on": true,
+      "when": { "kind": "says", "examples": ["next", "done", "okay what's next", "next step"] },
+      "then": [
+        { "do": "say", "text": "Step three: pour in the milk slowly while you whisk, then add the melted butter. No lumps!" },
+        { "do": "choices", "question": "", "options": ["Next", "Repeat"] },
+        { "do": "go", "stage": "milk" }
+      ]
+    },
+    {
+      "id": "step-rest", "name": "Next: rest", "stage": "milk", "on": true,
+      "when": { "kind": "says", "examples": ["next", "done", "okay what's next", "next step"] },
+      "then": [
+        { "do": "say", "text": "Step four: let the batter rest for an hour. Say next when it has rested." },
+        { "do": "go", "stage": "rest" }
+      ]
+    },
+    {
+      "id": "step-cook", "name": "Next: cook", "stage": "rest", "on": true,
+      "when": { "kind": "says", "examples": ["next", "done", "it has rested", "next step"] },
+      "then": [
+        { "do": "say", "text": "Step five: heat a buttered pan, pour a thin layer of batter, and flip the crepe when the edges turn golden." },
+        { "do": "go", "stage": "cook" }
+      ]
+    },
+    {
+      "id": "finished", "name": "Finished", "stage": "cook", "on": true,
+      "when": { "kind": "says", "examples": ["next", "done", "finished", "it's ready"] },
+      "then": [
+        { "do": "say", "text": "That's it, enjoy your crepes!" },
+        { "do": "mood", "mood": "happy" },
+        { "do": "go", "stage": "ready" }
+      ]
+    },
+    {
+      "id": "repeat", "name": "Repeat", "stage": "", "on": true,
+      "when": { "kind": "says", "examples": ["repeat", "say that again", "what did you say", "sorry, again"] },
+      "then": [{ "do": "answer", "instruction": "Repeat your last instruction, word for word." }]
+    },
+    {
+      "id": "ingredient", "name": "An ingredient", "stage": "", "on": true,
+      "when": { "kind": "mentions", "table": "ingredients" },
+      "then": [{ "do": "say", "text": "You need {amount}." }]
+    },
+    {
+      "id": "all-ingredients", "name": "All the ingredients", "stage": "", "on": true,
+      "when": { "kind": "says", "examples": ["what do I need", "what are the ingredients", "the ingredients please", "shopping list"] },
+      "then": [{ "do": "say", "text": "You need 250 grams of flour, 4 eggs, half a litre of milk, a pinch of salt and 50 grams of melted butter." }]
+    }
+  ]
+}

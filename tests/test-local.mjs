@@ -3,12 +3,14 @@
 // in Chromium, with a fake microphone. Checks the protocol, the states, the choices, the mood, the interruptions.
 //   node tests/test-local.mjs
 import { spawn } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ROOT, startStatic, makeFakeMicWav, launch, check, summary, sleep, until } from './helpers.mjs';
 
 const PORT = 18790 + Math.floor(Math.random() * 500);
-const srv = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT)], { stdio: ['ignore', 'pipe', 'pipe'] });
+const agentsEnv = () => ({ ...process.env, VIK_AGENTS: mkdtempSync(join(tmpdir(), 'vik-agents-local-')) });
+const srv = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT)], { env: agentsEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
 const serverLog = [];
 srv.stdout.on('data', (d) => serverLog.push(String(d)));
 srv.stderr.on('data', (d) => serverLog.push(String(d)));
@@ -24,13 +26,13 @@ const errors = [];
   const page = await browser.newPage();
   page.on('pageerror', (e) => errors.push('lab: ' + e));
   await page.goto(base + '/');
-  const personas = await page.evaluate(() => fetch('/personas').then((r) => r.json()));
-  check(Array.isArray(personas) && personas.length >= 4 && personas.every((p) => p.name && p.persona), 'lab: the personas are served', personas.length);
+  const personas = await page.evaluate(() => fetch('/api/agents').then((r) => r.json()));
+  check(Array.isArray(personas) && personas.length >= 4 && personas.every((p) => p.name && p.title), 'lab: the agents are served', personas.length);
   await page.evaluate(() => { localStorage.clear(); });
   await page.reload();
   const ev = () => page.evaluate(() => window.__ev || []);
   await page.evaluate(() => { window.__ev = []; window.agent.on('*', (e) => window.__ev.push(e)); });
-  const preset = personas.findIndex((p) => p.id === 'station-host');   // a persona (short end silence, quick turns)
+  const preset = personas.findIndex((p) => p.id === 'station-kiosk');   // a persona (short end silence, quick turns)
   await page.selectOption('#presets', { value: String(preset) });
   // The station kiosk persona lowers its voice for 600 ms before giving way (interruptAfterMs 600):
   // a greeting long enough for the fake mic to keep talking over it past that.
@@ -256,7 +258,7 @@ const setField = (page, key, value) => page.evaluate(([k, v]) => {
 {
   const PORT2 = 20500 + Math.floor(Math.random() * 400);
   const srv2 = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT2)],
-    { env: { ...process.env, MOCK_LLM_DELAY_MS: '1500' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    { env: { ...agentsEnv(), MOCK_LLM_DELAY_MS: '1500' }, stdio: ['ignore', 'pipe', 'pipe'] });
   srv2.stdout.on('data', (d) => serverLog.push('[slow] ' + String(d)));
   srv2.stderr.on('data', (d) => serverLog.push('[slow] ' + String(d)));
   const base2 = `http://127.0.0.1:${PORT2}`;
@@ -344,7 +346,7 @@ const setField = (page, key, value) => page.evaluate(([k, v]) => {
   const farm = await startMockFarm({ key: 'secret', reply: ['The farm', ' says hello.'] });
   const PORT3 = 20950 + Math.floor(Math.random() * 400);
   const srv3 = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT3)],
-    { env: { ...process.env, LOL_FED_PORT: String(43100 + Math.floor(Math.random() * 800)) }, stdio: ['ignore', 'pipe', 'pipe'] });
+    { env: { ...agentsEnv(), LOL_FED_PORT: String(43100 + Math.floor(Math.random() * 800)) }, stdio: ['ignore', 'pipe', 'pipe'] });
   srv3.stdout.on('data', (d) => serverLog.push('[farm] ' + String(d)));
   srv3.stderr.on('data', (d) => serverLog.push('[farm] ' + String(d)));
   const base3 = `http://127.0.0.1:${PORT3}`;

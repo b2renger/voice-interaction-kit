@@ -1,0 +1,6 @@
+destination,time,platform,train,status
+Lyon,2:12 pm,4,TGV 6617,It is on time.
+Lille,2:30 pm,7,TGV 7041,It is on time.
+Marseille,3:05 pm,2,TGV 6105,It is running ten minutes late.
+Bordeaux,3:40 pm,5,TGV 8437,It is on time.
+Strasbourg,4:15 pm,9,TGV 2421,Boarding starts fifteen minutes before departure.

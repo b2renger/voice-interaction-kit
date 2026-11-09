@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "start": "welcome",
+  "stages": [
+    { "id": "welcome", "name": "Welcome" },
+    { "id": "tour", "name": "Tour" }
+  ],
+  "sensitivity": 0.5,
+  "patterns": [
+    {
+      "id": "opening-hours", "name": "Opening hours", "stage": "", "on": true,
+      "when": { "kind": "says", "examples": ["when do you open", "what are your opening hours", "what time do you close", "are you open on Tuesday"] },
+      "then": [{ "do": "say", "text": "We are open every day except Tuesday, from ten in the morning to six in the evening." }]
+    },
+    {
+      "id": "tickets", "name": "Tickets", "stage": "", "on": true,
+      "when": { "kind": "says", "examples": ["how much is a ticket", "is it free", "how much does it cost", "do students pay"] },
+      "then": [{ "do": "say", "text": "A ticket is twelve euros, and it is free for students and for anyone under twenty-six." }]
+    },
+    {
+      "id": "tour", "name": "A tour", "stage": "welcome", "on": true,
+      "when": { "kind": "says", "examples": ["a tour please", "show me around", "what should I see", "where should I start", "what do you recommend"] },
+      "then": [
+        { "do": "say", "text": "With pleasure! Do you prefer paintings or sculptures?" },
+        { "do": "choices", "question": "Where shall we start?", "options": ["Paintings", "Sculptures", "Surprise me"] },
+        { "do": "go", "stage": "tour" }
+      ]
+    },
+    {
+      "id": "artwork", "name": "An artwork", "stage": "", "on": true,
+      "when": { "kind": "mentions", "table": "artworks" },
+      "then": [
+        { "do": "answer", "instruction": "Tell this artwork as a short story, in two or three sentences, then ask the visitor what they notice in it." },
+        { "do": "signal", "name": "show-artwork", "value": "{name}" },
+        { "do": "go", "stage": "tour" }
+      ]
+    },
+    {
+      "id": "artist", "name": "An artist", "stage": "", "on": true,
+      "when": { "kind": "mentions", "table": "artists" },
+      "then": [{ "do": "answer", "instruction": "Say who this artist was in two sentences, and name one of their works in the gallery." }]
+    },
+    {
+      "id": "kind", "name": "Paintings or sculptures", "stage": "tour", "on": true,
+      "when": { "kind": "says", "examples": ["paintings", "I prefer paintings", "sculptures", "I prefer sculptures", "surprise me"] },
+      "then": [
+        { "do": "answer", "instruction": "Recommend one artwork of the kind they chose (any one if they want a surprise), say which room it is in, and tell it in two sentences." },
+        { "do": "mood", "mood": "excited" }
+      ]
+    },
+    {
+      "id": "goodbye", "name": "Goodbye", "stage": "", "on": true,
+      "when": { "kind": "says", "examples": ["goodbye", "bye", "thank you, that's all", "see you"] },
+      "then": [
+        { "do": "say", "text": "Thank you for your visit, enjoy the rest of the gallery!|It was a pleasure. Enjoy the gallery!" },
+        { "do": "mood", "mood": "happy" },
+        { "do": "go", "stage": "welcome" }
+      ]
+    }
+  ]
+}

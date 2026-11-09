@@ -58,7 +58,21 @@ function log(m) {
 /** The settings: the app's own, completed by the user's (settings folder). */
 function userDir() { return app.getPath('userData'); }
 function userConfigPath() { return path.join(userDir(), 'config.json'); }
+function agentsDir() { return path.join(userDir(), 'agents'); }
 function modelsDir() { return path.join(os.homedir(), '.qvac', 'models'); }
+/** The settings folder of the app's earlier name ("Voice Lab"): its personas become agents, its config.json is kept. */
+function oldUserDir() { return path.join(app.getPath('appData'), 'Voice Lab'); }
+
+/** Once: the config.json of the earlier "Voice Lab" app, if this app has none. */
+function adoptOldConfig() {
+  const old = path.join(oldUserDir(), 'config.json');
+  if (fs.existsSync(userConfigPath()) || !fs.existsSync(old)) return;
+  try {
+    fs.mkdirSync(userDir(), { recursive: true });
+    fs.copyFileSync(old, userConfigPath());
+    log(`▸ settings of the earlier "Voice Lab" app kept: ${userConfigPath()}`);
+  } catch (e) { log(`(the earlier settings could not be copied: ${e.message})`); }
+}
 
 async function loadAppConfig() {
   const { loadConfig, mergeConfig } = await import(pathToFileURL(path.join(APP_DIR, 'src', 'config.mjs')).href);
@@ -123,11 +137,12 @@ function buildMenu() {
       label: 'Files',
       submenu: [
         ...(MOCK ? [] : [{ label: 'Download all models (once)…', click: () => offerInstall(true) }]),
+        { label: 'Open agents folder', click: () => { fs.mkdirSync(agentsDir(), { recursive: true }); shell.openPath(agentsDir()); } },
         { label: 'Open models folder', click: () => { fs.mkdirSync(modelsDir(), { recursive: true }); shell.openPath(modelsDir()); } },
         {
-          label: 'Open settings folder (config.json, personas)',
+          label: 'Open settings folder (config.json)',
           click: () => {
-            fs.mkdirSync(path.join(userDir(), 'personas'), { recursive: true });
+            fs.mkdirSync(userDir(), { recursive: true });
             // only what the user changes: a full copy would hide every setting a later version of the app changes
             if (!fs.existsSync(userConfigPath())) {
               fs.writeFileSync(userConfigPath(), `${JSON.stringify({
@@ -205,6 +220,7 @@ function showLog() {
 }
 
 async function start() {
+  adoptOldConfig();
   const config = await loadAppConfig();
   const { startServer } = await import(pathToFileURL(path.join(APP_DIR, 'src', 'app-server.mjs')).href);
   try {
@@ -212,7 +228,9 @@ async function start() {
       config,
       mock: MOCK,
       log,
-      personaDirs: [path.join(userDir(), 'personas'), path.join(APP_DIR, 'personas')],
+      agentsDir: agentsDir(),
+      // the personas of earlier versions become agents (first launch only)
+      legacyDirs: [path.join(oldUserDir(), 'personas'), path.join(userDir(), 'personas')],
       onStatus: ({ text, progress }) => {
         if (!win || win.isDestroyed()) return;
         win.setProgressBar(typeof progress === 'number' && progress < 100 ? progress / 100 : -1);

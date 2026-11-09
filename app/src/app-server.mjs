@@ -1,13 +1,16 @@
-// The local voice server, as a module: the lab window page + the /voice WebSocket (cables op, "Local" engine).
-// Used by the Electron app (electron/main.cjs) and by the command line (src/server.mjs).
+// The VIK server, as a module: the studio page and its API (the agents), /voice (the local engine), /brain and
+// /events (the hub). Used by the Electron app (electron/main.cjs) and by the command line (src/server.mjs).
 import { createServer } from 'node:http';
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname, extname, basename, isAbsolute } from 'node:path';
+import { readFileSync, existsSync, statSync, mkdtempSync } from 'node:fs';
+import { join, dirname, extname, isAbsolute } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { attachWebSocket } from './ws.mjs';
 import { Session } from './session.mjs';
 import { createHub } from './hub.mjs';
 import { createFarmFinder, farmGenerate } from './farm.mjs';
+import { createAgentStore } from './agent/agents.mjs';
+import { handleApi } from './api.mjs';
 import { mutex, progressText } from './util.mjs';
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -20,12 +23,15 @@ export function originAllowed(list, origin) {
   if (l.includes('*')) return true;
   return l.some((x) => origin === x || (x.endsWith('*') && origin.startsWith(x.slice(0, -1))));
 }
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
 
 /**
  * Starts the server. Tries the requested port, then the next ones if it is taken (up to +9).
  * @param {{config: any, mock?: boolean, port?: number, host?: string, log?: (m: string) => void,
- *   onStatus?: (s: {text: string, progress: number|null}) => void, personaDirs?: string[]}} o
+ *   onStatus?: (s: {text: string, progress: number|null}) => void,
+ *   agentsDir?: string, legacyDirs?: string[]}} o
+ *   agentsDir: where the agents live (default: a new temporary folder, with the examples: for the tests);
+ *   legacyDirs: folders of persona JSON files from earlier versions, imported on first launch.
  * @returns {Promise<{port: number, url: string, wsUrl: string, engineName: () => string|null, ready: Promise<void>, close: () => Promise<void>}>}
  */
 export async function startServer(o) {
@@ -33,7 +39,12 @@ export async function startServer(o) {
   const log = o.log || ((m) => console.log(`[${new Date().toLocaleTimeString('en-GB')}] ${m}`));
   const host = String(o.host || config.host || '127.0.0.1');
   const wanted = Number(o.port || config.port || 8790);
-  const personaDirs = o.personaDirs || [join(APP_DIR, 'personas')];
+  const store = createAgentStore({
+    dir: o.agentsDir || mkdtempSync(join(tmpdir(), 'vik-agents-')),
+    examples: join(APP_DIR, 'agents'),
+    legacy: o.legacyDirs || [],
+    log,
+  });
 
   let engine = null;
   let engineError = null;        // no engine at all (SDK missing): every conversation fails
@@ -99,28 +110,15 @@ export async function startServer(o) {
     const dev = join(APP_DIR, '..', 'common', 'voice-core.js');
     return existsSync(dev) ? dev : join(APP_DIR, 'public', 'voice-core.js');
   }
-  function personas() {
-    const seen = new Set();
-    const list = [];
-    for (const dir of personaDirs) {
-      if (!existsSync(dir)) continue;
-      for (const f of readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
-        const id = basename(f, '.json');
-        if (seen.has(id)) continue;
-        let p;
-        try { p = JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { continue; /* invalid file ignored */ }
-        // "knowledge": a text file next to the persona, added to its text. basename: a shared persona
-        // file must not pull any other file of the computer into the prompt (sent to Gemini on that engine).
-        if (p.knowledge) {
-          try {
-            p.persona = `${p.persona || ''}\n\nWhat you know:\n${readFileSync(join(dir, basename(String(p.knowledge))), 'utf8').trim()}`.trim();
-          } catch (e) { log(`✖ persona ${f}: cannot read its knowledge file (${e.message})`); }
-        }
-        list.push({ id, ...p });
-        seen.add(id);
-      }
-    }
-    return list;
+  /**
+   * A request from the studio's own page (or a tool, not a browser). Another website must not read or change
+   * the agents, nor make this computer probe addresses: browsers say where a request comes from.
+   */
+  function samePage(req) {
+    const site = req.headers['sec-fetch-site'];
+    if (site && site !== 'same-origin' && site !== 'none') return false;
+    const origin = req.headers.origin;
+    return !origin || ownOrigin(origin);
   }
 
   const server = createServer((req, res) => {
@@ -135,11 +133,8 @@ export async function startServer(o) {
       res.end(JSON.stringify({ engine: engine ? engine.name : null, models: warm, error, port: actualPort, status: lastStatus, wsUrl }));
       return;
     }
-    if (path === '/personas') {
-      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(personas()));
-      return;
-    }
+    if ((path.startsWith('/api/') || path === '/farms') && !samePage(req)) { res.writeHead(403); res.end(); return; }
+    if (handleApi(req, res, path, { store })) return;
     // The models offered for listening and thinking (config.json "choices"), and whether each is on this computer.
     if (path === '/models') {
       waitEngine().then(() => (engine.choices ? engine.choices() : null), () => null).then((c) => {
@@ -151,8 +146,6 @@ export async function startServer(o) {
     // The LLM farms on the network (?add=<address>: one the beacon does not reach). The app's page only:
     // another website must not make this computer probe addresses.
     if (path === '/farms') {
-      const site = req.headers['sec-fetch-site'];
-      if (site && site !== 'same-origin') { res.writeHead(403); res.end(); return; }
       const add = new URL(req.url || '/', 'http://x').searchParams.get('add');
       const reply = (o) => { res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ farms: farms.list(), ...o })); };
       if (!add) return reply({});
@@ -254,6 +247,8 @@ export async function startServer(o) {
     wsUrl,
     engineName: () => (engine ? engine.name : null),
     ready,
+    /** The agents (their folder: agents.dir). */
+    agents: store,
     /** The models of the QVAC engine and whether each is on this computer ([] for the simulated engine). */
     models: () => (engine && engine.models ? engine.models() : []),
     /** Downloads the missing models, after any loading in progress; the progress shows like a loading. Returns the failed ones. */

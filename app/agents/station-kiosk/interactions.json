@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "start": "main",
+  "stages": [{ "id": "main", "name": "Main" }],
+  "sensitivity": 0.5,
+  "patterns": [
+    {
+      "id": "departure", "name": "A departure", "stage": "", "on": true,
+      "when": { "kind": "mentions", "table": "departures" },
+      "then": [
+        { "do": "say", "text": "The train to {destination} leaves at {time} from platform {platform}. {status}" },
+        { "do": "signal", "name": "show-departure", "value": "{destination}" }
+      ]
+    },
+    {
+      "id": "place", "name": "A place in the station", "stage": "", "on": true,
+      "when": { "kind": "mentions", "table": "places" },
+      "then": [{ "do": "say", "text": "{answer}" }]
+    },
+    {
+      "id": "lost", "name": "Lost or late", "stage": "", "on": true,
+      "when": { "kind": "says", "examples": ["I'm lost", "can you help me", "I missed my train", "I don't know where to go"] },
+      "then": [
+        { "do": "say", "text": "No worries, I'm here to help. What do you need?" },
+        { "do": "choices", "question": "What do you need?", "options": ["Departures", "Ticket office", "Toilets"] },
+        { "do": "mood", "mood": "focused" }
+      ]
+    },
+    {
+      "id": "all-departures", "name": "All departures", "stage": "", "on": true,
+      "when": { "kind": "says", "examples": ["departures", "what trains are leaving", "show me the departures", "next trains"] },
+      "then": [
+        { "do": "say", "text": "The next trains go to Lyon, Lille, Marseille, Bordeaux and Strasbourg. Which one is yours?" },
+        { "do": "signal", "name": "show-board", "value": "departures" }
+      ]
+    },
+    {
+      "id": "someone-near", "name": "Someone comes near", "stage": "", "on": true,
+      "when": { "kind": "signal", "name": "visitor-near" },
+      "then": [{ "do": "say", "text": "Hello! Where are you going?" }]
+    },
+    {
+      "id": "off-topic", "name": "Anything else", "stage": "main", "on": true,
+      "when": { "kind": "otherwise" },
+      "then": [{ "do": "say", "text": "Sorry, I can only help with the trains and the station. Where are you going?" }]
+    }
+  ]
+}
