@@ -21,6 +21,9 @@
   "dependencies": {
     "@qvac/sdk": "0.21.0"
   },
+  "overrides": {
+    "@qvac/inference": "0.21.0"
+  },
   "optionalDependencies": {
     "onnxruntime-node": "^1.22.0"
   },

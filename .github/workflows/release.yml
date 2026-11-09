@@ -56,6 +56,11 @@ jobs:
       - name: Build the installers
         run: npm run make
 
+      # QVAC's addons must be reachable inside the package (a peer dependency dropped by the packager once left
+      # the QVAC worker unable to start: no model loaded), and the Guide's pages must be there.
+      - name: Check the packaged app
+        run: node scripts/check-package.mjs
+
       - name: Collect the installers with clear names
         run: |
           VERSION=$(node -p "require('./package.json').version")

@@ -94,7 +94,9 @@ More than **610 automated checks** pass (`npm test` at the root, see [`tests/REA
 
 **Checked with the real models**, on a Windows computer with QVAC 0.21: Whisper, Qwen3 1.7B and Supertonic load from their files; **EmbeddingGemma 300M** downloads from Hugging Face and runs the decision model: 34 sentences on the example agents, in English and in French, all decided as intended, in about 20 ms each. Its score ranges were measured there.
 
-**Not yet checked for real**: the Gemini API, the packaged installers, a real LlmOnLan farm and online services, the local models other than the defaults (Llama 3.2 above all), Smart Turn inside the packaged app. The [human test protocol](docs/HUMAN_TESTS.md) starts with these.
+**The packaged Windows app** (3.0.0) boots, loads the four models and decides with EmbeddingGemma.
+
+**Not yet checked for real**: the Gemini API, the Mac installer, a real LlmOnLan farm and online services, the local models other than the defaults (Llama 3.2 above all), Smart Turn inside the packaged app. The [human test protocol](docs/HUMAN_TESTS.md) starts with these.
 
 ## License
 

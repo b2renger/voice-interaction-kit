@@ -115,6 +115,8 @@ You need **Node.js 22.17 or later** on the build machine, not on the students' m
 
 **QVAC is pinned to exactly version 0.21.0** (in `package.json`): QVAC shipped four releases with breaking changes between August and October 2026. Upgrade between terms only: change the version, run `npm run selftest` on a Windows PC and on a Mac, check the decision model (its score ranges are measured for 0.21, see `models.decide.calibration`), then publish a new release.
 
+**`@qvac/inference` is pinned too** (`overrides` in `package.json`, to the version released with the SDK). The SDK 0.21.0 accepts any `@qvac/inference` 0.21.x, but 0.21.1 asks for newer llama.cpp addons as *peer* dependencies: npm then puts two copies apart, Electron's packager drops the one `@qvac/inference` uses, and in the installed app the QVAC worker cannot start, so no model loads or downloads (while `npm start` works). When you upgrade the SDK, set this pin to the `@qvac/inference` version its release names. `node scripts/check-package.mjs`, after `npm run package` or `make`, checks that the packaged app can reach every QVAC addon and has the Guide's pages; the Release workflow runs it before publishing.
+
 **Other commands:**
 
 ```bash
@@ -286,7 +288,7 @@ Any number of clients can follow the conversation and drive it, at the same time
 - **Small language models** make more mistakes and are weaker in languages other than English. The patterns help: a fact said as written is never wrong.
 - **The words matcher** (simulated engine, or EmbeddingGemma not loaded) only matches close wordings.
 - **The app is not signed.** Hence the Windows and macOS warnings the first time you open it.
-- **What has been checked.** The studio, the decision model and the conversation are covered by automated tests against faithful fakes (QVAC, Electron, an LLM farm, Gemini Live). On a Windows computer with the real QVAC 0.21, the default models load and EmbeddingGemma decides as intended (34 sentences, English and French). **Not yet** checked for real: the packaged installers, Parler and Chatterbox, the models other than the defaults (Llama 3.2 above all, since the app turns off a "thinking" it doesn't have), a real LlmOnLan farm and the online services, `onnxruntime-node` inside the packaged app. First step on a real machine: `npm install`, `npm run selftest`, then `npm start`.
+- **What has been checked.** The studio, the decision model and the conversation are covered by automated tests against faithful fakes (QVAC, Electron, an LLM farm, Gemini Live). On a Windows computer with the real QVAC 0.21, the default models load and EmbeddingGemma decides as intended (34 sentences, English and French); the packaged Windows app (3.0.0) boots, loads them and decides. **Not yet** checked for real: the Mac installer, Parler and Chatterbox, the models other than the defaults (Llama 3.2 above all, since the app turns off a "thinking" it doesn't have), a real LlmOnLan farm and the online services, `onnxruntime-node` inside the packaged app. First step on a real machine: `npm install`, `npm run selftest`, then `npm start`.
 
 ## If something goes wrong
 
@@ -301,6 +303,7 @@ Any number of clients can follow the conversation and drive it, at the same time
 | "Decides with Words" while QVAC runs | EmbeddingGemma did not load: **Files → Download all models**, and look at **Files → Server log** |
 | "No column fills {…}" under a line | the placeholder is not a column of the table the pattern mentions |
 | `npm run make` fails on native libraries | build on the target platform, run `npm install` again, or let GitHub build the installers |
+| the installed app never loads a model ("RPC initialization timed out", and `Cannot find module '@qvac/llm-llamacpp'` in the server log), while `npm start` works | the package lost QVAC's llama.cpp addons: check the `@qvac/inference` pin (see "For the teacher"), then `node scripts/check-package.mjs` after packaging |
 | "Smart Turn is unavailable here: using silence only." | `onnxruntime-node` is missing: run `npm install` again, then `npm run selftest` |
 | after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner |
 | the agent stops for a "mm-hm" | "Talk over it this long to interrupt" is at 0: try 600 ms |
