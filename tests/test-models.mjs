@@ -57,6 +57,35 @@ check(failed.length === 4 && failed.every((m) => m.p2pOnly), 'the 4 voice files,
 check(fake.calls.filter((c) => c.fn === 'cancel').length === 4 && Date.now() - t0 < 15000, 'each stalled download is cancelled, in time', Date.now() - t0);
 check(logs.some((l) => /peer-to-peer network \(this network seems to block it\)/.test(l)), 'the log says the network seems to block peer-to-peer', logs);
 check(progress.some((p) => p.stage === '1/6 voice detection'), 'the progress names each model ("1/6 voice detection")', progress.slice(0, 3));
+delete process.env.FAKE_P2P;
+
+// — the models offered in the window (config.json "choices") —
+const offer = engine.choices();
+const small = offer.asr.find((c) => c.src === 'WHISPER_SMALL_Q8_0');
+check(offer.asr.length === 4 && offer.llm.length === 5 && small.default && small.here === true && small.size === fake.WHISPER_SMALL_Q8_0.expectedSize,
+  'choices: 4 speech recognitions and 5 language models; Whisper small is the default, on this computer, with its size', offer.asr);
+check(offer.llm.filter((c) => c.default).map((c) => c.src).join() === 'QWEN3_1_7B_INST_Q4' && offer.llm.every((c) => c.here === false && c.size > 0 && !c.p2pOnly && /—/.test(c.label)),
+  'choices: the others are to download (over HTTPS), with a size and a label', offer.llm);
+const llmLoads = () => fake.calls.filter((c) => c.fn === 'loadModel' && c.modelType === 'llm');
+let n = llmLoads().length;
+await engine.prepare({ ...config.defaults, localLlm: 'QWEN3_600M_INST_Q4' }, () => {});
+check(llmLoads().length === n + 1 && llmLoads()[n].src === 'https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/x/Qwen3-0.6B-Q4_0.gguf' && engine.info().models.llm === 'QWEN3_600M_INST_Q4',
+  'choices: localLlm loads that model, from Hugging Face (a /blob/ path made a download link)', llmLoads()[n]);
+n = llmLoads().length;
+await engine.prepare({ ...config.defaults, localLlm: 'https://example.com/anything.gguf' }, () => {});
+check(llmLoads().length === n + 1 && /Qwen3-1\.7B/.test(llmLoads()[n].src), 'choices: a model config.json does not offer (a shared persona file) → the default one instead', llmLoads()[n]);
+const unloads = fake.calls.filter((c) => c.fn === 'unloadModel').length;
+n = llmLoads().length;
+await engine.prepare({ ...config.defaults, llmFarm: 'http://192.168.1.20:4000/v1' }, () => {});
+check(llmLoads().length === n && fake.calls.filter((c) => c.fn === 'unloadModel').length === unloads + 1 && engine.info().models.llm === '',
+  'farm: with an LLM farm chosen, the local language model is unloaded (its memory freed), none loads', engine.info().models);
+await engine.prepare({ ...config.defaults, llmFarm: '' }, () => {});
+check(llmLoads().length === n + 1 && engine.info().models.llm === 'QWEN3_1_7B_INST_Q4', 'farm: back to the local model → it loads again', engine.info().models);
+const asrLoads = () => fake.calls.filter((c) => c.fn === 'loadModel' && c.modelType === 'whisper');
+n = asrLoads().length;
+await engine.prepare({ ...config.defaults, localAsr: 'WHISPER_TINY_Q8_0' }, () => {});
+check(asrLoads().length === n + 1 && /ggml-tiny-q8_0/.test(asrLoads()[n].src) && engine.models().some((m) => m.name === 'WHISPER_TINY_Q8_0'),
+  'choices: localAsr reloads speech recognition with that model ("Download all models" then fetches it too)', asrLoads()[n]);
 // — the server: a warm-up that fails (the voice cannot download) is not final —
 delete process.env.FAKE_P2P;
 process.env.FAKE_LOAD_FAIL = 'tts';

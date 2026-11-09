@@ -11,6 +11,8 @@ A **desktop app** to install on each student's computer. It is the **brain** of 
 
 These models run on Tether's [QVAC](https://github.com/tetherto/qvac) SDK (llama.cpp, whisper.cpp, GGML). On first launch, the app downloads them (about 1.5 GB) and shows the progress, then offers to download the two other voice engines, Parler and Chatterbox, once and for all (see "Downloading the models").
 
+The window offers smaller and bigger models for hearing and replying (see "Choosing the models"), and the replies can also come from an **LLM farm** on the local network (see "An LLM farm on the network").
+
 Once open, the app does two things:
 
 - **the lab window** is for designing a voice agent: engine, persona, voice, turn-taking sliders, animated face, subtitles, choice buttons, wait measurements, settings export. It runs the conversation, with the mic and the speakers;
@@ -81,6 +83,30 @@ npm run server       # the server alone, without a window (lab page in the brows
 npm run server:mock
 ```
 
+## Choosing the models
+
+In the lab window, the **Engine** section (local engine) shows what listens and what thinks, and offers other models. Each choice gives its size and says whether it is already downloaded. A model that isn't downloads the first time you choose it (with a progress bar), then stays on the computer. A change applies at once, even during a conversation.
+
+| Speech recognition (listens) | size | |
+|---|---|---|
+| Whisper tiny | 44 MB | the fastest, more mistakes |
+| Whisper base | 82 MB | fast, a few mistakes |
+| **Whisper small** (default) | 264 MB | accurate |
+| Whisper large v3 turbo | 1.6 GB | the most accurate, slow without a graphics card |
+
+| Language model (thinks, writes the replies) | size | |
+|---|---|---|
+| Qwen3 0.6B | 382 MB | the fastest, simple replies |
+| Llama 3.2 1B | 773 MB | fast, best in English |
+| **Qwen3 1.7B** (default) | 1.06 GB | balanced |
+| Qwen3 4B | 2.5 GB | smarter, slower: a graphics card helps |
+| Qwen3 8B | 5.0 GB | the smartest here, needs a strong graphics card |
+| an LLM farm on the network | nothing to download | a bigger model than a laptop can run, on another computer: see "An LLM farm on the network" |
+
+A bigger model writes better replies, but you wait longer: compare the **felt wait** of each turn. The voice is chosen in the **Voice** section (see "The three voice engines"). All these models download from Hugging Face, so they also work on networks that block QVAC's peer-to-peer downloads.
+
+These lists are the `choices` in `config.json` (`models.asr.choices` and `models.llm.choices`). A teacher can add or remove models there: any name from the QVAC catalogue (or a file path or a URL), with a label. `src` stays the default. The window only offers, and the app only loads, the models in these lists. A persona file shared by a student can pick one of them, and nothing else.
+
 ## Downloading the models
 
 **Download everything once.** When the app is ready, it offers to download all the models it does not have yet, the three voices included (about 3.7 GB, once): click **Download everything**. It is also in the menu **Files → Download all models**. Afterwards, nothing downloads again, not even when you change the voice: the app loads each model from the file on this computer, and works without the internet.
@@ -121,19 +147,21 @@ Your `config.json` only needs the keys you change: each section is merged with t
 
 | if… | try |
 |---|---|
-| the machine is modest (8 GB, no graphics card) | `WHISPER_BASE_Q8_0` and `QWEN3_600M_INST_Q4` |
-| you want better replies (M1 16 GB, good NVIDIA card) | `QWEN3_4B_INST_Q4_K_M` |
-| you only speak French | `WHISPER_FRENCH_BASE_Q8_0` (Whisper fine-tuned for French) |
+| the machine is modest (8 GB, no graphics card) | Whisper base and Qwen3 0.6B, in the window (or an LLM farm) |
+| you want better replies (M1 16 GB, good NVIDIA card) | Qwen3 4B, in the window, or an LLM farm |
+| you only speak French | `WHISPER_FRENCH_BASE_Q8_0` (Whisper fine-tuned for French; peer to peer only): add it to `models.asr.choices` |
 | the voice needs to come out faster | `"steps": 3` (slightly lower quality) |
 | you want to try the voice as a continuous stream | `"mode": "stream"` (by default, `"sentence"` says one sentence at a time) |
 | Smart Turn ends turns too early, or too late | `"threshold"` in `turn.smartTurn`: higher = it needs to be surer that you have finished (default 0.5) |
 
-The names come from the QVAC catalog; a file path or a URL also works. You need to restart the app for a change to take effect.
+The names come from the QVAC catalog; a file path or a URL also works. A change in `config.json` takes effect when you restart the app; a choice in the window applies at once.
 
 ## What the settings do here
 
 | setting | in the local engine |
 |---|---|
+| Speech recognition | the Whisper model (reloaded when it changes) |
+| Language model | the model that writes the replies (reloaded when it changes), or an LLM farm on the network |
 | End silence | silence after which Whisper declares the end of the turn. With Smart Turn, it becomes the longest wait |
 | End of turn | "silence only", or "silence + Smart Turn model" (see "Smart Turn" below) |
 | Start sensitivity | Silero detector threshold (0.45 for "high", 0.6 for "low") |
@@ -177,6 +205,24 @@ Choose one with **Local voice engine** in the window (or `Local voice engine` in
 
 > **Consent first.** A voice is personal: it identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards. Never clone a public figure, a classmate who isn't there, or a teacher as a joke. The watermark does not make a clone harmless: it only helps detect it.
 
+## An LLM farm on the network (LlmOnLan)
+
+An [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm is a computer with a graphics card that serves a language model (by default Gemma 4 12B) to the whole room. Voice Lab can ask it for the replies. The students' laptops then get a much bigger model than they could run, and still listen (Whisper) and speak (the voice) themselves.
+
+1. On the farm computer, start the LlmOnLan Farm app and turn on **Settings → Share compute** (a farm is private until then).
+2. In Voice Lab, **Engine → Language model → Find a farm on the network…**. The farms the app hears appear in the list, under "LLM farm on the network", with their model and how many people use them. Choose one.
+3. If the farm has a password, type it in **Farm password**.
+
+**The farm is not in the list?** A farm announces itself by broadcast on the local network, and some networks don't carry it (another subnet, some school Wi-Fi). Type the farm computer's IP address in **Farm address**, then click **Add**.
+
+Good to know:
+
+- The first time you look for a farm, Windows may ask whether Voice Lab can use the network: allow it on private networks, or no farm is heard (adding one by its address still works).
+- With a farm, the local language model is unloaded, which frees its memory. Choose a local model to come back to it.
+- **What goes to the farm:** the persona, its knowledge and the conversation, as text (never the sound), over the local network. The farm stores nothing, by design, but the text does pass through the farm computer.
+- A farm serves a limited number of people at once (its "People served at once"). When it is full, or off, or refuses the password, each reply fails with a message that says so: choose a local model, or ask the person running the farm.
+- The farm's address, model and password stay on this computer: they are never exported with the settings, nor taken from a persona.
+
 ## Using Gemini
 
 In the lab window, **Engine** = `Gemini Live (online)`. Then give it access, in one of two ways:
@@ -212,7 +258,7 @@ The app is the brain; any number of clients can follow the conversation and driv
 - **No echo cancellation.** With speakers, the agent may hear itself and cut itself off. Use headphones, or untick "Listens while speaking".
 - **Small models** make more mistakes, sometimes forget the choice tags, and are weaker than Gemini in languages other than English. This is also a design material.
 - **The app is not signed.** Hence the Windows and macOS warnings the first time you open it.
-- **What has been checked, and what hasn't.** The app was written from the QVAC 0.21 source code, then tested with a fake QVAC SDK and a fake Electron: protocol, model loading, interruptions, window, mic permissions, menus, Smart Turn, backchannels, fillers, away and the three voice engines. The Smart Turn pipeline gives exactly the same results as Pipecat's reference, with the real model run from Python. It has **not yet** run with the real models (including Parler and Chatterbox) or been packaged, because neither QVAC nor Electron could be installed where it was built. Not checked either: `onnxruntime-node` inside the app, Smart Turn's accuracy on real voices, what real Whisper writes for a short "mm-hm", and echo with speakers while the voice dips. First step on a real machine: `npm install`, `npm run selftest`, then `npm start`.
+- **What has been checked, and what hasn't.** The app was written from the QVAC 0.21 source code, then tested with a fake QVAC SDK and a fake Electron: protocol, model loading, interruptions, window, mic permissions, menus, Smart Turn, backchannels, fillers, away and the three voice engines. The Smart Turn pipeline gives exactly the same results as Pipecat's reference, with the real model run from Python. It has **not yet** run with the real models (including Parler and Chatterbox) or been packaged, because neither QVAC nor Electron could be installed where it was built. Not checked either: `onnxruntime-node` inside the app, Smart Turn's accuracy on real voices, what real Whisper writes for a short "mm-hm", and echo with speakers while the voice dips. The models other than the defaults (Llama 3.2 above all, which has no "thinking" to turn off) and the LLM farm have been checked against a fake QVAC and a fake farm, not yet with the real ones. First step on a real machine: `npm install`, `npm run selftest`, then `npm start`.
 
 ## If something goes wrong
 

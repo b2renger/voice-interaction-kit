@@ -1,6 +1,6 @@
 # Human test protocol
 
-The automated tests (378 checks) prove that the code does what it says, against imitations of Gemini, QVAC and Electron. They don't tell you whether **what I built matches what you want**. This protocol is for that: scenarios to play yourself, with a real voice, real machines and real students.
+The automated tests (446 checks) prove that the code does what it says, against imitations of Gemini, QVAC and Electron. They don't tell you whether **what I built matches what you want**. This protocol is for that: scenarios to play yourself, with a real voice, real machines and real students.
 
 For each test: the **requirement** from your request that it checks, the **steps**, the **expected result**, and a **verdict** line to fill in:
 

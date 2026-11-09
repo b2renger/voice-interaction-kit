@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { attachWebSocket } from './ws.mjs';
 import { Session } from './session.mjs';
 import { createHub } from './hub.mjs';
+import { createFarmFinder, farmGenerate } from './farm.mjs';
 import { mutex, progressText } from './util.mjs';
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,6 +43,7 @@ export async function startServer(o) {
   const prepareLock = mutex();
   const sessions = new Set();
   const hub = createHub(log);
+  const farms = createFarmFinder(log);
   const status = (text, progress) => {
     lastStatus = { text, progress: progress == null ? null : progress };
     for (const s of sessions) s.status(text, progress);
@@ -138,6 +140,25 @@ export async function startServer(o) {
       res.end(JSON.stringify(personas()));
       return;
     }
+    // The models offered for listening and thinking (config.json "choices"), and whether each is on this computer.
+    if (path === '/models') {
+      waitEngine().then(() => (engine.choices ? engine.choices() : null), () => null).then((c) => {
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(c || { asr: [], llm: [] }));
+      });
+      return;
+    }
+    // The LLM farms on the network (?add=<address>: one the beacon does not reach). The app's page only:
+    // another website must not make this computer probe addresses.
+    if (path === '/farms') {
+      const site = req.headers['sec-fetch-site'];
+      if (site && site !== 'same-origin') { res.writeHead(403); res.end(); return; }
+      const add = new URL(req.url || '/', 'http://x').searchParams.get('add');
+      const reply = (o) => { res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ farms: farms.list(), ...o })); };
+      if (!add) return reply({});
+      farms.add(add).then((id) => reply({ added: id }), (e) => reply({ error: e.message }));
+      return;
+    }
     if (path.startsWith('/public/')) {
       const file = join(APP_DIR, 'public', path.slice('/public/'.length));
       if (!file.startsWith(join(APP_DIR, 'public'))) { res.writeHead(403); res.end(); return; }
@@ -168,7 +189,8 @@ export async function startServer(o) {
         info: () => (engine ? engine.info() : {}),
         prepare: async (s, p) => { await waitEngine(); await engine.prepare(s, p); warmupError = null; },
         openAsr: (x, cb) => engine.openAsr(x, cb),
-        generate: (x) => engine.generate(x),
+        // an LLM farm chosen (llmFarm): the reply comes from it, the rest stays on this computer
+        generate: (x) => (x.farm ? farmGenerate({ ...x, maxTokens: config.models.llm.maxTokens || 320 }) : engine.generate(x)),
         speak: (x) => engine.speak(x),
         newConversation: () => { if (engine && engine.newConversation) engine.newConversation(); },
         smartTurn: () => getSmartTurn(),
@@ -241,6 +263,7 @@ export async function startServer(o) {
     async close() {
       for (const s of sessions) s.close('server shutting down');
       hub.close();
+      farms.close();
       await new Promise((r) => server.close(() => r()));
       try { if (smartTurn) await (await smartTurn).close(); } catch { /* closed */ }
       try { if (engine && engine.close) await engine.close(); } catch { /* closed */ }

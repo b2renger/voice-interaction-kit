@@ -107,6 +107,22 @@
           <label class="f">Local server
             <input type="text" data-k="serverUrl">
           </label>
+          <label class="f">Speech recognition (listens, on this computer)
+            <select data-k="localAsr" id="asrModels"></select>
+          </label>
+          <label class="f">Language model (thinks and writes the replies)
+            <select id="llmModels"></select>
+          </label>
+          <div id="farmBox" class="fields" style="padding:0">
+            <p class="hint" id="farmStatus" role="status"></p>
+            <label class="f">Farm address, if it is not in the list (the farm computer's IP)
+              <span class="row" style="flex-wrap:nowrap"><input type="text" id="farmAddress" placeholder="192.168.1.20" autocomplete="off"><button type="button" id="farmAdd">Add</button></span>
+            </label>
+            <label class="f" id="farmKeyField">Farm password
+              <input type="password" data-k="llmFarmKey" autocomplete="off">
+            </label>
+          </div>
+          <p class="hint">A bigger model writes better replies but answers later: watch "felt wait". A model that is not on this computer downloads the first time you choose it. An LLM farm (LlmOnLan) is a computer on the network that writes the replies for the whole room; listening and the voice stay here.</p>
         </div>
       </div>
     </details>
@@ -268,7 +284,7 @@
   const KEY_STORE = 'voice-lab.geminiKey';
   // This computer's connections: never taken from a persona or an imported file (shared between students),
   // which could otherwise send the microphone or the Gemini session to another server.
-  const LOCAL_ONLY = ['apiKey', 'tokenUrl', 'geminiEndpoint', 'serverUrl'];
+  const LOCAL_ONLY = ['apiKey', 'tokenUrl', 'geminiEndpoint', 'serverUrl', 'llmFarm', 'llmFarmModel', 'llmFarmKey'];
   const shareable = (k) => LOCAL_ONLY.indexOf(k) < 0;
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -298,6 +314,7 @@
       el.style.display = el.dataset.show === settings.engine && voiceOk ? '' : 'none';
     }
     $('#botName').textContent = settings.name || 'Agent';
+    paintModels();
   }
   function save() {
     try {
@@ -336,6 +353,107 @@
     });
     if (live) el.addEventListener('change', () => { if (updTimer) pushSettings(0); });   // released: right away
   }
+
+  // ---------- the models: what listens and what thinks (local engine) ----------
+  // The server offers config.json's "choices" (/models) and the LLM farms it hears on the network (/farms).
+  let choices = { asr: [], llm: [] };
+  let farms = [];
+  let farmShown = '';           // what the farm options were built from: rebuilt only when it changes
+  let findingFarm = false;      // "Find a farm on the network…" chosen, no farm picked yet
+  let farmPolling = false;
+  let farmNote = '';
+  const size = (n) => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 1e6)) + ' MB');
+  const shortName = (label) => String(label).split(' — ')[0];
+  function localOption(c) {
+    // here: true / false, or null (a path or a URL from config.json: unknown)
+    const where = c.here ? 'downloaded' : c.here === false ? size(c.size) + ' to download' + (c.p2pOnly ? ' (peer to peer)' : '') : '';
+    const o = new Option(c.label + (c.default ? ' (default)' : '') + (where ? ' · ' + where : ''), c.default ? '' : c.src);
+    o.dataset.short = shortName(c.label);
+    return o;
+  }
+  /** The farm and model the settings point to, or null. */
+  function chosenFarm() {
+    for (const f of farms) {
+      const m = f.url === settings.llmFarm && f.models.find((x) => x.id === settings.llmFarmModel);
+      if (m) return { f, m };
+    }
+    return null;
+  }
+  function buildModels() {
+    $('#asrModels').replaceChildren(...choices.asr.map(localOption));
+    const here = document.createElement('optgroup');
+    here.label = 'On this computer (QVAC)';
+    here.append(...choices.llm.map(localOption));
+    const lan = document.createElement('optgroup');
+    lan.label = 'LLM farm on the network (LlmOnLan)';
+    farms.forEach((f, i) => f.models.forEach((m, j) => {
+      const busy = f.slots ? ` · ${f.clients || 0}/${f.slots} people` : '';
+      const o = new Option(`${f.name} — ${m.underlying || m.id}${f.requiresKey ? ' · password' : ''}${busy}${f.healthy ? '' : ' · not answering'}`, `farm:${i}:${j}`);
+      o.dataset.short = `LLM farm ${f.name} (${m.underlying || m.id})`;
+      lan.append(o);
+    }));
+    if (settings.llmFarm && !chosenFarm()) {             // the farm chosen last time, not heard (yet)
+      const o = new Option(`${settings.llmFarmModel} at ${settings.llmFarm} · not heard on the network`, 'farm:saved');
+      o.dataset.short = `LLM farm ${settings.llmFarm} (${settings.llmFarmModel})`;
+      lan.append(o);
+    }
+    lan.append(new Option('Find a farm on the network…', 'find'));
+    $('#llmModels').replaceChildren(here, lan);
+    paintModels();
+  }
+  function paintModels() {
+    const asr = $('#asrModels');
+    asr.value = settings.localAsr || '';
+    if (asr.options.length && asr.selectedIndex < 0) asr.value = '';      // a model no longer offered: the default
+    const llm = $('#llmModels');
+    const cf = chosenFarm();
+    llm.value = findingFarm ? 'find' : settings.llmFarm ? (cf ? `farm:${farms.indexOf(cf.f)}:${cf.f.models.indexOf(cf.m)}` : 'farm:saved') : (settings.localLlm || '');
+    if (llm.options.length && llm.selectedIndex < 0) llm.value = '';
+    const farmOn = findingFarm || !!settings.llmFarm;
+    $('#farmBox').style.display = farmOn ? '' : 'none';
+    $('#farmKeyField').style.display = farmOn && !findingFarm && (cf ? cf.f.requiresKey : !!settings.llmFarmKey) ? '' : 'none';
+    $('#farmStatus').textContent = farmNote || (findingFarm
+      ? (farms.length ? 'Choose a farm in the list above.' : 'Listening for LLM farms on this network… none yet. The farm must share its compute with the network (on the farm: Settings → Share compute). On another network, type its address below.')
+      : settings.llmFarm && !cf ? 'This farm is not heard on the network right now: the replies will fail if it is off.' : '');
+    $('#farmStatus').style.display = $('#farmStatus').textContent ? '' : 'none';
+  }
+  function pollFarms(add) {
+    farmPolling = true;
+    return fetch('/farms' + (add ? '?add=' + encodeURIComponent(add) : '')).then((r) => r.json()).then((r) => {
+      farms = r.farms || [];
+      farmNote = r.error || '';
+      if (r.added) {                                     // a farm added by its address: use its default model
+        const f = farms.find((x) => x.id === r.added);
+        const m = f && (f.models.find((x) => x.default) || f.models[0]);
+        if (m) { findingFarm = false; Object.assign(settings, { llmFarm: f.url, llmFarmModel: m.id }); save(); pushSettings(0); }
+      }
+      const shown = JSON.stringify([farms.map((f) => [f.url, f.name, f.healthy, f.requiresKey, f.clients, f.slots, f.models]), settings.llmFarm, settings.llmFarmModel]);
+      // rebuilding the list closes it: only when what it shows changed
+      if (shown !== farmShown) { farmShown = shown; buildModels(); } else paintModels();
+    }).catch(() => {});
+  }
+  setInterval(() => { if (farmPolling) pollFarms(); }, 3000);
+  $('#llmModels').onchange = (e) => {
+    const v = e.target.value;
+    findingFarm = v === 'find';
+    if (findingFarm) { farmNote = ''; pollFarms(); paintModels(); return; }
+    if (v === 'farm:saved') { paintModels(); return; }
+    if (v.startsWith('farm:')) {
+      const [, i, j] = v.split(':');
+      Object.assign(settings, { llmFarm: farms[i].url, llmFarmModel: farms[i].models[j].id });
+    } else Object.assign(settings, { localLlm: v, llmFarm: '', llmFarmModel: '' });
+    farmNote = '';
+    paintSettings(); save(); pushSettings(0);
+  };
+  $('#farmAdd').onclick = () => { const a = $('#farmAddress').value.trim(); if (a) { farmNote = 'Asking ' + a + '…'; paintModels(); pollFarms(a); } };
+  $('#farmAddress').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#farmAdd').onclick(); } };
+  /** What runs, for the header: "Whisper small · Qwen3 1.7B · supertonic". */
+  function modelsInUse() {
+    const pickName = (sel) => { const o = $(sel).selectedOptions[0]; return o && o.dataset.short; };
+    return [pickName('#asrModels'), pickName('#llmModels'), settings.localVoiceEngine || 'supertonic'].filter(Boolean).join(' · ');
+  }
+  fetch('/models').then((r) => r.json()).then((c) => { choices = c; buildModels(); }).catch(() => {});
+  if (settings.llmFarm) pollFarms();
 
   // ---------- personas ----------
   const builtIn = [
@@ -407,7 +525,7 @@
     $('#stop').disabled = !live && ev.state !== 'connecting';
     $('#interrupt').disabled = !(ev.state === 'thinking' || ev.state === 'speaking');
   });
-  agent.on('start', (ev) => { banner('', ''); $('#engineInfo').textContent = ev.engine === 'local' ? 'local engine (QVAC)' : 'Gemini Live'; });
+  agent.on('start', (ev) => { banner('', ''); $('#engineInfo').textContent = ev.engine === 'local' ? 'local engine: ' + (modelsInUse() || 'QVAC') : 'Gemini Live'; });
   agent.on('status', (ev) => { if (ev.text) banner('info', ev.text, ev.progress); else banner('', ''); });
   agent.on('user.start', () => { $('#userCap').textContent = '…'; });
   agent.on('user.partial', (ev) => { $('#userCap').textContent = ev.text; });

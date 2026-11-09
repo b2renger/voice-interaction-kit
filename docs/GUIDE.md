@@ -31,7 +31,8 @@ The app has two engines:
 - **Exploring interaction design** (shapes, animations, sounds, calls to action): Gemini. It has the most believable voice; cables (or p5.js) brings the graphic vocabulary.
 - **No key, limited network, or sensitive data**: the local engine.
 - **Designing the interface before you have the models, or on a weak machine**: the **simulated engine** (menu **Engine → Simulated**). The agent hears a "voice-like noise", replies with a short pre-written script (choices, mood, a long reply you can cut off) and speaks with a hum. Each conversation replays the same script, which makes demos repeatable.
-- **Getting students to think about latency and quality**: both, side by side. The measurements of each turn (`Wait (ms)`, `Turn timing`) let you compare with numbers.
+- **Getting students to think about latency and quality**: both, side by side. The measurements of each turn (`Wait (ms)`, `Turn timing`) let you compare with numbers. Locally, the window also offers smaller and bigger models (speech recognition, language model): the same persona with Qwen3 0.6B and Qwen3 4B makes the trade-off audible.
+- **A room with one powerful computer**: an **LLM farm** ([LlmOnLan](https://github.com/b2renger/LlmOnLan)) writes the replies for every laptop, with a model too big for them; listening and the voices stay on each laptop (see the [Voice Lab README](../2_qvac_local/README.md), "An LLM farm on the network").
 
 ---
 
@@ -310,7 +311,10 @@ examples/                   clients to start from: p5js/ and html-css-js/
 
 2_qvac_local/               the Electron app "Voice Lab"
   electron/main.cjs         window, menus, mic (granted only to its own page), Windows installer
-  src/app-server.mjs        built-in HTTP + WebSocket server (lab page, /health, /personas, /voice, /brain, /events)
+  src/app-server.mjs        built-in HTTP + WebSocket server (lab page, /health, /personas, /models, /farms,
+                            /voice, /brain, /events)
+  src/farm.mjs              LLM farms (LlmOnLan): found by their UDP beacon or their address; replies streamed
+                            from their OpenAI-compatible address
   src/hub.mjs               the hub: the lab window (/brain) publishes its events and levels, the clients
                             (/events) follow them and send commands (clients protocol, CONTRACT.md)
   src/session.mjs           one conversation: recognition → model → voice sentence by sentence, interruptions,
@@ -334,9 +338,9 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 
 **Publishing new installers:** the releases are built by GitHub Actions. Push a version tag (`v1.1.0`): the Release workflow builds the Windows and Mac installers on GitHub's machines and publishes them on the repository's Releases page. See [`PUBLISHING.md`](../PUBLISHING.md). QVAC is pinned to version 0.21.0: upgrade it between terms only, after `npm run selftest` on a Windows PC and a Mac.
 
-**Changing the local models:** menu **Files → Open settings folder**, edit `config.json`, then restart the app. Lighter models exist for modest machines (see the Voice Lab README).
+**Changing the local models:** in the window, **Engine → Speech recognition** and **Language model** (lighter and bigger models, or an LLM farm). The list they offer is `choices` in `config.json` (menu **Files → Open settings folder**, then restart the app): see the Voice Lab README, "Choosing the models".
 
-**Automated tests:** `tests/` (see [`tests/README.md`](../tests/README.md)). They run without a key, without models and without Electron, against "fakes" that speak the same protocols: 378 checks today, plus 1 skipped where `onnxruntime-node` can't be installed. `npm test`, at the root, runs them all. On GitHub, they run on every push to `main`.
+**Automated tests:** `tests/` (see [`tests/README.md`](../tests/README.md)). They run without a key, without models and without Electron, against "fakes" that speak the same protocols: 446 checks today, plus 1 skipped where `onnxruntime-node` can't be installed. `npm test`, at the root, runs them all. On GitHub, they run on every push to `main`.
 
 ---
 
@@ -381,6 +385,6 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 
 - With **Gemini**, the students' voices go to Google. On the free tier, Google may use them to improve its models, and people may review them. For classroom use: a paid project, or a clear rule about what is said to the agent.
 - The **Gemini key** stays in the lab window, on one computer: it is never in a patch, nor in an exported settings file. With the token server, it never leaves the teacher's computer.
-- With the **Voice Lab**, nothing leaves the computer (except the model downloads: at first launch, and the first time you choose Parler or Chatterbox). The mic is only granted to the app's page. The clients (cables, p5.js, pages) never get the mic: only what the app publishes, and only on this computer.
+- With the **Voice Lab**, nothing leaves the computer (except the model downloads: at first launch, and the first time you choose another model or voice). **With an LLM farm**, the text of the conversation (persona, knowledge, what was said, never the sound) goes to the farm computer, over the local network. The mic is only granted to the app's page. The clients (cables, p5.js, pages) never get the mic: only what the app publishes, and only on this computer.
 - In both cases, the mic only opens with **Start** and closes with **Stop**.
 - **Voice cloning** (Chatterbox): a voice recording is personal data. Only with the clear, written consent of the person, for the exercise only, and delete the recording afterwards. The cloned voice carries a watermark, but that does not make it harmless.

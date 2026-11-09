@@ -81,6 +81,8 @@ They are set in the Voice Lab window, or in a persona file. Clients don't change
 | `localVoiceEngine` | `supertonic` | the local voice engine: `supertonic` (10 preset voices), `parler` (a voice described in words, English only) or `chatterbox` (multilingual, can clone a voice) | — | voice reload |
 | `localVoice`, `localSpeed` | F1, 1 | Supertonic voice (F1–F5, M1–M5); speed (Supertonic and Chatterbox) | — | voice reload |
 | `voiceDescription` | empty | Parler only: the voice described in words ("A warm, low-pitched female voice…"). Empty = Parler's template voice | — | sent with each sentence (no reload) |
+| `localAsr`, `localLlm` | empty (= `src` in `config.json`) | the speech recognition and language models: a QVAC name among the `choices` in `config.json` (any other value = the default) | — | model reload |
+| `llmFarm`, `llmFarmModel`, `llmFarmKey` | empty | an LLM farm on the network ([LlmOnLan](https://github.com/b2renger/LlmOnLan)): its OpenAI address (`http://<host>:4000/v1`), the model on it, its password. Set, the farm writes the replies instead of the local model. This computer only: never exported, never taken from a persona or an imported file | — | sent with each reply (switching between the farm and a local model loads or frees the local model) |
 | `endSilenceMs` | 800 | silence that ends a turn | `silenceDurationMs` | Whisper end of turn (with Smart Turn: the longest wait) |
 | `turnDetection` | `silence` | how the end of turn is decided: `silence` (the end silence alone) or `smart` (silence + the Smart Turn model: a sentence that sounds finished ends the turn at once) | — | Smart Turn model |
 | `startSensitivity` | `high` | how easily the start of speech is detected | `startOfSpeechSensitivity` | Silero VAD threshold |
@@ -104,7 +106,7 @@ They are set in the Voice Lab window, or in a persona file. Clients don't change
 | `geminiModel`, `apiKey`, `tokenUrl`, `geminiEndpoint` | gemini-3.8-live | connection to Gemini | | |
 | `serverUrl` | `ws://localhost:8790/voice` | address of the local backend | | |
 
-On the Gemini side, an open session cannot change persona, voice or turn rules. The lab window then says "click Start to restart". On the local side, everything applies live, except the server address. The settings added with the open-source borrowings (`turnDetection`, `interruptAfterMs`, `awayAfterMs`, `repromptLine`, `fillerLines`, `fillerAfterMs`, `localVoiceEngine`, `voiceDescription`) never need a restart. A "—" in the Gemini column means Gemini ignores the setting.
+On the Gemini side, an open session cannot change persona, voice or turn rules. The lab window then says "click Start to restart". On the local side, everything applies live, except the server address. The settings added with the open-source borrowings (`turnDetection`, `interruptAfterMs`, `awayAfterMs`, `repromptLine`, `fillerLines`, `fillerAfterMs`, `localVoiceEngine`, `voiceDescription`) never need a restart, nor do the model choices (`localAsr`, `localLlm`, `llmFarm`…). A "—" in the Gemini column means Gemini ignores the setting.
 
 ## The clients protocol (the hub)
 

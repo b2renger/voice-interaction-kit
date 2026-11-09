@@ -20,6 +20,14 @@ export const TTS_MULTILINGUAL_SUPERTONIC3_Q8_0 = entry('TTS_MULTILINGUAL_SUPERTO
 export const TTS_MINI_V1_EN_PARLER_TTS_Q8_0 = entry('TTS_MINI_V1_EN_PARLER_TTS_Q8_0', 's3', 'qvac_models_compiled/ggml/parler-tts/x/parler-mini-v1-q8_0.gguf');
 export const TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0 = entry('TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0', 's3', 'qvac_models_compiled/ggml/chatterbox/x/chatterbox-t3-mtl-q4_0.gguf');
 export const TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0 = entry('TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0', 's3', 'qvac_models_compiled/ggml/chatterbox/x/chatterbox-s3gen-mtl-q4_0.gguf');
+// the other models config.json offers (its "choices"): Hugging Face, some paths pointing at the web page (/blob/)
+export const WHISPER_TINY_Q8_0 = entry('WHISPER_TINY_Q8_0', 'hf', 'ggerganov/whisper.cpp/resolve/x/ggml-tiny-q8_0.bin');
+export const WHISPER_BASE_Q8_0 = entry('WHISPER_BASE_Q8_0', 'hf', 'ggerganov/whisper.cpp/resolve/x/ggml-base-q8_0.bin');
+export const WHISPER_LARGE_V3_TURBO = entry('WHISPER_LARGE_V3_TURBO', 'hf', 'ggerganov/whisper.cpp/resolve/x/ggml-large-v3-turbo.bin');
+export const QWEN3_600M_INST_Q4 = entry('QWEN3_600M_INST_Q4', 'hf', 'unsloth/Qwen3-0.6B-GGUF/blob/x/Qwen3-0.6B-Q4_0.gguf');
+export const LLAMA_3_2_1B_INST_Q4_0 = entry('LLAMA_3_2_1B_INST_Q4_0', 'hf', 'unsloth/Llama-3.2-1B-Instruct-GGUF/blob/x/Llama-3.2-1B-Instruct-Q4_0.gguf');
+export const QWEN3_4B_Q4_K_M = entry('QWEN3_4B_Q4_K_M', 'hf', 'unsloth/Qwen3-4B-GGUF/resolve/x/Qwen3-4B-Q4_K_M.gguf');
+export const QWEN3_8B_INST_Q4_K_M = entry('QWEN3_8B_INST_Q4_K_M', 'hf', 'Qwen/Qwen3-8B-GGUF/blob/main/Qwen3-8B-Q4_K_M.gguf');
 
 // Text-to-speech, per engine (QVAC 0.21: docs ai-capabilities/text-to-speech.mdx, schemas/text-to-speech.ts).
 // The load schemas are STRICT: an unknown key is refused.

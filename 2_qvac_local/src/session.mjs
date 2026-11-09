@@ -10,8 +10,11 @@ const DEFAULTS = {
   interruptible: true, repairLine: '', replyDelayMs: 0, uiTools: true,
   turnDetection: 'silence', interruptAfterMs: 0, fillerLines: '', fillerAfterMs: 1200,
   localVoiceEngine: 'supertonic', voiceDescription: '',
+  // the models (config.json "choices"; '' = the config's), or an LLM farm on the network instead of the local model
+  localAsr: '', localLlm: '', llmFarm: '', llmFarmModel: '', llmFarmKey: '',
 };
-const ASR_KEYS = ['language', 'endSilenceMs', 'startSensitivity', 'endSensitivity'];
+const ASR_KEYS = ['language', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'localAsr'];
+const LLM_KEYS = ['localLlm', 'llmFarm'];        // a change loads (or frees) the local language model
 const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox'];
 const voiceEngine = (s) => (VOICE_ENGINES.includes(s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic');
 /** The settings a voice model is LOADED with (a change reloads it). Parler's description is per request. */
@@ -114,7 +117,7 @@ export class Session {
     this.started = true;
     this.status('', null);
     this.send({ type: 'ready', ...this.engine.info() });
-    this.log(`▸ conversation opened (${this.s.name || 'agent'}, voice ${voiceEngine(this.s)}${voiceEngine(this.s) === 'supertonic' ? ' ' + this.s.localVoice : ''}, ${this.s.language})`);
+    this.log(`▸ conversation opened (${this.s.name || 'agent'}, voice ${voiceEngine(this.s)}${voiceEngine(this.s) === 'supertonic' ? ' ' + this.s.localVoice : ''}, ${this.s.language}${this.s.llmFarm ? `, LLM farm ${this.s.llmFarm} ${this.s.llmFarmModel}` : ''})`);
     if (parlerNotEnglish(this.s)) this.status(PARLER_ENGLISH_ONLY, null);
     this.useTurnDetection();
     const greeting = String(this.s.greeting || '').trim();
@@ -140,7 +143,7 @@ export class Session {
     const asrChanged = changed(ASR_KEYS);
     const ttsChanged = changed(TTS_KEYS[voiceEngine(this.s)]);
     if (asrChanged && this.asr) { this.asr.close(); this.asr = null; }   // close BEFORE reloading the model
-    if (asrChanged || ttsChanged) {
+    if (asrChanged || ttsChanged || changed(LLM_KEYS)) {
       this.status('New settings: reloading…', null);
       await this.lock(() => this.engine.prepare(this.s, (p) => this.status(progressText(p), p.progress)));
       if (this.closed) return;
@@ -435,7 +438,8 @@ export class Session {
     const system = systemPrompt(this.s, 'local') + (this.context.length ? `\n\nWhat the interface knows right now: ${this.context.join('; ')}` : '');
     let result = null;
     try {
-      bot.gen = this.engine.generate({ system, history: trimHistory(this.history), temperature: num(this.s.creativity, 1) * 0.7, onDelta });
+      const farm = this.s.llmFarm ? { url: String(this.s.llmFarm), model: String(this.s.llmFarmModel || ''), key: String(this.s.llmFarmKey || '') } : null;
+      bot.gen = this.engine.generate({ system, history: trimHistory(this.history), temperature: num(this.s.creativity, 1) * 0.7, onDelta, farm });
       result = await bot.gen.done;
     } catch (e) {
       if (!abort.signal.aborted) this.error('llm', `Language model: ${e.message}`);

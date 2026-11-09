@@ -4,6 +4,7 @@
 // Interface shared by the engines (see engines/mock.mjs):
 //   prepare(settings, onProgress)                      loads / reloads the models for these settings
 //   models(), install(onProgress)                      (QVAC only) the models on this computer; downloads the missing ones
+//   choices()                                          the models offered for listening and thinking (config "choices")
 //   openAsr(opts, {onVad, onText, onEndOfTurn, onError}) → {write(pcmS16le16k), close()}
 //   generate({system, history, temperature, onDelta})   → {done: Promise<{text, firstTokenMs}>, cancel()}
 //   speak({voice, speed, language, engine, description}) → {write(phrase), end(), cancel(), frames: AsyncIterable}
@@ -60,9 +61,25 @@ export async function createQvacEngine(config, log) {
   }
   const M = config.models;
   const st = {
-    asr: null, asrKey: '', llm: null, llmKey: '', tts: null, ttsKey: '', ttsRate: 44100, ttsEngine: 'supertonic', ttsSrc: String(M.tts.src),
+    asr: null, asrKey: '', asrSrc: String(M.asr.src), llm: null, llmKey: '', llmSrc: String(M.llm.src),
+    tts: null, ttsKey: '', ttsRate: 44100, ttsEngine: 'supertonic', ttsSrc: String(M.tts.src),
     asrClosing: null, asrDrainedAt: 0,
   };
+  /**
+   * The model a setting asks for (localAsr, localLlm), if config.json offers it in "choices"; otherwise the
+   * config's own. A persona file (shared between students) can thus only pick a model the config offers.
+   */
+  const pick = (wanted, m) => (wanted && (m.choices || []).some((c) => c && c.src === wanted) ? String(wanted) : String(m.src));
+  /** What the window offers: the config's model first if "choices" lacks it, then each choice. */
+  function offer(m) {
+    const list = (m.choices || []).filter((c) => c && c.src);
+    if (!list.some((c) => c.src === String(m.src))) list.unshift({ src: String(m.src), label: String(m.src) });
+    return list.map((c) => {
+      const e = sdk[c.src] && sdk[c.src].src ? sdk[c.src] : null;
+      // here: null for a path or a URL from config.json (not in the catalogue: unknown)
+      return { src: c.src, label: String(c.label || c.src), default: c.src === String(m.src), size: e ? e.expectedSize || 0 : 0, here: e ? !!cachedFile(e) : null, p2pOnly: e ? !hfUrl(e) : false };
+    });
+  }
   // QVAC releases a recognition stream a little AFTER it has drained: leave it that time before
   // opening another one or unloading the model.
   const ASR_RELEASE_MS = 300;
@@ -110,7 +127,7 @@ export async function createQvacEngine(config, log) {
     const P = M.tts.parler || {};
     const C = M.tts.chatterbox || {};
     const wanted = [
-      ['speech recognition', M.asr.src], ['voice detection', M.asr.vad], ['language model', M.llm.src], ['voice (supertonic)', M.tts.src],
+      ['speech recognition', st.asrSrc], ['voice detection', M.asr.vad], ['language model', st.llmSrc], ['voice (supertonic)', M.tts.src],
       ['voice (parler)', P.src || 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0'], ['voice (chatterbox)', C.src || 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0'],
       ['voice (chatterbox, part 2)', C.s3gen || 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0'],
     ];
@@ -193,13 +210,16 @@ export async function createQvacEngine(config, log) {
     name: 'qvac',
     models,
     install,
+    /** The models the window offers for speech recognition and the language model (config.json "choices"). */
+    choices() { return { asr: offer(M.asr), llm: offer(M.llm) }; },
     info() {
       return {
         engine: 'qvac',
         voiceEngine: st.ttsEngine,
         // only Supertonic has preset voices: an interface hides its voice picker otherwise
         voices: st.ttsEngine === 'supertonic' ? (M.tts.voices || SUPERTONIC_VOICES) : [],
-        models: { asr: String(M.asr.src), llm: String(M.llm.src), tts: st.ttsSrc },
+        // llm: '' while an LLM farm answers (no local language model loaded)
+        models: { asr: st.asrSrc, llm: st.llm ? st.llmSrc : '', tts: st.ttsSrc },
       };
     },
 
@@ -226,23 +246,30 @@ export async function createQvacEngine(config, log) {
         },
         contextParams: { use_gpu: M.asr.useGpu !== false },
       };
-      const asrKey = JSON.stringify(asrConfig);
+      const asrSrc = pick(s.localAsr, M.asr);
+      const asrKey = JSON.stringify([asrSrc, asrConfig]);
       if (asrKey !== st.asrKey) {
         await asrReleased();                             // the current stream must be released before unloading the model
         await unload(st.asr);
         st.asr = null; st.asrKey = '';                   // if the load fails, the next prepare loads again
-        st.asr = await load('speech recognition', source(M.asr.src, 'whisper'), asrConfig, onProgress);
-        st.asrKey = asrKey;
+        st.asr = await load('speech recognition', source(asrSrc, 'whisper'), asrConfig, onProgress);
+        st.asrKey = asrKey; st.asrSrc = asrSrc;
       }
-      // — the language model: loaded once —
-      const llmConfig = { ctx_size: M.llm.ctxSize || 4096, device: M.llm.useGpu === false ? 'cpu' : 'gpu' };
-      if (M.llm.thinking === false) llmConfig.reasoning_budget = 0;      // Qwen3: no reasoning = fast replies
-      const llmKey = JSON.stringify(llmConfig);
-      if (llmKey !== st.llmKey) {
+      // — the language model: none while an LLM farm answers (llmFarm), so its memory is free —
+      if (s.llmFarm) {
         await unload(st.llm);
         st.llm = null; st.llmKey = '';
-        st.llm = await load('language model', source(M.llm.src, 'llm'), llmConfig, onProgress);
-        st.llmKey = llmKey;
+      } else {
+        const llmSrc = pick(s.localLlm, M.llm);
+        const llmConfig = { ctx_size: M.llm.ctxSize || 4096, device: M.llm.useGpu === false ? 'cpu' : 'gpu' };
+        if (M.llm.thinking === false) llmConfig.reasoning_budget = 0;      // Qwen3: no reasoning = fast replies
+        const llmKey = JSON.stringify([llmSrc, llmConfig]);
+        if (llmKey !== st.llmKey) {
+          await unload(st.llm);
+          st.llm = null; st.llmKey = '';
+          st.llm = await load('language model', source(llmSrc, 'llm'), llmConfig, onProgress);
+          st.llmKey = llmKey; st.llmSrc = llmSrc;
+        }
       }
       // — the voice: the engine, and its load-time settings —
       const engine = voiceEngineOf(s);

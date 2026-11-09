@@ -77,6 +77,13 @@ const VoiceCore = (function () {
     localVoice: 'F1',                 // Supertonic only
     localSpeed: 1,                    // speed of the local voice (0.5 – 2): Supertonic and Chatterbox
     voiceDescription: '',             // Parler only: the voice described in words, applied to each sentence
+    // — models (local) —
+    localAsr: '',                     // local: speech recognition model, one of config.json's "choices" ('' = its default)
+    localLlm: '',                     // local: language model, one of config.json's "choices" ('' = its default)
+    llmFarm: '',                      // local: an LLM farm's OpenAI address (LlmOnLan, http://<host>:4000/v1): it writes the
+                                      // replies instead of the local model ('' = the local model)
+    llmFarmModel: '',                 // the model on that farm
+    llmFarmKey: '',                   // the farm password, if it has one
     // — turn-taking —
     endSilenceMs: 800,                // silence that ends a turn (patient ↔ impatient)
     startSensitivity: 'high',         // 'high' | 'low': how easily the start of speech is detected
@@ -127,7 +134,7 @@ const VoiceCore = (function () {
   const LOCAL_KEYS = ['name', 'persona', 'language', 'greeting', 'shortAnswers', 'creativity', 'localVoice',
     'localSpeed', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'interruptible', 'repairLine',
     'replyDelayMs', 'uiTools', 'turnDetection', 'interruptAfterMs', 'fillerLines', 'fillerAfterMs',
-    'localVoiceEngine', 'voiceDescription'];
+    'localVoiceEngine', 'voiceDescription', 'localAsr', 'localLlm', 'llmFarm', 'llmFarmModel', 'llmFarmKey'];
 
   const GEMINI_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService';
   const IN_RATE = 16000;              // what both engines listen to

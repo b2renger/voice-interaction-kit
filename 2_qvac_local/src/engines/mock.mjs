@@ -44,6 +44,14 @@ export async function createMockEngine(config = {}) {
       };
     },
 
+    // The QVAC engine's offer (config.json "choices"), shown as if every model were here: nothing loads.
+    choices() {
+      const m = (config && config.models) || {};
+      const offer = (x) => ((x && x.choices) || []).filter((c) => c && c.src)
+        .map((c) => ({ src: c.src, label: String(c.label || c.src), default: c.src === x.src, size: 0, here: true, p2pOnly: false }));
+      return { asr: offer(m.asr), llm: offer(m.llm) };
+    },
+
     // Each conversation replays the same little script from the start: a demo repeats identically.
     newConversation() { heardIndex = 0; replyIndex = 0; },
 

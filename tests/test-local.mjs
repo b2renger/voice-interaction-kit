@@ -336,6 +336,69 @@ const setField = (page, key, value) => page.evaluate(([k, v]) => {
   srv2.kill();
 }
 
+// =========================== 5. the lab window: the models, and an LLM farm (LlmOnLan) ====================
+// A 3rd simulated server listening for farm beacons on a port of its own (a real farm on this network stays out),
+// and a fake farm, added by its address.
+{
+  const { startMockFarm } = await import('./mock-farm.mjs');
+  const farm = await startMockFarm({ key: 'secret', reply: ['The farm', ' says hello.'] });
+  const PORT3 = 20950 + Math.floor(Math.random() * 400);
+  const srv3 = spawn(process.execPath, [join(ROOT, '2_qvac_local', 'src', 'server.mjs'), '--mock', '--port', String(PORT3)],
+    { env: { ...process.env, LOL_FED_PORT: String(43100 + Math.floor(Math.random() * 800)) }, stdio: ['ignore', 'pipe', 'pipe'] });
+  srv3.stdout.on('data', (d) => serverLog.push('[farm] ' + String(d)));
+  srv3.stderr.on('data', (d) => serverLog.push('[farm] ' + String(d)));
+  const base3 = `http://127.0.0.1:${PORT3}`;
+  await until(async () => { try { return (await (await fetch(`${base3}/health`)).json()).models === 'ready'; } catch { return false; } }, 10000);
+  const browser4 = await launch(makeFakeMicWav(join(tmpdir(), 'voice-fake-mic-quiet.wav'), { lead: 1, speech: 0, tail: 5 }));
+  const page = await browser4.newPage();
+  page.on('pageerror', (e) => errors.push('lab (models): ' + e));
+  await page.goto(base3 + '/');
+  await page.evaluate(() => { localStorage.clear(); });
+  await page.reload();
+  const opts = (sel) => page.$$eval(sel + ' option', (o) => o.map((x) => ({ v: x.value, t: x.textContent })));
+  await until(async () => (await opts('#llmModels')).length > 1, 5000);
+  const asr = await opts('#asrModels');
+  const llm = await opts('#llmModels');
+  check(asr.length === 4 && /^Whisper small — accurate \(default\)/.test((asr.find((o) => o.v === '') || {}).t), 'lab: "Speech recognition" offers 4 Whisper models, the default marked', asr);
+  check(llm.length === 6 && llm[2].v === '' && /^Qwen3 1\.7B — balanced \(default\) · downloaded$/.test(llm[2].t) && llm[5].v === 'find',
+    'lab: "Language model" offers the 5 local models, then "Find a farm on the network…"', llm);
+  check(await page.$eval('#farmBox', (e) => e.style.display) === 'none', 'lab: no farm box while a local model is chosen');
+  await page.selectOption('#llmModels', 'QWEN3_4B_Q4_K_M');
+  check(await page.evaluate(() => window.agent.settings.localLlm === 'QWEN3_4B_Q4_K_M' && window.agent.settings.llmFarm === ''), 'lab: choosing "Qwen3 4B" sets localLlm');
+  await page.selectOption('#asrModels', 'WHISPER_BASE_Q8_0');
+  check(await page.evaluate(() => window.agent.settings.localAsr) === 'WHISPER_BASE_Q8_0', 'lab: choosing "Whisper base" sets localAsr');
+  // look for a farm: the box opens and says it is listening; a farm added by its address gets chosen
+  await page.selectOption('#llmModels', 'find');
+  check(await page.$eval('#farmBox', (e) => e.style.display !== 'none') && /Listening for LLM farms/.test(await page.textContent('#farmStatus')),
+    'lab: "Find a farm on the network…" opens the farm box, listening', await page.textContent('#farmStatus'));
+  await page.fill('#farmAddress', '127.0.0.1:' + farm.port);
+  await page.click('#farmAdd');
+  const chosen = await until(() => page.evaluate(() => window.agent.settings.llmFarm), 5000);
+  check(chosen === farm.url && (await page.evaluate(() => window.agent.settings.llmFarmModel)) === 'assistant', 'lab: "Add" asks that address, and the farm\'s default model is chosen', chosen);
+  const shownFarm = await until(async () => { const t = await page.$eval('#llmModels', (s) => s.selectedOptions[0] && s.selectedOptions[0].textContent); return /Mock farm/.test(t || '') && t; }, 4000);
+  check(shownFarm === 'Mock farm — gemma4:12b · password · 1/4 people' && (await page.$eval('#farmKeyField', (e) => e.style.display !== 'none')),
+    'lab: the list shows the farm, its real model, that it has a password, how busy it is; the password field appears', shownFarm);
+  await setField(page, 'llmFarmKey', 'secret');
+  // a shared file cannot point the replies (and the password) to another server
+  await page.setInputFiles('#importFile', { name: 'agent.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ name: 'Bo', llmFarm: 'http://elsewhere.example/v1', llmFarmKey: 'x', localLlm: 'QWEN3_600M_INST_Q4' })) });
+  await until(() => page.evaluate(() => window.agent.settings.name === 'Bo'), 3000);
+  check(await page.evaluate(([u]) => window.agent.settings.llmFarm === u && window.agent.settings.llmFarmKey === 'secret' && window.agent.settings.localLlm === 'QWEN3_600M_INST_Q4', [farm.url]),
+    'lab: an imported file cannot change the farm or its password (its model choice, yes)');
+  await page.evaluate(() => { window.__ev = []; window.agent.on('*', (e) => window.__ev.push({ type: e.type, text: e.text, message: e.message })); });
+  await page.click('#start');
+  check(await until(() => page.evaluate(() => window.agent.state === 'listening'), 8000), 'lab (farm): conversation open');
+  check(/^local engine: Whisper base · LLM farm Mock farm \(gemma4:12b\) · supertonic$/.test(await page.textContent('#engineInfo')), 'lab: the header says what listens, what thinks, what speaks', await page.textContent('#engineInfo'));
+  await page.fill('#sayText', 'Hello?');
+  await page.click('#sayForm button');
+  const end = await until(() => page.evaluate(() => window.__ev.find((e) => e.type === 'bot.end')), 8000);
+  check(end && end.text === 'The farm says hello.', 'lab: the reply comes from the farm', end || (await page.evaluate(() => window.__ev.filter((e) => e.type === 'error'))));
+  await page.click('#stop');
+  await page.close();
+  await browser4.close();
+  srv3.kill();
+  await farm.close();
+}
+
 check(errors.length === 0, 'no JavaScript error', errors.slice(0, 5));
 srv.kill();
 const failed = summary();

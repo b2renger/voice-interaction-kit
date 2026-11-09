@@ -25,6 +25,7 @@ The settings are in the Voice Lab window; the signals reach every client.
 | **When have you finished speaking?** | End silence (impatient ↔ patient), Start sensitivity and End sensitivity, End of turn (local: silence only, or silence + Smart Turn) | Hearing, On user end, Mic level, Turn probability (local) |
 | **Can you interrupt it?** | Interruptible, Listen while speaking, Interrupt button, Interrupt after (local: a "mm-hm" lets it carry on, "stop" makes it stop) | On interruption, On interruption pending, On interruption cancelled |
 | **What happens while it thinks?** | Reply delay (latency as a design material), Thinking sound, Filler lines (local: "Hmm, let me see…") | Thinking, On thinking, On filler, Wait (ms) |
+| **How smart, how fast?** | Language model (local: five sizes, or an LLM farm on the network), Speech recognition (four Whisper sizes) | Wait (ms), Turn timing |
 | **What if it didn't understand?** | Repair line (local) | On not understood, live transcripts |
 | **What if the person says nothing?** | Away after, Reprompt line ("Are you still there?") | On away |
 | **How do you show it's listening?** | Earcons (off, soft, clear) | the states, the levels, the subtitles |
@@ -89,15 +90,16 @@ THIRD_PARTY_NOTICES.md        the licenses of the parts that come from elsewhere
 
 ## What has been checked
 
-In total, **378 automated checks** pass (1 more is skipped here, see below). Run them all from the root with `npm test` (or `node tests/run-all.mjs`). On GitHub, they run on every push to `main` and on every pull request.
+In total, **446 automated checks** pass (1 more is skipped here, see below). Run them all from the root with `npm test` (or `node tests/run-all.mjs`). On GitHub, they run on every push to `main` and on every pull request.
 
 - **The Gemini engine** (run by the lab window): 89 checks in Chromium, with a fake mic, against a fake Gemini Live server. This fake server speaks the official protocol, and it is just as strict: an unknown field closes the session. They cover the setup sent, audio, turns, choices, tools, interruptions (by voice, by gesture, by text or a choice while it speaks, with or without Gemini's confirmation), context, away and the reprompt, stopping during connection or the mic request, the token server, session resumption and errors.
-- **The local app**: 74 checks in Chromium (the lab window with the simulated engine, including the voice dipping for a "mm-hm", spoken fillers, away and the voice engine fields; and its clients through the hub: the cables op, run exactly as cables runs it, and the HTML and p5.js examples) and 49 protocol checks (including Smart Turn, stop phrases and fillers). On top of that, 46 checks of the QVAC adapter against a fake SDK, which checks the options passed to QVAC (Supertonic, Parler and Chatterbox) and accepts only one recognition stream at a time, like QVAC. Then 25 checks of the Electron process with a fake Electron, including the Windows installer and the personas' knowledge files, and 18 checks of the hub (snapshots, events, levels, commands, who may connect).
+- **The local app**: 86 checks in Chromium (the lab window with the simulated engine, including the voice dipping for a "mm-hm", spoken fillers, away, the voice engine fields and the model pickers; and its clients through the hub: the cables op, run exactly as cables runs it, and the HTML and p5.js examples) and 49 protocol checks (including Smart Turn, stop phrases and fillers). On top of that, 46 checks of the QVAC adapter against a fake SDK, which checks the options passed to QVAC (Supertonic, Parler and Chatterbox) and accepts only one recognition stream at a time, like QVAC. Then 25 checks of the Electron process with a fake Electron, including the Windows installer and the personas' knowledge files, and 19 checks of the hub (snapshots, events, levels, commands, who may connect). The models offered in the window: 26 checks against the fake SDK. The LLM farm (LlmOnLan): 29 checks against a fake farm (found by its beacon or its address, replies, refusals, a whole conversation).
 - **Smart Turn**: 41 checks. The JavaScript audio features match Pipecat's Python reference, and the real model, run through Python's onnxruntime, gives exactly the same probabilities on both. The skipped check is the real prediction through `onnxruntime-node`, which could not be installed here.
 - **The text** (sentence splitting, cleanup for the voice, tags, tools): 36 checks.
 - **Not yet checked for real**:
   - **the real Gemini API**, since there was no key here;
-  - **the real QVAC models** (including Parler and Chatterbox) and **the Electron packaging**, which the build environment could not install;
+  - **the real QVAC models** (including Parler and Chatterbox, and the models other than the defaults) and **the Electron packaging**, which the build environment could not install;
+  - **a real LlmOnLan farm**;
   - **Smart Turn inside the app** (`onnxruntime-node` in Electron, the model in the installers) and its accuracy on real voices.
 
   First steps on a real machine: tests A1 to A7 and A12 of the [human test protocol](docs/HUMAN_TESTS.md). The full list of what remains to be checked is in [the guide](docs/GUIDE.md) (section 8).

@@ -7,8 +7,26 @@ export function loadConfig(file) {
     // the pages that can open a conversation (cables.gl, the lab window, offline cables); ["*"] = all
     allowedOrigins: ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*', 'https://editor.p5js.org', 'https://preview.p5js.org'],
     models: {
-      asr: { src: 'WHISPER_SMALL_Q8_0', vad: 'VAD_SILERO_5_1_2', language: 'en', useGpu: true, threads: 4 },
-      llm: { src: 'QWEN3_1_7B_INST_Q4', ctxSize: 4096, maxTokens: 320, thinking: false, useGpu: true },
+      // choices: the models the window offers (QVAC catalogue names, Hugging Face downloads); src is the default
+      asr: {
+        src: 'WHISPER_SMALL_Q8_0', vad: 'VAD_SILERO_5_1_2', language: 'en', useGpu: true, threads: 4,
+        choices: [
+          { src: 'WHISPER_TINY_Q8_0', label: 'Whisper tiny — the fastest, more mistakes' },
+          { src: 'WHISPER_BASE_Q8_0', label: 'Whisper base — fast, a few mistakes' },
+          { src: 'WHISPER_SMALL_Q8_0', label: 'Whisper small — accurate' },
+          { src: 'WHISPER_LARGE_V3_TURBO', label: 'Whisper large v3 turbo — the most accurate, slow without a graphics card' },
+        ],
+      },
+      llm: {
+        src: 'QWEN3_1_7B_INST_Q4', ctxSize: 4096, maxTokens: 320, thinking: false, useGpu: true,
+        choices: [
+          { src: 'QWEN3_600M_INST_Q4', label: 'Qwen3 0.6B — the fastest, simple replies' },
+          { src: 'LLAMA_3_2_1B_INST_Q4_0', label: 'Llama 3.2 1B — fast, best in English' },
+          { src: 'QWEN3_1_7B_INST_Q4', label: 'Qwen3 1.7B — balanced' },
+          { src: 'QWEN3_4B_Q4_K_M', label: 'Qwen3 4B — smarter, slower: a graphics card helps' },
+          { src: 'QWEN3_8B_INST_Q4_K_M', label: 'Qwen3 8B — the smartest here, needs a strong graphics card' },
+        ],
+      },
       tts: {
         src: 'TTS_MULTILINGUAL_SUPERTONIC3_Q8_0', engine: 'supertonic', language: 'en', voice: 'F1', speed: 1, steps: 5, useGpu: true, mode: 'sentence',
         // the other local voice engines (setting localVoiceEngine): Parler (a voice described in words, English)
