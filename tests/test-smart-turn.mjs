@@ -1,4 +1,4 @@
-// Tests the Smart Turn end-of-turn model pipeline (2_qvac_local/src/turn), Node only:
+// Tests the Smart Turn end-of-turn model pipeline (app/src/turn), Node only:
 //   1. the JavaScript features match the Python reference (fixtures made by tests/tools/make_smart_turn_fixtures.py);
 //   2. model parity: the REAL ONNX model, run from Python, gives the same probability on the JavaScript
 //      features as on the reference features (only if python3 has numpy and onnxruntime; otherwise skipped);
@@ -10,11 +10,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { ROOT, check, skip, summary } from './helpers.mjs';
-import { smartTurnFeatures, smartTurnInput, whisperLogMel, N_MELS, N_FRAMES } from '../2_qvac_local/src/turn/whisper-features.mjs';
-import { createSmartTurn, SMART_TURN_UNAVAILABLE } from '../2_qvac_local/src/turn/smart-turn.mjs';
+import { smartTurnFeatures, smartTurnInput, whisperLogMel, N_MELS, N_FRAMES } from '../app/src/turn/whisper-features.mjs';
+import { createSmartTurn, SMART_TURN_UNAVAILABLE } from '../app/src/turn/smart-turn.mjs';
 
 const SR = 16000;
-const MODEL = join(ROOT, '2_qvac_local', 'models', 'smart-turn-v3.2-cpu.onnx');
+const MODEL = join(ROOT, 'app', 'models', 'smart-turn-v3.2-cpu.onnx');
 const fixtures = JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures', 'smart-turn-features.json'), 'utf8'));
 
 /** The test signals: SAME formulas and order of operations as tests/tools/make_smart_turn_fixtures.py. */

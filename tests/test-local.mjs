@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { ROOT, startStatic, makeFakeMicWav, launch, check, summary, sleep, until } from './helpers.mjs';
 
 const PORT = 18790 + Math.floor(Math.random() * 500);
-const srv = spawn(process.execPath, [join(ROOT, '2_qvac_local', 'src', 'server.mjs'), '--mock', '--port', String(PORT)], { stdio: ['ignore', 'pipe', 'pipe'] });
+const srv = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT)], { stdio: ['ignore', 'pipe', 'pipe'] });
 const serverLog = [];
 srv.stdout.on('data', (d) => serverLog.push(String(d)));
 srv.stderr.on('data', (d) => serverLog.push(String(d)));
@@ -141,7 +141,7 @@ const errors = [];
   const fire = (n) => page.evaluate((x) => window.fire(x), n);
   const uiError = (id) => page.evaluate((x) => (window.op.uiErrors[x] || {}).txt || '', id);
   await set('App address', 'ws://127.0.0.1:1/events');
-  check(await until(async () => /Cannot reach the Voice Lab app/.test(await uiError('app')), 5000), 'op: a clear message when the app is not running', await uiError('app'));
+  check(await until(async () => /Cannot reach the VIK app/.test(await uiError('app')), 5000), 'op: a clear message when the app is not running', await uiError('app'));
   await set('App address', hubUrl);
   check(await until(async () => (await port('App connected')) === 1, 5000), 'op: connected to the app (the lab window is open)', await port('App connected'));
   check((await port('Agent name')) === (await lab.evaluate(() => window.agent.settings.name)), "op: shows the agent's name", await port('Agent name'));
@@ -255,7 +255,7 @@ const setField = (page, key, value) => page.evaluate(([k, v]) => {
 // A 2nd simulated server whose model takes 1.5 s more to answer (MOCK_LLM_DELAY_MS), and a mic with no speech.
 {
   const PORT2 = 20500 + Math.floor(Math.random() * 400);
-  const srv2 = spawn(process.execPath, [join(ROOT, '2_qvac_local', 'src', 'server.mjs'), '--mock', '--port', String(PORT2)],
+  const srv2 = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT2)],
     { env: { ...process.env, MOCK_LLM_DELAY_MS: '1500' }, stdio: ['ignore', 'pipe', 'pipe'] });
   srv2.stdout.on('data', (d) => serverLog.push('[slow] ' + String(d)));
   srv2.stderr.on('data', (d) => serverLog.push('[slow] ' + String(d)));
@@ -343,7 +343,7 @@ const setField = (page, key, value) => page.evaluate(([k, v]) => {
   const { startMockFarm } = await import('./mock-farm.mjs');
   const farm = await startMockFarm({ key: 'secret', reply: ['The farm', ' says hello.'] });
   const PORT3 = 20950 + Math.floor(Math.random() * 400);
-  const srv3 = spawn(process.execPath, [join(ROOT, '2_qvac_local', 'src', 'server.mjs'), '--mock', '--port', String(PORT3)],
+  const srv3 = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT3)],
     { env: { ...process.env, LOL_FED_PORT: String(43100 + Math.floor(Math.random() * 800)) }, stdio: ['ignore', 'pipe', 'pipe'] });
   srv3.stdout.on('data', (d) => serverLog.push('[farm] ' + String(d)));
   srv3.stderr.on('data', (d) => serverLog.push('[farm] ' + String(d)));

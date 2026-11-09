@@ -1,4 +1,4 @@
-// The Voice Lab app: the QVAC voice server runs INSIDE the app, and the window shows the lab window page.
+// The VIK app: the QVAC voice server runs INSIDE the app, and the window shows the lab window page.
 // While the app is open, the cables op ("Local" engine) can connect to it.
 'use strict';
 
@@ -94,7 +94,7 @@ async function askMacMicrophone() {
     dialog.showMessageBox({
       type: 'warning',
       message: 'Microphone access is denied',
-      detail: 'Allow Voice Lab in System Settings → Privacy & Security → Microphone, then restart the app.',
+      detail: 'Allow VIK in System Settings → Privacy & Security → Microphone, then restart the app.',
     });
   }
 }
@@ -165,7 +165,7 @@ function buildMenu() {
 async function offerInstall(fromMenu) {
   const missing = srv.models().filter((m) => !m.file);
   if (!missing.length) {
-    if (fromMenu) dialog.showMessageBox(win, { type: 'info', message: 'All the models are on this computer.', detail: 'Voice Lab works without the internet.' });
+    if (fromMenu) dialog.showMessageBox(win, { type: 'info', message: 'All the models are on this computer.', detail: 'VIK works without the internet.' });
     return;
   }
   const noPrompt = path.join(userDir(), 'no-download-prompt');
@@ -175,7 +175,7 @@ async function offerInstall(fromMenu) {
   const { response, checkboxChecked } = await dialog.showMessageBox(win, {
     type: 'question',
     message: `Download all the models now? (${gb.toFixed(1)} GB, once)`,
-    detail: `Missing: ${missing.map((m) => m.stage).join(', ')}.\n\nAfterwards, nothing downloads again, not even when you change the voice, and Voice Lab works without the internet.`
+    detail: `Missing: ${missing.map((m) => m.stage).join(', ')}.\n\nAfterwards, nothing downloads again, not even when you change the voice, and VIK works without the internet.`
       + (p2p ? '\n\nThe voices come from QVAC\'s peer-to-peer network, which some networks (schools, companies) block.' : ''),
     buttons: ['Download everything', 'Not now'],
     defaultId: 0,
@@ -186,7 +186,7 @@ async function offerInstall(fromMenu) {
   if (response !== 0) return;
   const failed = await srv.install();
   if (!failed.length) {
-    dialog.showMessageBox(win, { type: 'info', message: 'All the models are on this computer.', detail: 'Voice Lab works without the internet.' });
+    dialog.showMessageBox(win, { type: 'info', message: 'All the models are on this computer.', detail: 'VIK works without the internet.' });
     return;
   }
   dialog.showMessageBox(win, {
@@ -232,7 +232,7 @@ async function start() {
     height: 900,
     minWidth: 760,
     minHeight: 600,
-    title: `Voice Lab${MOCK ? ' — simulated engine' : ''}`,
+    title: `VIK${MOCK ? ' — simulated engine' : ''}`,
     backgroundColor: '#151514',
     show: false,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, autoplayPolicy: 'no-user-gesture-required' },

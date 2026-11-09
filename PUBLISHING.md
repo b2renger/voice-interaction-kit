@@ -3,7 +3,7 @@
 This folder is ready to become a public GitHub repository. Once it's on GitHub:
 
 - every push to `main`, and every pull request, runs the automated tests (`.github/workflows/tests.yml`);
-- every version tag (`v1.0.0`, `v1.1.0`…) builds the Voice Lab installers for **Windows** and **Apple Silicon Macs**, and publishes them in a **GitHub Release** that students can download (`.github/workflows/release.yml`).
+- every version tag (`v1.0.0`, `v1.1.0`…) builds the VIK installers for **Windows** and **Apple Silicon Macs**, and publishes them in a **GitHub Release** that students can download (`.github/workflows/release.yml`).
 
 You need [Git](https://git-scm.com/downloads) and a GitHub account. The [GitHub CLI](https://cli.github.com/) (`gh`) makes step 2 one command, but it's optional.
 
@@ -30,7 +30,7 @@ In a terminal, inside this folder (`vocal_interaction`):
 ```bash
 git init -b main
 git add -A
-git commit -m "Voice interaction kit: cables.gl op (Gemini Live) and Voice Lab (local, QVAC)"
+git commit -m "Voice Interaction Kit: cables.gl op (Gemini Live) and VIK (local, QVAC)"
 ```
 
 Git uses your own name and email for the commit. If it complains that they are not set, run
@@ -66,7 +66,7 @@ The **Release** workflow builds the Windows installer on a Windows machine and t
 
 | file | for |
 |---|---|
-| `VoiceLab-Setup-1.0.0-windows-x64.exe` | Windows installer |
+| `VIK-Setup-1.0.0-windows-x64.exe` | Windows installer |
 | `VoiceLab-1.0.0-windows-x64.zip` | Windows, portable (no installation) |
 | `VoiceLab-1.0.0-mac-arm64.dmg` | Mac installer (M1 and later) |
 | `VoiceLab-1.0.0-mac-arm64.zip` | Mac, the app in a zip |
@@ -80,7 +80,7 @@ To build the installers **without** publishing a release (to try them first): Ac
 ## Good to know
 
 - **The installers are not code-signed.** Windows SmartScreen and macOS Gatekeeper warn on first launch. The release page and `docs/GUIDE.md` explain how to open them. Signing needs paid Apple and Windows certificates, which can be added to the workflow later.
-- **No secret is in the repository.** The Gemini key lives in each student's browser (never in the patch) or in `1_cables_gemini_live/token-server/.env`, which `.gitignore` excludes. Double-check with `git status` before your first push that no `.env` file is listed.
-- **The Smart Turn model** (8.7 MB, BSD-2) is part of the repository on purpose: Voice Lab works without downloading it.
-- **QVAC moves fast** (several breaking releases in 2026). `2_qvac_local/package.json` pins the SDK version: upgrade between terms, run `npm run selftest` on a Windows PC and a Mac, then tag a new release.
+- **No secret is in the repository.** The Gemini key lives in each student's browser (never in the patch) or in `cables/token-server/.env`, which `.gitignore` excludes. Double-check with `git status` before your first push that no `.env` file is listed.
+- **The Smart Turn model** (8.7 MB, BSD-2) is part of the repository on purpose: VIK works without downloading it.
+- **QVAC moves fast** (several breaking releases in 2026). `app/package.json` pins the SDK version: upgrade between terms, run `npm run selftest` on a Windows PC and a Mac, then tag a new release.
 - **Licenses:** the kit is MIT (`LICENSE`); third-party parts keep theirs (`THIRD_PARTY_NOTICES.md`).

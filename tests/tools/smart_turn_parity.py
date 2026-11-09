@@ -8,7 +8,7 @@ without onnxruntime-node.
 
 DIR holds manifest.json, a list of {"name", "signal", "features"}: "signal" is a raw float32 file
 (16 kHz audio, as given to the Smart Turn pipeline), "features" the raw float32 80×800 features
-computed by 2_qvac_local/src/turn/whisper-features.mjs. Prints one JSON object on stdout.
+computed by app/src/turn/whisper-features.mjs. Prints one JSON object on stdout.
 Needs numpy and onnxruntime.
 """
 import sys

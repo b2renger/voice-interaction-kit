@@ -1,4 +1,4 @@
-// The hub: the Voice Lab window is the brain (it runs the conversation, with the local engine or Gemini,
+// The hub: the VIK window is the brain (it runs the conversation, with the local engine or Gemini,
 // with its persona, knowledge and settings), and any number of clients (a cables.gl patch, a p5.js sketch,
 // a web page) follow that conversation and drive it.
 //   /brain   the lab window: publishes the agent's events and levels, runs the clients' commands
@@ -39,7 +39,7 @@ export function createHub(log = () => {}) {
     const bad = (message) => ws.sendJson({ type: 'error', code: 'bad-command', message, fatal: false });
     if (!COMMANDS.has(m.type)) return bad(`Unknown command "${m.type}". Commands: ${[...COMMANDS].join(', ')}.`);
     for (const k of ['text', 'option']) if (m[k] != null && (typeof m[k] !== 'string' || m[k].length > MAX_TEXT)) return bad(`"${k}" must be a string (at most ${MAX_TEXT} characters).`);
-    if (!brain) return ws.sendJson({ type: 'error', code: 'no-app', message: 'The Voice Lab window is not open.', fatal: false });
+    if (!brain) return ws.sendJson({ type: 'error', code: 'no-app', message: 'The VIK window is not open.', fatal: false });
     brain.sendJson({ type: 'command', command: m });
   }
 

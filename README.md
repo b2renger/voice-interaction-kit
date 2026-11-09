@@ -1,6 +1,6 @@
-<p align="center"><img src="2_qvac_local/public/logo.svg" width="128" alt="Voice Interaction Kit logo: a person's voice and a smiling agent taking turns in speech bubbles, with a wrench"></p>
+<p align="center"><img src="app/public/logo.svg" width="128" alt="Voice Interaction Kit logo: a person's voice and a smiling agent taking turns in speech bubbles, with a wrench"></p>
 
-# Voice interaction kit: designing an agent that talks
+# VIK, the Voice Interaction Kit: designing an agent that talks
 
 A kit that lets design students work on the **identity of a voice agent** (its voice, its personality) and on the **basic vocabulary of voice UX**: taking turns, knowing when someone has finished, interrupting, thinking, not understanding, visual and sound feedback, and calls to action.
 
@@ -8,14 +8,14 @@ It has **one brain and several clients**:
 
 | | what it is | for what |
 |---|---|---|
-| [**The "Voice Lab" app**](2_qvac_local/) | **the brain.** It listens, thinks and speaks, with QVAC (100% local, open models, no key) or with Gemini Live (online, the smoothest voice available today). It holds the persona, its knowledge and the settings, in its lab window. | a Windows / Mac M1 app, installed once on each computer |
-| **Its clients** | they follow the conversation and drive it: [**the cables.gl op "VoiceAgent"**](1_cables_gemini_live/), and [**p5.js and HTML/CSS/JS examples**](examples/) to start your own pages | designing the interface: visuals, animations, subtitles, buttons. Several clients can follow the same conversation at once |
+| [**The VIK app**](app/) | **the brain.** It listens, thinks and speaks, with QVAC (100% local, open models, no key) or with Gemini Live (online, the smoothest voice available today). It holds the persona, its knowledge and the settings, in its lab window. | a Windows / Mac M1 app, installed once on each computer |
+| **Its clients** | they follow the conversation and drive it: [**the cables.gl op "VoiceAgent"**](cables/), and [**p5.js and HTML/CSS/JS examples**](examples/) to start your own pages | designing the interface: visuals, animations, subtitles, buttons. Several clients can follow the same conversation at once |
 
 Both engines produce **the same states and the same events** ([`CONTRACT.md`](CONTRACT.md)). A client designed with the local engine works with Gemini, and the other way round: only the engine chosen in the app changes.
 
 ## What you can explore, and with what
 
-The settings are in the Voice Lab window; the signals reach every client.
+The settings are in the VIK window; the signals reach every client.
 
 | design question | settings | signals for the interface |
 |---|---|---|
@@ -51,23 +51,23 @@ Some features come from what other open-source voice projects do well (see [the 
 - [**`docs/OPEN_SOURCE_LANDSCAPE.md`**](docs/OPEN_SOURCE_LANDSCAPE.md): what already exists in open source, and what the kit borrowed from it.
 - [**`CONTRACT.md`**](CONTRACT.md): the shared vocabulary (states, events, settings), the clients protocol (the hub), the local engine's audio protocol, and how it maps to other toolkits (LiveKit, Pipecat, ElevenLabs, Home Assistant).
 - [**`examples/README.md`**](examples/README.md): your own clients in p5.js or plain HTML/CSS/JS.
-- [**`PUBLISHING.md`**](PUBLISHING.md): how to put the kit on GitHub and publish the Voice Lab installers as a release.
+- [**`PUBLISHING.md`**](PUBLISHING.md): how to put the kit on GitHub and publish the VIK installers as a release.
 
 ## Getting started
 
-1. **Install the app**: [`2_qvac_local/README.md`](2_qvac_local/README.md). The installers come from the repository's **Releases** page on GitHub: GitHub Actions builds them for Windows and Apple Silicon Macs each time you tag a version (see [`PUBLISHING.md`](PUBLISHING.md)). You can also build them yourself with `npm run make`. Choose the engine in its window: local (nothing else needed) or Gemini (a key, or a token server).
-2. **Connect a client**: the cables op ([`1_cables_gemini_live/README.md`](1_cables_gemini_live/README.md): "Code a new op", paste `VoiceAgent.op.js`, click Start), or an example ([`examples/`](examples/): p5.js, HTML/CSS/JS).
+1. **Install the app**: [`app/README.md`](app/README.md). The installers come from the repository's **Releases** page on GitHub: GitHub Actions builds them for Windows and Apple Silicon Macs each time you tag a version (see [`PUBLISHING.md`](PUBLISHING.md)). You can also build them yourself with `npm run make`. Choose the engine in its window: local (nothing else needed) or Gemini (a key, or a token server).
+2. **Connect a client**: the cables op ([`cables/README.md`](cables/README.md): "Code a new op", paste `VoiceAgent.op.js`, click Start), or an example ([`examples/`](examples/): p5.js, HTML/CSS/JS).
 
 ## The folder
 
 ```
 common/voice-core.js          the core the lab window runs: mic, voice, states, events, Gemini and local engines
 CONTRACT.md                   the vocabulary: states, events, settings, clients protocol, audio protocol, mapping to other toolkits
-1_cables_gemini_live/
+cables/
   VoiceAgent.op.js            ← the op to paste into cables: a client of the app
   token-server/               small Gemini token server (so the key stays out of the lab window)
 examples/                     your own clients: p5js/ and html-css-js/
-2_qvac_local/                 the Electron app "Voice Lab"
+app/                 the Electron app "VIK"
   electron/main.cjs           the app: built-in server, window, mic, menus
   src/                        the voice server (session, QVAC engine, simulated engine, text), the hub (clients), the self-test
   src/turn/                   Smart Turn: the end-of-turn model and its audio features (a JavaScript port of Pipecat's)

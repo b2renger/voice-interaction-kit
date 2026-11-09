@@ -1,9 +1,9 @@
 {
-  "name": "voice-lab",
-  "productName": "Voice Lab",
+  "name": "vik",
+  "productName": "VIK",
   "version": "1.0.0",
   "private": true,
-  "description": "Voice Lab: a 100% local voice agent (QVAC: Whisper + Qwen3 + Supertonic) for prototyping voice interactions.",
+  "description": "VIK: a 100% local voice agent (QVAC: Whisper + Qwen3 + Supertonic) for prototyping voice interactions.",
   "author": "Voice interaction workshop",
   "license": "MIT",
   "type": "module",

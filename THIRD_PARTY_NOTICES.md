@@ -6,20 +6,20 @@ The kit's own code is under the MIT license (see `LICENSE`). It includes, or dow
 
 | component | where | license | source |
 |---|---|---|---|
-| Smart Turn v3.2 model (CPU, int8) | `2_qvac_local/models/smart-turn-v3.2-cpu.onnx` | BSD-2-Clause, © Daily (see `2_qvac_local/models/SMART_TURN_LICENSE.txt`) | [pipecat-ai/smart-turn](https://github.com/pipecat-ai/smart-turn), file from [pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat) |
-| Whisper log-mel feature extraction, ported to JavaScript | `2_qvac_local/src/turn/whisper-features.mjs` | BSD-2-Clause, © Daily (port of Pipecat's `_whisper_features.py`) | [pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat) |
+| Smart Turn v3.2 model (CPU, int8) | `app/models/smart-turn-v3.2-cpu.onnx` | BSD-2-Clause, © Daily (see `app/models/SMART_TURN_LICENSE.txt`) | [pipecat-ai/smart-turn](https://github.com/pipecat-ai/smart-turn), file from [pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat) |
+| Whisper log-mel feature extraction, ported to JavaScript | `app/src/turn/whisper-features.mjs` | BSD-2-Clause, © Daily (port of Pipecat's `_whisper_features.py`) | [pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat) |
 | Pipecat's `_whisper_features.py` (test reference) | `tests/tools/_whisper_features.py` | BSD-2-Clause, © Daily | [pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat) |
 
 ## Installed by npm (not in the repository)
 
 | component | used by | license |
 |---|---|---|
-| `@qvac/sdk` (Tether QVAC) | Voice Lab: speech recognition, language model, voice | Apache-2.0 |
-| `onnxruntime-node` (optional) | Voice Lab: Smart Turn | MIT |
-| Electron, Electron Forge | Voice Lab app and installers | MIT |
+| `@qvac/sdk` (Tether QVAC) | VIK: speech recognition, language model, voice | Apache-2.0 |
+| `onnxruntime-node` (optional) | VIK: Smart Turn | MIT |
+| Electron, Electron Forge | VIK app and installers | MIT |
 | Playwright (development only) | browser test suites | Apache-2.0 |
 
-## Models downloaded by Voice Lab on first use (not in the repository)
+## Models downloaded by VIK on first use (not in the repository)
 
 | model | role | license (upstream) |
 |---|---|---|
@@ -32,4 +32,4 @@ The kit's own code is under the MIT license (see `LICENSE`). It includes, or dow
 
 ## Online services
 
-The cables.gl op can use **Google Gemini Live**, a paid/free-tier online service under Google's terms. On the free tier, Google may use the conversations to improve its models. Voice Lab sends nothing online after the models are downloaded.
+The cables.gl op can use **Google Gemini Live**, a paid/free-tier online service under Google's terms. On the free tier, Google may use the conversations to improve its models. VIK sends nothing online after the models are downloaded.

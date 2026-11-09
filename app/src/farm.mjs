@@ -1,5 +1,5 @@
 // LLM farms on the network (LlmOnLan, https://github.com/b2renger/LlmOnLan): a computer with a graphics card
-// that serves a language model to the whole room through one OpenAI-compatible address. Voice Lab can ask it
+// that serves a language model to the whole room through one OpenAI-compatible address. VIK can ask it
 // for the replies instead of the local model. Listening (Whisper) and the voice stay on this computer.
 //
 // Finding a farm works as in LlmOnLan's own client (shell/src/main/discovery.ts):

@@ -1,10 +1,10 @@
-// Tests for the text module (2_qvac_local/src/text.mjs) and its consistency with the browser core.
+// Tests for the text module (app/src/text.mjs) and its consistency with the browser core.
 //   node tests/test-text.mjs
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import { check, summary, ROOT } from './helpers.mjs';
-import { nextSentences, speakable, heardNothing, parseTag, ReplyParser, systemPrompt, classifyInterjection, isBackchannel, isStopPhrase } from '../2_qvac_local/src/text.mjs';
+import { nextSentences, speakable, heardNothing, parseTag, ReplyParser, systemPrompt, classifyInterjection, isBackchannel, isStopPhrase } from '../app/src/text.mjs';
 
 // — sentences —
 let r = nextSentences('Hello! I am Ada. How', 0);

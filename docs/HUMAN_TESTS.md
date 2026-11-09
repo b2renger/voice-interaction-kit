@@ -8,7 +8,7 @@ For each test: the **requirement** from your request that it checks, the **steps
 - **needs work**: it works, but not the way you want it to (say how);
 - **fail**: it doesn't work, or it isn't what you wanted.
 
-**Where things happen:** the Voice Lab app is the brain. Its lab window runs the conversation with either engine (its **Engine** field: Local (QVAC) or Gemini Live), and it holds the mic, the speakers, the persona, every setting, and Gemini's key or token server. The cables op and the examples in `examples/` are **clients**: they follow that conversation and send commands (Start, Stop, Interrupt, a text, context, a choice), but they never change a setting and never open the mic. So every setting named below is a field of the lab window (or a key of a persona file), and "Start" means the lab window's button or `Start` on a client.
+**Where things happen:** the VIK app is the brain. Its lab window runs the conversation with either engine (its **Engine** field: Local (QVAC) or Gemini Live), and it holds the mic, the speakers, the persona, every setting, and Gemini's key or token server. The cables op and the examples in `examples/` are **clients**: they follow that conversation and send commands (Start, Stop, Interrupt, a text, context, a choice), but they never change a setting and never open the mic. So every setting named below is a field of the lab window (or a key of a persona file), and "Start" means the lab window's button or `Start` on a client.
 
 **A rule to keep in mind with Gemini:** an open session does not pick up live changes to persona, voice, language, creativity, short answers, end silence, sensitivities or "Can be interrupted". The lab window then shows "Setting changed: click Start…": you need to click Start after each change of this kind. With the local engine, everything applies live. A setting marked **(local)** only works with the local engine: Gemini ignores it.
 
@@ -22,7 +22,7 @@ The tests marked ★ make up the **quick run**, to do first: about 2¾ hours for
 - Chrome, a cables.gl account, a **Gemini key** ([aistudio.google.com/apikey](https://aistudio.google.com/apikey));
 - to open the examples (`examples/`): VS Code with the **Live Server** extension, or **Node.js** (for `npx serve`, and for the token server in A4);
 - a **headset** with a mic, and **speakers** (for the echo tests);
-- the Voice Lab installers: from a GitHub Release (see A12 and [`PUBLISHING.md`](../PUBLISHING.md)), or built with `npm run make`;
+- the VIK installers: from a GitHub Release (see A12 and [`PUBLISHING.md`](../PUBLISHING.md)), or built with `npm run make`;
 - a GitHub account, for A12;
 - for B6 (optional): a short WAV recording of a volunteer who has agreed, in writing, to have their voice cloned;
 - for the K tests: one or two student volunteers.
@@ -52,12 +52,12 @@ N1 and N2 were not in your original request: they cover what was added since.
 
 ## A. Getting set up
 
-The op only follows the Voice Lab app, so A1 to A4 need the app installed and open (A5 to A7, or `npm start` in `2_qvac_local`). If you start from scratch, do A5 to A7 first.
+The op only follows the VIK app, so A1 to A4 need the app installed and open (A5 to A7, or `npm start` in `app`). If you start from scratch, do A5 to A7 first.
 
 ### A1 ★ The op installs in cables without touching cables (R1)
-1. Open the Voice Lab app and keep it open.
+1. Open the VIK app and keep it open.
 2. Open a patch of your own on cables.gl. Avatar → **Code a new op** → name `VoiceAgent` → **Create Op**.
-3. Delete the code, paste all of `1_cables_gemini_live/VoiceAgent.op.js`, save. Accept if Chrome asks for access to the "local network".
+3. Delete the code, paste all of `cables/VoiceAgent.op.js`, save. Accept if Chrome asks for access to the "local network".
 
 **Expected:** the op appears in the patch, with no error. Its ports are sorted into groups (Connection, Actions, Advanced), with no settings ports: those are in the lab window. `App connected` goes to 1, and `Agent name` shows the name set in the lab window. Nothing else has been installed in cables.
 
@@ -74,7 +74,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### A3 The key is never exported with the settings (R1)
 1. After A2, in the lab window: **Share settings → Export (JSON)**. Open the file in a text editor.
-2. Quit the Voice Lab, then open it again.
+2. Quit the VIK, then open it again.
 3. **Import…** the file on another computer.
 
 **Expected:** 1. the file holds the persona, the voice and the sliders, but no key. 2. the key is still in its field: it is kept on this computer only, in the lab window's storage. 3. the import brings no key: the other computer's key field stays as it was. The patch never holds the key either: the op has no key port.
@@ -82,7 +82,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### A4 The token server, for a class (R1)
-1. `cd 1_cables_gemini_live/token-server`, copy `.env.example` to `.env`, put the key in it, then `node server.mjs`.
+1. `cd cables/token-server`, copy `.env.example` to `.env`, put the key in it, then `node server.mjs`.
 2. In the lab window (Engine = Gemini Live): clear the key, and put `http://localhost:8787/token` in the token server field. `Start` on the op.
 3. Stop the token server (`Ctrl+C`), then `Start` again.
 
@@ -91,20 +91,20 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### A5 ★ The QVAC self-test and building the installers (R2)
-1. In `2_qvac_local`: `npm install`, then `npm run selftest`.
+1. In `app`: `npm install`, then `npm run selftest`.
 2. `npm run make` (on each platform), or let GitHub build the installers (A12).
 
-**Expected:** the self-test shows ✔ for "loading the three models", "voice: say a sentence", "recognition: listen back to the sentence", "end of turn: Smart Turn", "model: reply", "voice: say the reply", then "✔ QVAC works on this machine." A ⚠ on "end of turn: Smart Turn" means `onnxruntime-node` is missing: the self-test still passes and turns end on silence, but note it. `out/make/` contains `VoiceLab-Setup.exe` (Windows) or `Voice Lab.dmg` (Mac), plus a `.zip`.
+**Expected:** the self-test shows ✔ for "loading the three models", "voice: say a sentence", "recognition: listen back to the sentence", "end of turn: Smart Turn", "model: reply", "voice: say the reply", then "✔ QVAC works on this machine." A ⚠ on "end of turn: Smart Turn" means `onnxruntime-node` is missing: the self-test still passes and turns end on silence, but note it. `out/make/` contains `VIK-Setup.exe` (Windows) or `VIK.dmg` (Mac), plus a `.zip`.
 
 Write down the times shown by the self-test, you will need them in F4:
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### A6 ★ Installing on a student's Windows PC (R2)
-1. Run the installer: `VoiceLab-Setup-<version>-windows-x64.exe` from the Releases page, or `VoiceLab-Setup.exe` if you built it yourself. Get past the warning ("More info → Run anyway").
+1. Run the installer: `VIK-Setup-<version>-windows-x64.exe` from the Releases page, or `VIK-Setup.exe` if you built it yourself. Get past the warning ("More info → Run anyway").
 2. Wait for the model download to finish, then click **Start** and talk.
 
-**Expected:** a "Voice Lab" shortcut appears in the Start menu and on the desktop. The app opens; the window's banner shows the download percentage (and a bar moves along on the icon, in the taskbar), then "Models ready". The conversation works.
+**Expected:** a "VIK" shortcut appears in the Start menu and on the desktop. The app opens; the window's banner shows the download percentage (and a bar moves along on the icon, in the taskbar), then "Models ready". The conversation works.
 
 Machine (processor, memory, graphics card): ……… Download time: ………
 
@@ -115,29 +115,29 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 2. Unblock it: **System Settings → Privacy & Security → Open Anyway** (or `xattr -cr` if macOS says it is "damaged").
 3. Allow the mic, wait for "Models ready", **Start**, talk.
 
-**Expected:** the README instructions are enough to unblock the app without help. macOS asks for the mic with the sentence "Voice Lab listens to your voice…". The conversation works.
+**Expected:** the README instructions are enough to unblock the app without help. macOS asks for the mic with the sentence "VIK listens to your voice…". The conversation works.
 
 Machine (chip, memory): ……… Download time: ………
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### A8 Uninstalling on Windows (R2)
-1. Settings → Apps → "Voice Lab" → Uninstall.
+1. Settings → Apps → "VIK" → Uninstall.
 
 **Expected:** the app and its shortcuts disappear. The models stay in `~/.qvac/models`, so you don't have to download them again.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### A9 The simulated engine, without models (R2, R12)
-1. In the Voice Lab: menu **Engine → Simulated**.
+1. In the VIK: menu **Engine → Simulated**.
 2. **Start**, talk (say anything), then start a second conversation.
 
 **Expected:** the app restarts with the "simulated engine". The agent "hears" when you talk, replies with pre-written sentences, offers choices and a mood, and speaks with a hum. The second conversation replays the same script. This is useful to design an interface without waiting for the models.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
-### A10 ★ The cables op connected to the Voice Lab (R2, R11)
-1. Voice Lab open, showing "Models ready", Engine = "Local (QVAC, on this machine)". Menu **Engine → Copy address for clients**.
+### A10 ★ The cables op connected to the VIK (R2, R11)
+1. VIK open, showing "Models ready", Engine = "Local (QVAC, on this machine)". Menu **Engine → Copy address for clients**.
 2. On the op: check that `App address` is this address (`ws://localhost:8790/events`, its default), then `Start`.
 
 **Expected:** the conversation works from cables, with the local voice. The same outputs move as with Gemini, and `Engine` shows `local`. The lab window shows the same conversation (face, subtitles, "Events"): the op does not open a conversation of its own, it follows and drives the app's.
@@ -154,7 +154,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 ### A12 ★ The installers from a GitHub Release (R2)
 1. Put the kit on GitHub as [`PUBLISHING.md`](../PUBLISHING.md) explains (first commit, then push). In the **Actions** tab, check that the **Tests** workflow turns green.
 2. Push a version tag: `git tag v1.0.0`, then `git push origin v1.0.0`. (To try without publishing: **Actions → Release → Run workflow**.)
-3. When the **Release** workflow has finished, download `VoiceLab-Setup-1.0.0-windows-x64.exe` and `VoiceLab-1.0.0-mac-arm64.dmg` from the release page (or from "Artifacts" on the run page). Install them as in A6 (Windows PC) and A7 (M1 Mac).
+3. When the **Release** workflow has finished, download `VIK-Setup-1.0.0-windows-x64.exe` and `VoiceLab-1.0.0-mac-arm64.dmg` from the release page (or from "Artifacts" on the run page). Install them as in A6 (Windows PC) and A7 (M1 Mac).
 4. In each installed app, set "End of turn" to "silence + Smart Turn model" and have a short conversation.
 
 **Expected:** both workflows finish green, the Release one in about 15–25 minutes. The release page lists four files: the `.exe` and a `.zip` for Windows, the `.dmg` and a `.zip` for Mac. Both installers install and run as in A6 and A7. At step 4, the window never says "Smart Turn is unavailable here: using silence only.", and the "Events" log shows `turn.prediction` lines: the model and its runtime made it into the installer.
@@ -164,7 +164,7 @@ Time taken by the Release workflow: ………
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### A13 ★ Several clients follow one conversation (R1, R10)
-1. Voice Lab open, the op in a patch (A1). Open both examples in Chrome through a local web server, as [`examples/README.md`](../examples/README.md) explains: VS Code's Live Server, or `npx serve` in each example's folder.
+1. VIK open, the op in a patch (A1). Open both examples in Chrome through a local web server, as [`examples/README.md`](../examples/README.md) explains: VS Code's Live Server, or `npx serve` in each example's folder.
 2. Click **Start** on the HTML page, and talk. Watch the page, the sketch, the op and the lab window side by side.
 3. Ask for a long story, and cut it off with the op's `Interrupt`. Then click the sketch to stop.
 
@@ -173,7 +173,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### A14 The p5.js example in the p5.js web editor (R12)
-1. Voice Lab open. On [editor.p5js.org](https://editor.p5js.org/), replace the new sketch's code with all of `examples/p5js/sketch.js`, then Play. Accept if Chrome asks for access to the "local network".
+1. VIK open. On [editor.p5js.org](https://editor.p5js.org/), replace the new sketch's code with all of `examples/p5js/sketch.js`, then Play. Accept if Chrome asks for access to the "local network".
 2. Click the sketch, talk, then click it again.
 
 **Expected:** with no server to install, the sketch connects: its top line shows the agent's name and state (for example "Ada · listening"). The orb's colour follows the state, its size the agent's voice, its halo your mic. The first click starts the conversation, the second one stops it.
@@ -199,7 +199,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### B3 ★ Local voice and speed
-1. Voice Lab: `Local voice` F1, then M3. `Speed` 0.8, then 1.4. Talk between each change, **without** clicking Start.
+1. VIK: `Local voice` F1, then M3. `Speed` 0.8, then 1.4. Talk between each change, **without** clicking Start.
 
 **Expected:** each change applies live, after one or two seconds of reloading. The conversation carries on.
 
@@ -213,7 +213,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### B5 A voice described in words (Parler)
-1. Voice Lab, `Language` = English. "Local voice engine" = "Parler (describe the voice in words, English)". The first time, wait for the download (about 1.16 GB).
+1. VIK, `Language` = English. "Local voice engine" = "Parler (describe the voice in words, English)". The first time, wait for the download (about 1.16 GB).
 2. "Voice description (Parler)" = "A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone." Talk.
 3. **Without** clicking Start, change it to "A fast, high-pitched male voice, far from the microphone, in a large echoing hall." Talk again.
 4. Set `Language` to French.
@@ -271,7 +271,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### C5 The example personas, and sharing
-1. Voice Lab: "Persona preset" → try all four.
+1. VIK: "Persona preset" → try all four.
 2. **Export (JSON)**, edit a persona, **Import…** the file on another computer.
 
 **Expected:** each persona changes the name, the text, the voice and the greeting. An exported file imports back identically.
@@ -286,7 +286,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### C7 A persona that knows things (a knowledge file)
-1. Voice Lab: **Files → Open settings folder**, then its `personas` folder. Create `museum.md` there, with a few facts the model can't guess: "The museum closes at 17:30 on Tuesdays. The blue painting in room 2 is by Léa Marchand, 1974." Next to it, a persona file `my-guide.json`: `{"title": "My guide", "name": "Ada", "persona": "You are a museum guide.", "knowledge": "museum.md"}`.
+1. VIK: **Files → Open settings folder**, then its `personas` folder. Create `museum.md` there, with a few facts the model can't guess: "The museum closes at 17:30 on Tuesdays. The blue painting in room 2 is by Léa Marchand, 1974." Next to it, a persona file `my-guide.json`: `{"title": "My guide", "name": "Ada", "persona": "You are a museum guide.", "knowledge": "museum.md"}`.
 2. Reload the window (**View → Reload page**), and choose "My guide" in "Persona preset". Look at the "Persona" field.
 3. Ask: "When do you close on Tuesdays?", then "Who painted the blue painting?" With both engines.
 4. (Optional) Change `"knowledge"` to the path of a file in another folder (your Documents, for example), and reload.
@@ -330,7 +330,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### D5 ★ Smart Turn: a finished sentence ends fast, a pause waits
-1. Voice Lab (local engine). "End-of-turn silence" = 2000, "End of turn" = "silence + Smart Turn model".
+1. VIK (local engine). "End-of-turn silence" = 2000, "End of turn" = "silence + Smart Turn model".
 2. Say a complete question, then stop: "What time does the museum close?"
 3. Say, with a real one-second pause in the middle: "I'd like to… um… go and see room 2."
 4. Set "End of turn" back to "silence only" (still 2000 ms) and redo step 2.
@@ -444,9 +444,9 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### F4 ★ Local engine latency on the students' machines
-1. With the Voice Lab, have five turns on the Windows PC, then five on the Mac, writing down the wait for each turn ("Turns" table in the window, in seconds).
+1. With the VIK, have five turns on the Windows PC, then five on the Mac, writing down the wait for each turn ("Turns" table in the window, in seconds).
 
-**Expected:** it's up to you to set the acceptable threshold for the workshop (for example, under 3 s). Beyond that, lighter models exist (Voice Lab README, "Changing models").
+**Expected:** it's up to you to set the acceptable threshold for the workshop (for example, under 3 s). Beyond that, lighter models exist (VIK README, "Changing models").
 
 PC: ……… / ……… / ……… / ……… / ……… Mac: ……… / ……… / ……… / ……… / ………
 
@@ -460,7 +460,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### F6 ★ Spoken fillers (local)
-1. Voice Lab (local engine). "Extra delay before replying" = 3000. "Filler lines" = "Hmm, let me see…|Good question…|One moment…", "Say a filler after (ms)" = 1200.
+1. VIK (local engine). "Extra delay before replying" = 3000. "Filler lines" = "Hmm, let me see…|Good question…|One moment…", "Say a filler after (ms)" = 1200.
 2. Ask three questions, one after the other.
 3. Set "Thinking sound" = hum and ask one more.
 4. Switch Engine to Gemini Live, leaving the filler lines filled in. Start, and ask a question.
@@ -495,14 +495,14 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### G4 Messages a student can understand
-1. Cause: a wrong key (lab window, Gemini Live), a refused mic, the Voice Lab closed while the op is in a patch.
+1. Cause: a wrong key (lab window, Gemini Live), a refused mic, the VIK closed while the op is in a patch.
 
-**Expected:** each time, a message in plain English says what is happening and what to do. For the key and the mic: in the lab window, and on the op (`Error` and its frame). For the closed app: on the op's frame, "Cannot reach the Voice Lab app at …: open the app (it reconnects on its own)." For a refused key, the reason given by Google may be added in parentheses.
+**Expected:** each time, a message in plain English says what is happening and what to do. For the key and the mic: in the lab window, and on the op (`Error` and its frame). For the closed app: on the op's frame, "Cannot reach the VIK app at …: open the app (it reconnects on its own)." For a refused key, the reason given by Google may be added in parentheses.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### G5 The lab window
-1. Look around the Voice Lab window during a conversation: animated face, subtitles, choices, "Turns", "Events".
+1. Look around the VIK window during a conversation: animated face, subtitles, choices, "Turns", "Events".
 
 **Expected:** a student understands what they see. The current state is shown in words under the face ("listening", "I hear you"…), and the "Events" log shows the vocabulary's events (`user.start`, `thinking`, `bot.start`…) as the conversation goes on.
 
@@ -557,7 +557,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### H7 Choices with the small local model
-1. Redo H1 five times with the Voice Lab (QVAC engine).
+1. Redo H1 five times with the VIK (QVAC engine).
 
 **Expected:** the choices appear most of the time. Note how many times out of five: this is a known limit of small models.
 
@@ -609,12 +609,12 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 ### I5 Deleting the op
 1. During a conversation, delete the op from the patch.
 
-**Expected:** only that client disconnects: the conversation carries on in the Voice Lab (and in any other client). Stop, in the lab window, closes it.
+**Expected:** only that client disconnects: the conversation carries on in the VIK (and in any other client). Stop, in the lab window, closes it.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### I6 A client joins a conversation already open
-1. Start a conversation in the Voice Lab window, and talk a little.
+1. Start a conversation in the VIK window, and talk a little.
 2. Open the patch with the op (or reload the cables page).
 3. Click `Start` on the op.
 
@@ -630,7 +630,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### I8 ★ Away and the reprompt line, with both engines
-1. Voice Lab, local engine: "Away after (ms)" = 8000, "Reprompt line" = "Are you still there?". **Start**, then stay silent for about 30 seconds.
+1. VIK, local engine: "Away after (ms)" = 8000, "Reprompt line" = "Are you still there?". **Start**, then stay silent for about 30 seconds.
 2. Say something, wait for the reply, then stay silent again.
 3. Switch the lab window to Engine = Gemini Live (same "Away after (ms)" and "Reprompt line", "Greeting" empty). In cables, connect the op's `On away` to a visible change. `Start`, then stay silent.
 
@@ -648,11 +648,11 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### I10 Closing the lab window while clients follow
-1. The op and both examples connected (A13), a conversation open. Close the Voice Lab window (this quits the app).
-2. Wait ten seconds, then open the Voice Lab again.
-3. (Optional, from the kit's folder) Quit the Voice Lab, run `npm run server` in `2_qvac_local`, and open the lab page in Chrome (`http://localhost:8790`). Close only that tab, then open it again.
+1. The op and both examples connected (A13), a conversation open. Close the VIK window (this quits the app).
+2. Wait ten seconds, then open the VIK again.
+3. (Optional, from the kit's folder) Quit the VIK, run `npm run server` in `app`, and open the lab page in Chrome (`http://localhost:8790`). Close only that tab, then open it again.
 
-**Expected:** 1. every client says so: the op's `App connected` goes to 0 and its frame says "Cannot reach the Voice Lab app at …"; the HTML page says "Voice Lab app not found: open it (this page reconnects on its own)."; the sketch says "Open the Voice Lab app…". 2. they all come back on their own, with no click: `App connected` = 1, the agent's name and state are back, and Start works again from any client. 3. with the server running but no lab page, the op and the HTML page say "The Voice Lab app is running, but its window is closed." (`App connected` = 0); when the page is open again, they follow again on their own.
+**Expected:** 1. every client says so: the op's `App connected` goes to 0 and its frame says "Cannot reach the VIK app at …"; the HTML page says "VIK app not found: open it (this page reconnects on its own)."; the sketch says "Open the VIK app…". 2. they all come back on their own, with no click: `App connected` = 1, the agent's name and state are back, and Start works again from any client. 3. with the server running but no lab page, the op and the HTML page say "The VIK app is running, but its window is closed." (`App connected` = 0); when the page is open again, they follow again on their own.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
@@ -688,7 +688,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 ## K. With students (R12)
 
 ### K1 ★ One student, 45 minutes, no technical help
-1. Give a student the Voice Lab (installed and open), the guide ([`GUIDE.md`](GUIDE.md)), an empty patch and the brief: "Make it clear, without text, when the agent is listening, hearing, thinking and speaking. Then make it offer two clickable choices."
+1. Give a student the VIK (installed and open), the guide ([`GUIDE.md`](GUIDE.md)), an empty patch and the brief: "Make it clear, without text, when the agent is listening, hearing, thinking and speaking. Then make it offer two clickable choices."
 2. Watch without helping. Note where they get stuck.
 
 **Expected:** a first conversation in under 10 minutes, the brief done in 45 minutes.
@@ -709,7 +709,7 @@ After a workshop, ask (on a scale of 1 to 5, plus a comment):
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ### K3 The fleet of machines
-1. Install the Voice Lab on three different student computers, including the weakest one.
+1. Install the VIK on three different student computers, including the weakest one.
 
 **Expected:** it runs on all three. If not, note the machine and the symptom; the simulated engine (A9) remains a fallback for designing.
 
@@ -768,7 +768,7 @@ For each "needs work" or "fail" test:
 - its number (e.g. E1), the engine (Gemini or local) and the machine (Windows or Mac, model);
 - what you expected, and what happened;
 - the text of `Error` or `Status`, or of the lab window's message, if there is one;
-- for the Voice Lab: **Files → Server log** (copy the text);
+- for the VIK: **Files → Server log** (copy the text);
 - if possible: a screenshot, or the contents of the `Conversation` output.
 
 With this, I can fix things precisely.

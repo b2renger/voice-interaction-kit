@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { ROOT, check, summary } from './helpers.mjs';
 
 // a home folder of our own, set before the engine is imported (it reads ~/.qvac/models)
-const home = mkdtempSync(join(tmpdir(), 'voice-lab-home-'));
+const home = mkdtempSync(join(tmpdir(), 'vik-home-'));
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 const FAKE = pathToFileURL(join(ROOT, 'tests', 'fake-qvac-sdk.mjs')).href;
@@ -22,8 +22,8 @@ const whisperFile = join(dir, '0123456789abcdef_ggml-small-q8_0.bin');
 writeFileSync(whisperFile, Buffer.alloc(fake.WHISPER_SMALL_Q8_0.expectedSize));
 writeFileSync(join(dir, 'fedcba9876543210_supertonic3-q8_0.gguf'), Buffer.alloc(10));   // an interrupted download
 
-const { loadConfig } = await import(pathToFileURL(join(ROOT, '2_qvac_local', 'src', 'config.mjs')).href);
-const { createQvacEngine } = await import(pathToFileURL(join(ROOT, '2_qvac_local', 'src', 'engines', 'qvac.mjs')).href);
+const { loadConfig } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'config.mjs')).href);
+const { createQvacEngine } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'engines', 'qvac.mjs')).href);
 const config = loadConfig(join(home, 'none.json'));
 const logs = [];
 const engine = await createQvacEngine(config, (m) => logs.push(m));
@@ -89,7 +89,7 @@ check(asrLoads().length === n + 1 && /ggml-tiny-q8_0/.test(asrLoads()[n].src) &&
 // — the server: a warm-up that fails (the voice cannot download) is not final —
 delete process.env.FAKE_P2P;
 process.env.FAKE_LOAD_FAIL = 'tts';
-const { startServer } = await import(pathToFileURL(join(ROOT, '2_qvac_local', 'src', 'app-server.mjs')).href);
+const { startServer } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'app-server.mjs')).href);
 const srv = await startServer({ config, port: 19900 + Math.floor(Math.random() * 90), log: () => {} });
 await srv.ready;
 const health = async () => (await fetch(`http://127.0.0.1:${srv.port}/health`)).json();

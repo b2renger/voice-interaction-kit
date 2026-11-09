@@ -1,9 +1,9 @@
-// VoiceAgent — cables.gl op: follows the conversation running in the Voice Lab app, and drives it.
+// VoiceAgent — cables.gl op: follows the conversation running in the VIK app, and drives it.
 // The app is the brain: it listens, thinks and speaks (local QVAC engine or Gemini Live), with its persona,
 // knowledge and settings. This op is one of its clients, like a p5.js sketch or a web page: it gets the
 // states, texts, levels, choices and mood, and sends Start, Stop, text, context, choices.
-// Paste ALL of this file into the op's code editor. The Voice Lab app must be open on this computer.
-// How to use: 1_cables_gemini_live/README.md. The messages: CONTRACT.md, "The clients protocol".
+// Paste ALL of this file into the op's code editor. The VIK app must be open on this computer.
+// How to use: cables/README.md. The messages: CONTRACT.md, "The clients protocol".
 
 // ---- Connection ---------------------------------------------------------------
 const inUrl = op.inString('App address', 'ws://localhost:8790/events');
@@ -102,7 +102,7 @@ function showChoices(question, options) {
 /** The snapshot sent on connecting, and again when the lab window opens or closes. */
 function onHello(m) {
   outApp.set(!!m.app);
-  op.setUiError('app', m.app ? null : 'The Voice Lab app is running, but its window is closed.', 1);
+  op.setUiError('app', m.app ? null : 'The VIK app is running, but its window is closed.', 1);
   outName.set(m.name || '');
   outEngine.set(m.engine || '');
   paintState(m.state || 'idle');
@@ -200,9 +200,9 @@ function explainClose(url) {
   try { health = new URL(url); health.protocol = health.protocol === 'wss:' ? 'https:' : 'http:'; health.pathname = '/health'; } catch (e) { return; }
   fetch(health.href).then((r) => r.json()).then(
     (h) => (/\/voice$/.test(h.wsUrl || '')
-      ? 'The Voice Lab app on this computer is too old for this op (it has no /events): install its latest version.'
-      : 'The Voice Lab app refuses this page (' + location.origin + '): add it to "allowedOrigins" in its config.json (Files → Open settings folder).'),
-    () => 'Cannot reach the Voice Lab app at ' + url + ': open the app (it reconnects on its own). If it is open: in the cables editor, Chrome blocks '
+      ? 'The VIK app on this computer is too old for this op (it has no /events): install its latest version.'
+      : 'The VIK app refuses this page (' + location.origin + '): add it to "allowedOrigins" in its config.json (Files → Open settings folder).'),
+    () => 'Cannot reach the VIK app at ' + url + ': open the app (it reconnects on its own). If it is open: in the cables editor, Chrome blocks '
       + 'connections to this computer; open the patch on its own page (cables.gl/p/…) and allow "Apps on your device" (or "Local network").',
   ).then((msg) => { if (!ws || ws.readyState !== 1) op.setUiError('app', msg, 1); });
 }
@@ -211,7 +211,7 @@ inUrl.onChange = connect;
 
 function send(m) {
   if (ws && ws.readyState === 1) { ws.send(JSON.stringify(m)); return true; }
-  op.setUiError('error', 'Not connected to the Voice Lab app.', 1);
+  op.setUiError('error', 'Not connected to the VIK app.', 1);
   return false;
 }
 

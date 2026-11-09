@@ -1,4 +1,4 @@
-# 2. "Voice Lab": the QVAC app (Windows and Mac M1)
+# The VIK app (Windows and Mac M1)
 
 A **desktop app** to install on each student's computer. It is the **brain** of the kit: it listens, thinks and speaks. By default the agent is **100% local and open**, with no cloud and no key, using three models, plus a small optional one for the end of turn. It can also use **Gemini Live** (online) instead: see "Using Gemini".
 
@@ -24,21 +24,21 @@ The states, events and settings are the same with both engines (see [`../CONTRAC
 
 | | |
 |---|---|
-| **Windows** (x64) | run `VoiceLab-Setup-<version>-windows-x64.exe`. If Windows shows "Windows protected your PC", click **More info → Run anyway** (the app is not signed). |
+| **Windows** (x64) | run `VIK-Setup-<version>-windows-x64.exe`. If Windows shows "Windows protected your PC", click **More info → Run anyway** (the app is not signed). |
 | **Mac Apple Silicon** (M1 or later) | open `VoiceLab-<version>-mac-arm64.dmg` and drag the app into Applications, then launch it once. The app is not signed, so macOS blocks it: see below. Then allow the mic. |
 
-The installers are on the **Releases** page of the kit's GitHub repository (for example `VoiceLab-Setup-1.0.0-windows-x64.exe`). If your teacher built them on their own machine, they are called `VoiceLab-Setup.exe` and `Voice Lab.dmg`.
+The installers are on the **Releases** page of the kit's GitHub repository (for example `VIK-Setup-1.0.0-windows-x64.exe`). If your teacher built them on their own machine, they are called `VIK-Setup.exe` and `VIK.dmg`.
 
 **Unblocking the app on a Mac** (once per computer):
 
-1. Launch "Voice Lab". macOS says it cannot verify the app: click **Done** (or **OK**).
-2. Open **System Settings → Privacy & Security**, scroll down to the line "Voice Lab was blocked…" and click **Open Anyway**, then confirm with your login password.
+1. Launch "VIK". macOS says it cannot verify the app: click **Done** (or **OK**).
+2. Open **System Settings → Privacy & Security**, scroll down to the line "VIK was blocked…" and click **Open Anyway**, then confirm with your login password.
 3. Launch the app again: from now on it opens normally.
 
 On macOS 15 (Sequoia) and later, "right-click → Open" is no longer enough: you have to go through System Settings as above. If macOS instead says the app **is damaged** and offers to move it to the Trash (this happens with a file downloaded from GitHub), open Terminal and type:
 
 ```bash
-xattr -cr "/Applications/Voice Lab.app"
+xattr -cr "/Applications/VIK.app"
 ```
 
 then launch it again. This command only removes the "downloaded from the Internet" mark.
@@ -55,15 +55,15 @@ The menu **Engine → Simulated** restarts the app **without models**. The agent
 
 ## For the teacher: build the installers
 
-**The simplest way: let GitHub build them.** Put the kit on GitHub, then push a version tag (`v1.0.0`). The **Release** workflow (`.github/workflows/release.yml`) builds the Windows installer on a Windows machine and the Mac installer on an Apple Silicon Mac, then publishes a GitHub Release with `VoiceLab-Setup-<version>-windows-x64.exe`, `VoiceLab-<version>-mac-arm64.dmg` and a `.zip` of each. Students download them from the **Releases** page. No Mac needed on your side. Step by step: [`../PUBLISHING.md`](../PUBLISHING.md). To build without publishing (to try the installers first): **Actions → Release → Run workflow**, then download them from the run page, under "Artifacts".
+**The simplest way: let GitHub build them.** Put the kit on GitHub, then push a version tag (`v1.0.0`). The **Release** workflow (`.github/workflows/release.yml`) builds the Windows installer on a Windows machine and the Mac installer on an Apple Silicon Mac, then publishes a GitHub Release with `VIK-Setup-<version>-windows-x64.exe`, `VoiceLab-<version>-mac-arm64.dmg` and a `.zip` of each. Students download them from the **Releases** page. No Mac needed on your side. Step by step: [`../PUBLISHING.md`](../PUBLISHING.md). To build without publishing (to try the installers first): **Actions → Release → Run workflow**, then download them from the run page, under "Artifacts".
 
 **On your own machine.** Each platform is built **on that platform**: QVAC's native libraries are installed for the machine doing the build. So the `.exe` is made on a Windows PC, and the `.dmg` on an Apple Silicon Mac.
 
 ```bash
-cd 2_qvac_local
+cd app
 npm install
 npm start            # try the app as is (the models download)
-npm run make         # → out/make/: VoiceLab-Setup.exe (Windows) or Voice Lab.dmg (Mac), plus a .zip
+npm run make         # → out/make/: VIK-Setup.exe (Windows) or VIK.dmg (Mac), plus a .zip
 ```
 
 You need **Node.js 22.17 or later** on the build machine, but not on the students' machines.
@@ -207,17 +207,17 @@ Choose one with **Local voice engine** in the window (or `Local voice engine` in
 
 ## An LLM farm on the network (LlmOnLan)
 
-An [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm is a computer with a graphics card that serves a language model (by default Gemma 4 12B) to the whole room. Voice Lab can ask it for the replies. The students' laptops then get a much bigger model than they could run, and still listen (Whisper) and speak (the voice) themselves.
+An [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm is a computer with a graphics card that serves a language model (by default Gemma 4 12B) to the whole room. VIK can ask it for the replies. The students' laptops then get a much bigger model than they could run, and still listen (Whisper) and speak (the voice) themselves.
 
 1. On the farm computer, start the LlmOnLan Farm app and turn on **Settings → Share compute** (a farm is private until then).
-2. In Voice Lab, **Engine → Language model → Find a farm on the network…**. The farms the app hears appear in the list, under "LLM farm on the network", with their model and how many people use them. Choose one.
+2. In VIK, **Engine → Language model → Find a farm on the network…**. The farms the app hears appear in the list, under "LLM farm on the network", with their model and how many people use them. Choose one.
 3. If the farm has a password, type it in **Farm password**.
 
 **The farm is not in the list?** A farm announces itself by broadcast on the local network, and some networks don't carry it (another subnet, some school Wi-Fi). Type the farm computer's IP address in **Farm address**, then click **Add**.
 
 Good to know:
 
-- The first time you look for a farm, Windows may ask whether Voice Lab can use the network: allow it on private networks, or no farm is heard (adding one by its address still works).
+- The first time you look for a farm, Windows may ask whether VIK can use the network: allow it on private networks, or no farm is heard (adding one by its address still works).
 - With a farm, the local language model is unloaded, which frees its memory. Choose a local model to come back to it.
 - **What goes to the farm:** the persona, its knowledge and the conversation, as text (never the sound), over the local network. The farm stores nothing, by design, but the text does pass through the farm computer.
 - A farm serves a limited number of people at once (its "People served at once"). When it is full, or off, or refuses the password, each reply fails with a message that says so: choose a local model, or ask the person running the farm.
@@ -232,7 +232,7 @@ In the lab window, **Engine** = `Gemini Live (online)`. Then give it access, in 
 **B. A token server (for a class, or a shared key).** The key stays on one computer, and the lab window gets a single-use token, valid for 30 minutes.
 
 ```bash
-cd 1_cables_gemini_live/token-server
+cd cables/token-server
 cp .env.example .env        # then put your key in .env: GEMINI_API_KEY=...
 node server.mjs             # Node 18 or later, nothing to install
 ```
@@ -247,7 +247,7 @@ Then click **Start**. Every client follows the Gemini conversation exactly as it
 
 The app is the brain; any number of clients can follow the conversation and drive it, at the same time, through `ws://localhost:8790/events` (menu **Engine → Copy address for clients**). They get the states, the texts, the levels, the choices and the mood, and they send Start, Stop, Interrupt, a typed message, context or a choice. The persona, its knowledge and the settings stay in the app.
 
-- **cables.gl**: the `VoiceAgent` op, see [`../1_cables_gemini_live/README.md`](../1_cables_gemini_live/README.md). From cables.gl online, Chrome may ask for permission to access the "local network": accept it.
+- **cables.gl**: the `VoiceAgent` op, see [`../cables/README.md`](../cables/README.md). From cables.gl online, Chrome may ask for permission to access the "local network": accept it.
 - **p5.js, or a plain web page**: start from [`../examples/`](../examples/). Open them through a local web server (VS Code's Live Server, `npx serve`) or the p5.js web editor: a page opened by double-click is refused, because the app can't tell where it comes from.
 - **Your own**: the messages are in [`../CONTRACT.md`](../CONTRACT.md), "The clients protocol". Allowed pages are listed in `allowedOrigins` (`config.json`); clients on other computers are not accepted.
 
@@ -266,7 +266,7 @@ The app is the brain; any number of clients can follow the conversation and driv
 |---|---|
 | Vulkan error (Windows) | update the graphics driver |
 | loading stays stuck at 0% ("waiting for data") | the network blocks the download (often peer to peer, for the voices): see "Downloading the models" |
-| no sound from the mic (Mac) | System Settings → Privacy & Security → Microphone → allow "Voice Lab" |
+| no sound from the mic (Mac) | System Settings → Privacy & Security → Microphone → allow "VIK" |
 | the first reply is slow | the models load at startup: wait for "Models ready" |
 | `npm run make` fails on native libraries | build on the target platform (see above), and run `npm install` again, or let GitHub build the installers ([`../PUBLISHING.md`](../PUBLISHING.md)) |
 | "Smart Turn is unavailable here: using silence only." | `onnxruntime-node` is missing or did not load: run `npm install` again, then `npm run selftest` (step "end of turn: Smart Turn"). Meanwhile, turns end on silence |

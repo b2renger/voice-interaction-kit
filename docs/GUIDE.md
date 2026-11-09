@@ -1,4 +1,4 @@
-# Guide: designing a voice agent with the "Voice interaction" kit
+# Guide: designing a voice agent with VIK, the Voice Interaction Kit
 
 This guide is for the teacher who prepares the workshop, and for the students who take it. It explains what the kit contains, how to install and use it, and how each **edge case** of a voice conversation becomes a **design material**. It ends with the architecture, troubleshooting and the limits.
 
@@ -12,7 +12,7 @@ For what already exists in open source, see [the open-source landscape](OPEN_SOU
 
 One brain, several clients.
 
-- **The Voice Lab app** (Windows / Mac M1, installed on each computer) is the brain. It listens, thinks and speaks, and it holds the persona, its knowledge and the settings, in its lab window.
+- **The VIK app** (Windows / Mac M1, installed on each computer) is the brain. It listens, thinks and speaks, and it holds the persona, its knowledge and the settings, in its lab window.
 - **Its clients** follow the conversation and drive it: the cables.gl op `VoiceAgent`, and the p5.js and HTML/CSS/JS examples in [`../examples/`](../examples/), starting points for your own pages. Several clients can follow the same conversation at once (a cables scene and a p5.js screen, say).
 
 The app has two engines:
@@ -32,34 +32,34 @@ The app has two engines:
 - **No key, limited network, or sensitive data**: the local engine.
 - **Designing the interface before you have the models, or on a weak machine**: the **simulated engine** (menu **Engine → Simulated**). The agent hears a "voice-like noise", replies with a short pre-written script (choices, mood, a long reply you can cut off) and speaks with a hum. Each conversation replays the same script, which makes demos repeatable.
 - **Getting students to think about latency and quality**: both, side by side. The measurements of each turn (`Wait (ms)`, `Turn timing`) let you compare with numbers. Locally, the window also offers smaller and bigger models (speech recognition, language model): the same persona with Qwen3 0.6B and Qwen3 4B makes the trade-off audible.
-- **A room with one powerful computer**: an **LLM farm** ([LlmOnLan](https://github.com/b2renger/LlmOnLan)) writes the replies for every laptop, with a model too big for them; listening and the voices stay on each laptop (see the [Voice Lab README](../2_qvac_local/README.md), "An LLM farm on the network").
+- **A room with one powerful computer**: an **LLM farm** ([LlmOnLan](https://github.com/b2renger/LlmOnLan)) writes the replies for every laptop, with a model too big for them; listening and the voices stay on each laptop (see the [VIK README](../app/README.md), "An LLM farm on the network").
 
 ---
 
 ## 2. Quick start
 
-### 2.1 The Voice Lab app (teacher: once; students: 5 minutes)
+### 2.1 The VIK app (teacher: once; students: 5 minutes)
 
-**The teacher publishes the installers once.** The simplest way: put the kit on GitHub and push a version tag (`v1.0.0`). GitHub Actions then builds the Windows and Mac installers and publishes them as a **GitHub Release**, with no Mac needed on your side. Step by step: [`PUBLISHING.md`](../PUBLISHING.md). You can also build them on your own machine (`npm install` then `npm run make`: an `.exe` on a PC, a `.dmg` on a Mac). Details in [`2_qvac_local/README.md`](../2_qvac_local/README.md).
+**The teacher publishes the installers once.** The simplest way: put the kit on GitHub and push a version tag (`v1.0.0`). GitHub Actions then builds the Windows and Mac installers and publishes them as a **GitHub Release**, with no Mac needed on your side. Step by step: [`PUBLISHING.md`](../PUBLISHING.md). You can also build them on your own machine (`npm install` then `npm run make`: an `.exe` on a PC, a `.dmg` on a Mac). Details in [`app/README.md`](../app/README.md).
 
-**Each student** downloads the installer from the repository's **Releases** page: `VoiceLab-Setup-<version>-windows-x64.exe` (Windows) or `VoiceLab-<version>-mac-arm64.dmg` (Mac M1 and later), then launches it. (Built on your own machine, they are called `VoiceLab-Setup.exe` and `Voice Lab.dmg`.) The app is not signed:
+**Each student** downloads the installer from the repository's **Releases** page: `VIK-Setup-<version>-windows-x64.exe` (Windows) or `VoiceLab-<version>-mac-arm64.dmg` (Mac M1 and later), then launches it. (Built on your own machine, they are called `VIK-Setup.exe` and `VIK.dmg`.) The app is not signed:
 
 - **Windows:** "Windows protected your PC" → **More info → Run anyway**.
-- **Mac:** on first launch, macOS blocks the app. Open **System Settings → Privacy & Security → Open Anyway**. If macOS says the app "is damaged": `xattr -cr "/Applications/Voice Lab.app"` in Terminal.
+- **Mac:** on first launch, macOS blocks the app. Open **System Settings → Privacy & Security → Open Anyway**. If macOS says the app "is damaged": `xattr -cr "/Applications/VIK.app"` in Terminal.
 
 On first launch, the models download: the window shows a progress bar, and a bar moves along on the app icon. When the window says "Models ready", click **Start**.
 
-**Gemini instead of the local engine:** in the lab window, Engine = `Gemini Live (online)`, then a key, or the address of a token server (for a class: the key stays on the teacher's computer, and each lab window gets a token valid for 30 minutes). See "Using Gemini" in [`2_qvac_local/README.md`](../2_qvac_local/README.md).
+**Gemini instead of the local engine:** in the lab window, Engine = `Gemini Live (online)`, then a key, or the address of a token server (for a class: the key stays on the teacher's computer, and each lab window gets a token valid for 30 minutes). See "Using Gemini" in [`app/README.md`](../app/README.md).
 
 ### 2.2 A client: the cables.gl op (5 minutes)
 
-1. Keep the Voice Lab app open.
+1. Keep the VIK app open.
 2. Open a patch that belongs to you on cables.gl.
 3. Avatar, top right → **Code a new op** → name `VoiceAgent` → **Create Op**.
-4. In the code editor that opens: delete everything, paste **all** of [`1_cables_gemini_live/VoiceAgent.op.js`](../1_cables_gemini_live/VoiceAgent.op.js), save (`Ctrl/Cmd + S`).
+4. In the code editor that opens: delete everything, paste **all** of [`cables/VoiceAgent.op.js`](../cables/VoiceAgent.op.js), save (`Ctrl/Cmd + S`).
 5. `App connected` goes to 1. Click `Start` on the op (or in the app), talk.
 
-The cables code is not modified: the op is a "patch op" that lives in the patch and travels with it. The op follows the app's conversation; the persona, the voice and the engine are chosen in the app. See [`1_cables_gemini_live/README.md`](../1_cables_gemini_live/README.md).
+The cables code is not modified: the op is a "patch op" that lives in the patch and travels with it. The op follows the app's conversation; the persona, the voice and the engine are chosen in the app. See [`cables/README.md`](../cables/README.md).
 
 **p5.js or a plain web page instead:** start from [`../examples/`](../examples/). Open them through a local web server (VS Code's Live Server, `npx serve`) or the p5.js web editor; a page opened by double-click is refused.
 
@@ -109,11 +109,11 @@ This is the heart of the workshop. For each case: what happens, the settings tha
 | its voice | `Gemini voice` (30 voices), `Speaking style (Gemini)`; or, locally, `Local voice engine`: Supertonic (`Local voice` F1–F5, M1–M5, `Speed (local)`), Parler (`Voice description (Parler)`) or Chatterbox | `Speaking style (Gemini)` is an instruction given to the model ("slow and calm", "with a smile"). The model follows it more or less. |
 | its displayed mood | `On-screen choices and mood` → `Mood` output | 7 moods: neutral, happy, curious, focused, sorry, surprised, excited |
 
-The **example personas** (museum guide, station host, gardener, chef) are in `2_qvac_local/personas/`. You pick them in the lab window, and you can export and import them as JSON ("Share settings").
+The **example personas** (museum guide, station host, gardener, chef) are in `app/personas/`. You pick them in the lab window, and you can export and import them as JSON ("Share settings").
 
 **Designing a voice in words (Parler, local).** With `Local voice engine` = `Parler`, there are no preset voices: you write the voice, like a persona. For example: "A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone." Describe who speaks (gender, pitch, pace, how expressive) and how it is recorded (close to the mic or far, a small room or a hall). The new description applies from the next sentence, with no restart. Parler only speaks English, and its first use downloads about 1.16 GB.
 
-**Cloning a voice (Chatterbox, local).** Chatterbox speaks many languages, French included, and it can imitate a voice from a short WAV recording (`referenceAudio` in `config.json`, see the [Voice Lab README](../2_qvac_local/README.md)). This raises real questions, and they belong in the workshop. Whose voice is it? Did they agree, to what, and for how long? What if the clone says something they would never say? The rules for class: the clear, written consent of the person; for the exercise only; delete the recording afterwards; never someone who isn't there, and never a public figure. Every Chatterbox output carries a watermark (Resemble AI's "Perth"), so it can be identified as synthetic. That is a good starting point for a discussion: how should a synthetic voice announce itself?
+**Cloning a voice (Chatterbox, local).** Chatterbox speaks many languages, French included, and it can imitate a voice from a short WAV recording (`referenceAudio` in `config.json`, see the [VIK README](../app/README.md)). This raises real questions, and they belong in the workshop. Whose voice is it? Did they agree, to what, and for how long? What if the clone says something they would never say? The rules for class: the clear, written consent of the person; for the exercise only; delete the recording afterwards; never someone who isn't there, and never a public figure. Every Chatterbox output carries a watermark (Resemble AI's "Perth"), so it can be identified as synthetic. That is a good starting point for a discussion: how should a synthetic voice announce itself?
 
 **On the Gemini side**, the voices are predefined. A developer reported in September 2026 that voices made with Gemini's Voice Design cannot be used with Gemini Live (a single report, still to be confirmed: see [the open-source landscape](OPEN_SOURCE_LANDSCAPE.md)). If it holds, designed and cloned voices only exist in the local engine. That contrast is worth discussing, rather than treating it as a defect.
 
@@ -137,7 +137,7 @@ The agent has to guess when the person has finished. Too early, and it cuts off 
 **Four ways to decide that a turn is over** (a discussion, from [the open-source landscape](OPEN_SOURCE_LANDSCAPE.md)):
 
 1. **Silence**: wait for a set amount of quiet. The kit's `End silence (ms)`.
-2. **A prosodic audio model**: listen to how the sentence ends. Smart Turn, in the Voice Lab.
+2. **A prosodic audio model**: listen to how the sentence ends. Smart Turn, in the VIK.
 3. **Semantic detection inside the transcription**: the speech recognizer itself predicts the end of the turn from the words, like Kyutai's `stt-1b-en_fr` model ([Kyutai DSM](https://github.com/kyutai-labs/delayed-streams-modeling)).
 4. **Asking the language model** whether the sentence is complete, as Micdrop does ([Micdrop blog](https://micdrop.dev/blog/open-source-voice-agent-frameworks)).
 
@@ -250,7 +250,7 @@ Each exercise builds on one or two edge cases. Suggested length: 1 hour to half 
 5. **The spoken menu.** A reception agent (station, museum) that always offers choices on screen, `Choices` → buttons → `Choose`. Where does the voice stop, and where does the screen take over?
 6. **Offline.** Switch the app to the local engine (Engine = `Local (QVAC)`, in the lab window) and keep the interface from exercise 2 or 5 as it is. What breaks when latency and quality drop? How does the interface make up for it?
 7. **The agent that acts.** Declare a tool (`change_color`, `open_door`…) and make the patch react to the voice.
-8. **The wait, measured (after CUI '25).** Reproduce a published experiment with the Voice Lab: three delays × three ways to fill the wait.
+8. **The wait, measured (after CUI '25).** Reproduce a published experiment with the VIK: three delays × three ways to fill the wait.
 
    | delay (`Wait (ms)`) | nothing | thinking sound | spoken filler |
    |---|---|---|---|
@@ -301,15 +301,15 @@ For deeper reading: the CUI '25 study on waits and fillers ([arXiv 2507.22352](h
 common/voice-core.js        the core the lab window runs: mic (16 kHz PCM), voice playback, levels,
                             states, events, earcons, measurements. Two engines:
   ├─ GeminiEngine           direct WebSocket to Gemini Live (setup, audio, transcripts, tools, resumption)
-  └─ LocalEngine            WebSocket to the Voice Lab server (audio protocol, CONTRACT.md)
+  └─ LocalEngine            WebSocket to the VIK server (audio protocol, CONTRACT.md)
 
-1_cables_gemini_live/
+cables/
   VoiceAgent.op.js          the cables op: a client of the app (the file to paste)
   token-server/             Gemini ephemeral token server, no dependencies (Node 18+)
 
 examples/                   clients to start from: p5js/ and html-css-js/
 
-2_qvac_local/               the Electron app "Voice Lab"
+app/               the Electron app "VIK"
   electron/main.cjs         window, menus, mic (granted only to its own page), Windows installer
   src/app-server.mjs        built-in HTTP + WebSocket server (lab page, /health, /personas, /models, /farms,
                             /voice, /brain, /events)
@@ -332,13 +332,13 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 .github/workflows/          tests.yml (the tests, on every push to main) and release.yml (the installers)
 ```
 
-**Changing the op:** edit `1_cables_gemini_live/VoiceAgent.op.js` (it is short: ports, and the messages of the clients protocol), then paste it into cables again. What the agent does (engines, states, events) lives in `common/voice-core.js`, run by the lab window.
+**Changing the op:** edit `cables/VoiceAgent.op.js` (it is short: ports, and the messages of the clients protocol), then paste it into cables again. What the agent does (engines, states, events) lives in `common/voice-core.js`, run by the lab window.
 
-**Changing the Voice Lab:** `npm start` in `2_qvac_local` to try it; `npm run start:mock` for the simulated engine; `npm run make` to rebuild the installers. The lab page picks up `common/voice-core.js` automatically.
+**Changing the VIK:** `npm start` in `app` to try it; `npm run start:mock` for the simulated engine; `npm run make` to rebuild the installers. The lab page picks up `common/voice-core.js` automatically.
 
 **Publishing new installers:** the releases are built by GitHub Actions. Push a version tag (`v1.1.0`): the Release workflow builds the Windows and Mac installers on GitHub's machines and publishes them on the repository's Releases page. See [`PUBLISHING.md`](../PUBLISHING.md). QVAC is pinned to version 0.21.0: upgrade it between terms only, after `npm run selftest` on a Windows PC and a Mac.
 
-**Changing the local models:** in the window, **Engine → Speech recognition** and **Language model** (lighter and bigger models, or an LLM farm). The list they offer is `choices` in `config.json` (menu **Files → Open settings folder**, then restart the app): see the Voice Lab README, "Choosing the models".
+**Changing the local models:** in the window, **Engine → Speech recognition** and **Language model** (lighter and bigger models, or an LLM farm). The list they offer is `choices` in `config.json` (menu **Files → Open settings folder**, then restart the app): see the VIK README, "Choosing the models".
 
 **Automated tests:** `tests/` (see [`tests/README.md`](../tests/README.md)). They run without a key, without models and without Electron, against "fakes" that speak the same protocols: 446 checks today, plus 1 skipped where `onnxruntime-node` can't be installed. `npm test`, at the root, runs them all. On GitHub, they run on every push to `main`.
 
@@ -354,20 +354,20 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 | the agent cuts in too early | increase `End silence (ms)`, set `End sensitivity` to low (with Gemini, then `Start`) |
 | the agent doesn't react to a quiet voice | `Start sensitivity` on high; check the mic chosen by the system |
 | no sound | click once in the lab window (it blocks sound before a click); check Volume |
-| Voice Lab: loading stuck at 0% ("waiting for data") | the network blocks the download (often peer to peer, for the voices): see "Downloading the models" in the Voice Lab README |
-| Voice Lab: Vulkan error (Windows) | update the graphics driver |
-| Voice Lab: no mic (Mac) | System Settings → Privacy & Security → Microphone → allow "Voice Lab" |
+| VIK: loading stuck at 0% ("waiting for data") | the network blocks the download (often peer to peer, for the voices): see "Downloading the models" in the VIK README |
+| VIK: Vulkan error (Windows) | update the graphics driver |
+| VIK: no mic (Mac) | System Settings → Privacy & Security → Microphone → allow "VIK" |
 | a client (cables, p5.js, a page) can't reach the app | is the app open, with its window? Is the address the one from the menu **Engine → Copy address for clients**? A page opened by double-click (`file://`) is refused: open it through a local web server (VS Code's Live Server, `npx serve`). A refused page is named in **Files → Server log** |
-| the cables op says the app "is too old" | the installed Voice Lab predates the clients' hub (`/events`, version 2.0.0): install the latest version from the Releases page |
+| the cables op says the app "is too old" | the installed VIK predates the clients' hub (`/events`, version 2.0.0): install the latest version from the Releases page |
 | the cables op can't reach the app although it is open (in the cables editor) | Chrome (since version 147) blocks connections from a website to this computer, and the editor runs the patch in a frame that cannot ask for that permission. Open the patch on its own page (`cables.gl/p/…`) and allow "Apps on your device" (or "Local network") when Chrome asks; in Chrome's settings, `chrome://settings/content/localNetwork` |
 | a client says the app's window is closed | the server runs without its lab window (`npm run server`): open `http://localhost:8790` in a browser. (In the installed app, closing the window quits the app: clients then say they can't reach it, and reconnect when it opens again.) |
-| Voice Lab: "Smart Turn is unavailable here: using silence only." | the optional `onnxruntime-node` is missing or did not load. Run `npm install` again in `2_qvac_local`, then `npm run selftest` (⚠ on "end of turn: Smart Turn" means it is still missing). Meanwhile, turns end on silence. |
-| Voice Lab: "Parler only speaks English: replies will sound English-accented." | Parler is English only: set the language to English, or use Supertonic or Chatterbox |
-| Voice Lab: nothing is said for a long time after choosing Parler or Chatterbox | the first use downloads the voice (about 1.16 GB for Parler, 345 MB + 788 MB for Chatterbox): watch the banner. Better: **Files → Download all models** once, on a good network. |
-| Voice Lab: "RPC initialization timed out" | QVAC's worker took too long to start (a first launch after a restart, the antivirus scanning its libraries): click **Start** again. **Files → Server log** shows the worker's own reason |
+| VIK: "Smart Turn is unavailable here: using silence only." | the optional `onnxruntime-node` is missing or did not load. Run `npm install` again in `app`, then `npm run selftest` (⚠ on "end of turn: Smart Turn" means it is still missing). Meanwhile, turns end on silence. |
+| VIK: "Parler only speaks English: replies will sound English-accented." | Parler is English only: set the language to English, or use Supertonic or Chatterbox |
+| VIK: nothing is said for a long time after choosing Parler or Chatterbox | the first use downloads the voice (about 1.16 GB for Parler, 345 MB + 788 MB for Chatterbox): watch the banner. Better: **Files → Download all models** once, on a good network. |
+| VIK: "RPC initialization timed out" | QVAC's worker took too long to start (a first launch after a restart, the antivirus scanning its libraries): click **Start** again. **Files → Server log** shows the worker's own reason |
 | the agent stops for a "mm-hm" (local) | `Interrupt after (ms) (local)` is 0, so it stops at once: try 600 |
 | no filler is heard | Gemini ignores fillers. Locally: check `Filler lines (local)` and `Filler after (ms) (local)`; a quick reply comes before the filler; the very first one can be skipped while it is prepared |
-| understanding a Voice Lab error | **Files → Server log** |
+| understanding a VIK error | **Files → Server log** |
 
 ---
 
@@ -385,6 +385,6 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 
 - With **Gemini**, the students' voices go to Google. On the free tier, Google may use them to improve its models, and people may review them. For classroom use: a paid project, or a clear rule about what is said to the agent.
 - The **Gemini key** stays in the lab window, on one computer: it is never in a patch, nor in an exported settings file. With the token server, it never leaves the teacher's computer.
-- With the **Voice Lab**, nothing leaves the computer (except the model downloads: at first launch, and the first time you choose another model or voice). **With an LLM farm**, the text of the conversation (persona, knowledge, what was said, never the sound) goes to the farm computer, over the local network. The mic is only granted to the app's page. The clients (cables, p5.js, pages) never get the mic: only what the app publishes, and only on this computer.
+- With the **VIK**, nothing leaves the computer (except the model downloads: at first launch, and the first time you choose another model or voice). **With an LLM farm**, the text of the conversation (persona, knowledge, what was said, never the sound) goes to the farm computer, over the local network. The mic is only granted to the app's page. The clients (cables, p5.js, pages) never get the mic: only what the app publishes, and only on this computer.
 - In both cases, the mic only opens with **Start** and closes with **Stop**.
 - **Voice cloning** (Chatterbox): a voice recording is personal data. Only with the clear, written consent of the person, for the exercise only, and delete the recording afterwards. The cloned voice carries a watermark, but that does not make it harmless.

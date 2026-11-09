@@ -1,6 +1,6 @@
 // A FAKE @qvac/sdk: same function names and data shapes as version 0.21
 // (read from its source code), without any model. It also checks the options it is given.
-// Used to test the adapter 2_qvac_local/src/engines/qvac.mjs: QVAC_SDK=<path of this file>.
+// Used to test the adapter app/src/engines/qvac.mjs: QVAC_SDK=<path of this file>.
 import { writeFileSync } from 'node:fs';
 export const calls = [];
 // When the process exits, the report (calls + problems) is written for the test.

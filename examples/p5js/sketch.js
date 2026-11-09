@@ -1,13 +1,13 @@
-// A p5.js sketch that follows the conversation running in the Voice Lab app, and drives it.
-// 1. Open the Voice Lab app.  2. Paste this sketch into the p5.js web editor (editor.p5js.org), or open
+// A p5.js sketch that follows the conversation running in the VIK app, and drives it.
+// 1. Open the VIK app.  2. Paste this sketch into the p5.js web editor (editor.p5js.org), or open
 //    this folder through a local web server (VS Code's Live Server, or `npx serve` in this folder).
 //    A double-clicked file (file://) is refused: the browser hides where it comes from.
 // The orb's colour is the agent's state, its size the agent's voice, its halo your microphone.
 // Click: start or stop the conversation. Keys 1, 2, 3: tell the agent which room the visitor is in.
 // All the messages: CONTRACT.md, "The clients protocol".
-const APP = 'ws://localhost:8790/events';   // Voice Lab menu: Engine → Copy address for clients
+const APP = 'ws://localhost:8790/events';   // VIK menu: Engine → Copy address for clients
 
-// One colour per state, the same as the Voice Lab window
+// One colour per state, the same as the VIK window
 const COLORS = {
   idle: [168, 163, 154], connecting: [168, 163, 154], listening: [62, 142, 126], hearing: [42, 167, 160],
   thinking: [107, 95, 181], speaking: [216, 116, 59], ended: [168, 163, 154], error: [192, 57, 43],
@@ -58,7 +58,7 @@ function draw() {
   textAlign(CENTER, TOP);
   textSize(18);
   const status = location.protocol === 'file:' ? 'Opened as a file, so the app refuses it: use a local web server or the p5.js editor'
-    : agent.app ? `${agent.name || 'Agent'} · ${agent.state}` : 'Open the Voice Lab app…';
+    : agent.app ? `${agent.name || 'Agent'} · ${agent.state}` : 'Open the VIK app…';
   text(status, width / 2, 24);
   textSize(15);
   text(agent.userText || '', 40, height - 130, width - 80, 50);

@@ -1,11 +1,11 @@
-// A web page that follows the conversation running in the Voice Lab app, and drives it.
-// 1. Open the Voice Lab app.  2. Open this folder through a local web server (VS Code's Live Server,
+// A web page that follows the conversation running in the VIK app, and drives it.
+// 1. Open the VIK app.  2. Open this folder through a local web server (VS Code's Live Server,
 //    or `npx serve` in this folder) and go to the page it shows. A double-clicked file (file://) is refused:
 //    the browser hides where it comes from, so it could be any website.
 // The app listens and speaks; this page only shows what happens and sends commands.
 // Everything goes through one WebSocket: the app sends JSON messages, the page sends JSON commands.
 // All the messages: CONTRACT.md, "The clients protocol".
-const APP = 'ws://localhost:8790/events';   // Voice Lab menu: Engine → Copy address for clients
+const APP = 'ws://localhost:8790/events';   // VIK menu: Engine → Copy address for clients
 const $ = (id) => document.getElementById(id);
 let ws;
 
@@ -17,7 +17,7 @@ function connect() {
   ws = new WebSocket(APP);
   ws.onmessage = (e) => onMessage(JSON.parse(e.data));
   ws.onclose = () => {
-    $('app').textContent = 'Voice Lab app not found: open it (this page reconnects on its own).';
+    $('app').textContent = 'VIK app not found: open it (this page reconnects on its own).';
     setTimeout(connect, 2000);
   };
 }
@@ -29,7 +29,7 @@ function send(command) {
 function onMessage(m) {
   switch (m.type) {
     case 'hello':          // on connecting, and when the lab window opens or closes: the conversation as it is
-      $('app').textContent = m.app ? `Connected to ${m.name || 'the agent'} (${m.engine})` : 'The Voice Lab app is running, but its window is closed.';
+      $('app').textContent = m.app ? `Connected to ${m.name || 'the agent'} (${m.engine})` : 'The VIK app is running, but its window is closed.';
       $('name').textContent = m.name || 'Agent';
       showState(m.state);
       $('user').textContent = m.userText;

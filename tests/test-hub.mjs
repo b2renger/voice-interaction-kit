@@ -6,10 +6,10 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, check, summary, until } from './helpers.mjs';
 
-const src = (f) => pathToFileURL(join(ROOT, '2_qvac_local', 'src', f)).href;
+const src = (f) => pathToFileURL(join(ROOT, 'app', 'src', f)).href;
 const { startServer } = await import(src('app-server.mjs'));
 const { loadConfig } = await import(src('config.mjs'));
-const srv = await startServer({ config: loadConfig(join(ROOT, '2_qvac_local', 'config.json')), mock: true, port: 19900 + Math.floor(Math.random() * 90), log: () => {} });
+const srv = await startServer({ config: loadConfig(join(ROOT, 'app', 'config.json')), mock: true, port: 19900 + Math.floor(Math.random() * 90), log: () => {} });
 
 function open(path) {
   const ws = new WebSocket(`ws://127.0.0.1:${srv.port}${path}`);

@@ -1,6 +1,6 @@
 # The shared vocabulary
 
-The **Voice Lab app** is the brain of the kit: it listens, thinks and speaks, with the local QVAC engine or with Gemini Live, and it holds the persona, its knowledge and the settings. Its **clients** (the cables.gl op, a p5.js sketch, a web page) all follow the same conversation through the app's hub, and drive it with the same commands. Both engines produce **the same states and the same events**, so an interface designed with one works with the other: you only switch the engine in the app.
+The **VIK app** is the brain of the kit: it listens, thinks and speaks, with the local QVAC engine or with Gemini Live, and it holds the persona, its knowledge and the settings. Its **clients** (the cables.gl op, a p5.js sketch, a web page) all follow the same conversation through the app's hub, and drive it with the same commands. Both engines produce **the same states and the same events**, so an interface designed with one works with the other: you only switch the engine in the app.
 
 Everything is defined in [`common/voice-core.js`](common/voice-core.js), which the lab window runs. This file describes that vocabulary, then the two protocols: the clients protocol (the hub), and the audio protocol between the lab window and the local engine.
 
@@ -66,7 +66,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 
 ## The settings
 
-They are set in the Voice Lab window, or in a persona file. Clients don't change them.
+They are set in the VIK window, or in a persona file. Clients don't change them.
 
 | key | default | what it changes | Gemini | local |
 |---|---|---|---|---|
@@ -110,7 +110,7 @@ On the Gemini side, an open session cannot change persona, voice or turn rules. 
 
 ## The clients protocol (the hub)
 
-Any page can follow the conversation and drive it through one WebSocket: `ws://localhost:8790/events` (Voice Lab menu **Engine → Copy address for clients**). The cables op, the examples in [`examples/`](examples/) and your own pages all use it.
+Any page can follow the conversation and drive it through one WebSocket: `ws://localhost:8790/events` (VIK menu **Engine → Copy address for clients**). The cables op, the examples in [`examples/`](examples/) and your own pages all use it.
 
 Allowed pages: those served from this computer (`http://localhost:*`, `http://127.0.0.1:*`), cables.gl and the p5.js web editor (`allowedOrigins` in `config.json`). A page opened by double-click (`file://`) is refused: the browser hides where it comes from, so it could be any website. Open it through a local web server instead (VS Code's Live Server, or `npx serve`).
 

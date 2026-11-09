@@ -20,7 +20,7 @@ const servers = [];
 /** Starts a local server (simulated engine, or the QVAC adapter on the fake SDK) on a port. */
 function startServer(port, { env: extraEnv = {}, engine = mode, cwd, config } = {}) {
   const env = { ...process.env, ...extraEnv };
-  const args = [join(ROOT, '2_qvac_local', 'src', 'server.mjs'), '--port', String(port)];
+  const args = [join(ROOT, 'app', 'src', 'server.mjs'), '--port', String(port)];
   if (engine === 'mock') args.push('--mock');
   else { env.QVAC_SDK = pathToFileURL(join(ROOT, 'tests', 'fake-qvac-sdk.mjs')).href; env.FAKE_QVAC_REPORT = report; }
   if (config) args.push('--config', config);
@@ -337,7 +337,7 @@ if (mode === 'mock') {
   // no model / no runtime: a status says so once, and the turn ends on silence
   console.log('— Smart Turn unavailable —');
   {
-    const dir = mkdtempSync(join(tmpdir(), 'voice-lab-config-'));
+    const dir = mkdtempSync(join(tmpdir(), 'vik-config-'));
     writeFileSync(join(dir, 'config.json'), JSON.stringify({ turn: { smartTurn: { model: join(dir, 'missing-model.onnx') } } }));
     const port = PORT + 3;
     const proc = startServer(port, { cwd: dir, config: 'config.json' });

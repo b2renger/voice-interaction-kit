@@ -1,7 +1,7 @@
-// Packages the Voice Lab app with Electron Forge and QVAC's official plugin,
+// Packages the VIK app with Electron Forge and QVAC's official plugin,
 // which bundles the QVAC "worker" and keeps only the native libraries of the target platform.
 //
-//   npm run make      → out/make/…: VoiceLab-Setup.exe (Windows) or Voice Lab.dmg (Mac), plus a .zip
+//   npm run make      → out/make/…: VIK-Setup.exe (Windows) or VIK.dmg (Mac), plus a .zip
 //
 // Each platform is built ON that platform: the .exe on a Windows PC, the .dmg on an Apple Silicon Mac
 // (npm installs QVAC's native libraries for the machine that builds).
@@ -65,9 +65,9 @@ function adHocSign(appPath) {
 
 module.exports = {
   packagerConfig: {
-    name: 'Voice Lab',
-    executableName: 'VoiceLab',
-    appBundleId: 'edu.voicelab.app',
+    name: 'VIK',
+    executableName: 'VIK',
+    appBundleId: 'edu.vik.app',
     appCategoryType: 'public.app-category.education',
     icon: path.join(__dirname, 'build', 'icon'),   // build/icon.icns on Mac, build/icon.ico on Windows (made from public/logo.svg)
     // The QVAC worker cannot load its libraries from an asar archive (the plugin enforces this too).
@@ -75,7 +75,7 @@ module.exports = {
     asar: false,
     // macOS: the sentence shown when the app asks for the microphone.
     extendInfo: {
-      NSMicrophoneUsageDescription: 'Voice Lab listens to your voice so you can talk with the agent. The sound stays on this computer.',
+      NSMicrophoneUsageDescription: 'VIK listens to your voice so you can talk with the agent. The sound stays on this computer.',
     },
     // models/ (the Smart Turn model) must stay in the package: never add it here.
     ignore: [
@@ -88,11 +88,11 @@ module.exports = {
   rebuildConfig: {},
   makers: [
     { name: '@electron-forge/maker-squirrel', platforms: ['win32'], config: {
-      name: 'voice_lab', setupExe: 'VoiceLab-Setup.exe', setupIcon: path.join(__dirname, 'build', 'icon.ico'),
+      name: 'vik', setupExe: 'VIK-Setup.exe', setupIcon: path.join(__dirname, 'build', 'icon.ico'),
       // the icon in Windows' "Apps" list: Squirrel only takes a URL
-      iconUrl: 'https://raw.githubusercontent.com/b2renger/voice-interaction-kit/main/2_qvac_local/build/icon.ico',
+      iconUrl: 'https://raw.githubusercontent.com/b2renger/voice-interaction-kit/main/app/build/icon.ico',
     } },
-    { name: '@electron-forge/maker-dmg', platforms: ['darwin'], config: { name: 'Voice Lab' } },
+    { name: '@electron-forge/maker-dmg', platforms: ['darwin'], config: { name: 'VIK' } },
     { name: '@electron-forge/maker-zip', platforms: ['darwin', 'win32', 'linux'] },
   ],
   plugins: [

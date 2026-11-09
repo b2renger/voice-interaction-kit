@@ -1,4 +1,4 @@
-# Builds the Voice Lab installers (2_qvac_local) for Windows (x64) and Apple Silicon Macs,
+# Builds the VIK installers (app) for Windows (x64) and Apple Silicon Macs,
 # and publishes them as a GitHub Release.
 #
 #   git tag v1.0.0 && git push origin v1.0.0     → builds both installers and creates the "v1.0.0" release
@@ -6,7 +6,7 @@
 #                                                    (download them from the run page, under "Artifacts")
 #
 # The installers are not code-signed: Windows SmartScreen and macOS Gatekeeper warn on first launch
-# (see docs/GUIDE.md, "Voice Lab").
+# (see docs/GUIDE.md, "VIK").
 name: Release
 
 on:
@@ -32,7 +32,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: 2_qvac_local
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
 
@@ -61,17 +61,17 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           mkdir -p ../dist
           if [ "${{ matrix.label }}" = "windows-x64" ]; then
-            cp out/make/squirrel.windows/x64/*.exe "../dist/VoiceLab-Setup-${VERSION}-windows-x64.exe"
-            for z in out/make/zip/win32/x64/*.zip; do cp "$z" "../dist/VoiceLab-${VERSION}-windows-x64.zip"; done
+            cp out/make/squirrel.windows/x64/*.exe "../dist/VIK-Setup-${VERSION}-windows-x64.exe"
+            for z in out/make/zip/win32/x64/*.zip; do cp "$z" "../dist/VIK-${VERSION}-windows-x64.zip"; done
           else
-            for d in out/make/*.dmg; do cp "$d" "../dist/VoiceLab-${VERSION}-mac-arm64.dmg"; done
-            for z in out/make/zip/darwin/arm64/*.zip; do cp "$z" "../dist/VoiceLab-${VERSION}-mac-arm64.zip"; done
+            for d in out/make/*.dmg; do cp "$d" "../dist/VIK-${VERSION}-mac-arm64.dmg"; done
+            for z in out/make/zip/darwin/arm64/*.zip; do cp "$z" "../dist/VIK-${VERSION}-mac-arm64.zip"; done
           fi
           ls -la ../dist
 
       - uses: actions/upload-artifact@v4
         with:
-          name: voice-lab-${{ matrix.label }}
+          name: vik-${{ matrix.label }}
           path: dist/*
           if-no-files-found: error
 
@@ -91,16 +91,16 @@ jobs:
           files: dist/*
           generate_release_notes: true
           body: |
-            ## Voice Lab ${{ github.ref_name }}
+            ## VIK ${{ github.ref_name }}
 
             | | download |
             |---|---|
-            | Windows (x64) | `VoiceLab-Setup-…-windows-x64.exe` |
-            | Mac (Apple Silicon, M1 and later) | `VoiceLab-…-mac-arm64.dmg` |
+            | Windows (x64) | `VIK-Setup-…-windows-x64.exe` |
+            | Mac (Apple Silicon, M1 and later) | `VIK-…-mac-arm64.dmg` |
 
             The installers are not code-signed. On Windows: **More info → Run anyway**.
             On a Mac: open it once, then **System Settings → Privacy & Security → Open Anyway**
-            (if macOS says the app is damaged: `xattr -cr "/Applications/Voice Lab.app"`).
+            (if macOS says the app is damaged: `xattr -cr "/Applications/VIK.app"`).
 
             The app is the brain; its clients are in the source code below: the cables.gl op
-            (`1_cables_gemini_live/VoiceAgent.op.js`) and the p5.js and HTML examples (`examples/`).
+            (`cables/VoiceAgent.op.js`) and the p5.js and HTML examples (`examples/`).

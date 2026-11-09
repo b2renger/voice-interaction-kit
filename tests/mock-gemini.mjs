@@ -10,7 +10,7 @@
 //   - the key "silent-key" opens the connection but never finishes the setup (a start that hangs);
 //   - POST /token hands out ephemeral tokens tok-1, tok-2… (like token-server/server.mjs).
 import { createServer } from 'node:http';
-import { attachWebSocket } from '../2_qvac_local/src/ws.mjs';
+import { attachWebSocket } from '../app/src/ws.mjs';
 
 const FUNCTION_RESPONSE_KEYS = new Set(['id', 'name', 'response', 'willContinue', 'parts']);
 

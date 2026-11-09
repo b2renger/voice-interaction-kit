@@ -6,10 +6,10 @@ const fs = require('node:fs');
 const { EventEmitter } = require('node:events');
 
 const state = globalThis.__electronStub = { windows: [], menu: null, permissionRequest: null, permissionCheck: null, relaunched: null, exited: null, errors: [], quitCalled: 0 };
-const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'voice-lab-userdata-'));
+const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'vik-userdata-'));
 
 class App extends EventEmitter {
-  constructor() { super(); this.name = 'Voice Lab'; this.commandLine = { appendSwitch() {} }; }
+  constructor() { super(); this.name = 'VIK'; this.commandLine = { appendSwitch() {} }; }
   whenReady() { return Promise.resolve(); }
   getPath(n) { return n === 'userData' ? userData : os.tmpdir(); }
   requestSingleInstanceLock() { return true; }

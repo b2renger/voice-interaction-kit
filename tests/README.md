@@ -20,8 +20,8 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final; the models offered in the window (`choices`), and that nothing else loads; an LLM farm frees the local model | Node 22+ |
 | `node tests/test-farm.mjs` | LLM farms (LlmOnLan) against a fake farm (`mock-farm.mjs`): found by their UDP beacon or by their address, replies streamed, refusals said in words (password, full, model gone, off), cancelling; `/models` and `/farms`; a conversation whose replies come from the farm | Node 22+ |
 | `node tests/test-electron-main.mjs` | the Electron app with a fake Electron: Windows installer (shortcuts), built-in server, window, mic permission, menus, personas and their knowledge files, closing | Node 22+ |
-| `node tests/test-hub.mjs` | the hub (`2_qvac_local/src/hub.mjs`) through the real server: a fake lab window publishes, two clients follow; snapshots, events, levels, commands, refused commands, who may connect | Node 22+ |
-| `node tests/test-smart-turn.mjs` | the Smart Turn end-of-turn pipeline (`2_qvac_local/src/turn/`), see below | Node 22+ (optional: Python 3 with numpy and onnxruntime) |
+| `node tests/test-hub.mjs` | the hub (`app/src/hub.mjs`) through the real server: a fake lab window publishes, two clients follow; snapshots, events, levels, commands, refused commands, who may connect | Node 22+ |
+| `node tests/test-smart-turn.mjs` | the Smart Turn end-of-turn pipeline (`app/src/turn/`), see below | Node 22+ (optional: Python 3 with numpy and onnxruntime) |
 | `node tests/test-gemini.mjs` | voice-core's Gemini Live engine (run by the lab window) in Chromium, with a fake mic, against a fake Gemini Live server, including away and the reprompt | Node + Playwright |
 | `node tests/test-local.mjs` | the lab window in Chromium, with the simulated engine and a fake mic, including the voice dipping, fillers, away, the voice engine fields, and the model pickers with an LLM farm added by its address; and its clients through the hub: the cables op, the HTML and p5.js examples (p5.js comes from its CDN) | Node + Playwright |
 
@@ -43,7 +43,7 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-local | 86 | 0 |
 | **total** | **446** | **1** |
 
-The skipped check is the real Smart Turn prediction through `onnxruntime-node`, which could not be installed where the kit was built. It runs when `onnxruntime-node` is installed (`npm install` in `2_qvac_local`).
+The skipped check is the real Smart Turn prediction through `onnxruntime-node`, which could not be installed where the kit was built. It runs when `onnxruntime-node` is installed (`npm install` in `app`).
 
 ## The Smart Turn suite
 
@@ -68,7 +68,7 @@ The Python tools are in `tools/`: `make_smart_turn_fixtures.py` makes the refere
 - `fake-qvac-sdk.mjs`: a fake `@qvac/sdk` (same functions and same data as version 0.21). Like QVAC, it accepts only one recognition stream at a time per model, released shortly after it closes. It checks the Parler and Chatterbox calls against QVAC 0.21's docs and schemas;
 - `electron-stub/`: a fake `electron` module.
 
-**Test hooks** (environment variables, read by the Voice Lab server or by the tests):
+**Test hooks** (environment variables, read by the VIK server or by the tests):
 
 | variable | what it does |
 |---|---|

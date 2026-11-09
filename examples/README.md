@@ -1,6 +1,6 @@
-# Examples: your own clients for the Voice Lab app
+# Examples: your own clients for the VIK app
 
-The Voice Lab app is the brain: it listens, thinks and speaks (local engine or Gemini), with its persona and knowledge. Any page can follow that conversation and drive it through one WebSocket, `ws://localhost:8790/events`. These two examples are starting points: copy one, then change everything.
+The VIK app is the brain: it listens, thinks and speaks (local engine or Gemini), with its persona and knowledge. Any page can follow that conversation and drive it through one WebSocket, `ws://localhost:8790/events`. These two examples are starting points: copy one, then change everything.
 
 | folder | what it shows |
 |---|---|
@@ -9,7 +9,7 @@ The Voice Lab app is the brain: it listens, thinks and speaks (local engine or G
 
 ## Run one
 
-1. Open the **Voice Lab app** (and keep its window open).
+1. Open the **VIK app** (and keep its window open).
 2. Open the example **through a web server**, not by double-clicking the file:
    - **VS Code**: install the *Live Server* extension, right-click `index.html` → **Open with Live Server**;
    - **or** in a terminal, inside the example's folder: `npx serve`, then open the address it shows.

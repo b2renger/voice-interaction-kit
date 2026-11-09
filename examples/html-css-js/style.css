@@ -1,4 +1,4 @@
-/* One colour per state: the same as the Voice Lab window. */
+/* One colour per state: the same as the VIK window. */
 :root {
   --bg: #f4f2ee; --ink: #1d1c1a; --muted: #6d6a64; --chip: #ece8e0;
   --idle: #a8a39a; --listening: #3e8e7e; --hearing: #2aa7a0; --thinking: #6b5fb5; --speaking: #d8743b; --error: #c0392b;

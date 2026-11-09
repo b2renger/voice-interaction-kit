@@ -1,7 +1,7 @@
 # Vendored copy (unchanged below this block) of pipecat-ai/pipecat
 # src/pipecat/audio/turn/smart_turn/_whisper_features.py, the Python reference of
-# 2_qvac_local/src/turn/whisper-features.mjs. Used by make_smart_turn_fixtures.py and
-# smart_turn_parity.py. BSD 2-Clause License, see 2_qvac_local/models/SMART_TURN_LICENSE.txt.
+# app/src/turn/whisper-features.mjs. Used by make_smart_turn_fixtures.py and
+# smart_turn_parity.py. BSD 2-Clause License, see app/models/SMART_TURN_LICENSE.txt.
 #
 # Copyright (c) 2024-2026, Daily
 #

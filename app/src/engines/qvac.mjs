@@ -57,7 +57,7 @@ export async function createQvacEngine(config, log) {
     // QVAC_SDK lets the tests plug in a fake SDK (tests/fake-qvac-sdk.mjs).
     sdk = await import(process.env.QVAC_SDK || '@qvac/sdk');
   } catch (e) {
-    throw new Error(`The QVAC SDK is not installed: run "npm install" in the 2_qvac_local folder. (${e.message})`);
+    throw new Error(`The QVAC SDK is not installed: run "npm install" in the app folder. (${e.message})`);
   }
   const M = config.models;
   const st = {

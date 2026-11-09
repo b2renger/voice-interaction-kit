@@ -12,7 +12,7 @@ import { startMockFarm } from './mock-farm.mjs';
 // a beacon port of our own (LlmOnLan's override), set before the module is imported
 const BEACON_PORT = 42100 + Math.floor(Math.random() * 800);
 process.env.LOL_FED_PORT = String(BEACON_PORT);
-const src = (f) => pathToFileURL(join(ROOT, '2_qvac_local', 'src', f)).href;
+const src = (f) => pathToFileURL(join(ROOT, 'app', 'src', f)).href;
 const { createFarmFinder, farmGenerate } = await import(src('farm.mjs'));
 
 const farm = await startMockFarm({ key: 'secret' });
@@ -91,7 +91,7 @@ const ask = (o = {}, onDelta = () => {}) => farmGenerate({
 {
   const { loadConfig } = await import(src('config.mjs'));
   const { startServer } = await import(src('app-server.mjs'));
-  const config = loadConfig(join(tmpdir(), 'voice-lab-no-config.json'));
+  const config = loadConfig(join(tmpdir(), 'vik-no-config.json'));
   const logs = [];
   const srv = await startServer({ config, mock: true, port: 19700 + Math.floor(Math.random() * 90), log: (m) => logs.push(m) });
   await srv.ready;

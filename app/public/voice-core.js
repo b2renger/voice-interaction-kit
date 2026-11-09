@@ -11,7 +11,7 @@
  *
  * Two engines:
  *   - "gemini": the Gemini Live API (WebSocket, native voice, online);
- *   - "local":  the QVAC backend in the 2_qvac_local folder (local WebSocket).
+ *   - "local":  the QVAC backend in the app folder (local WebSocket).
  *
  * No dependencies. This file defines a single constant: VoiceCore.
  * ========================================================================== */
@@ -633,7 +633,7 @@ const VoiceCore = (function () {
   }
 
   // ---------------------------------------------------------------------------
-  // Local engine (QVAC backend, 2_qvac_local folder)
+  // Local engine (QVAC backend, app folder)
   // ---------------------------------------------------------------------------
 
   function LocalEngine(hooks) { this.h = hooks; this.ws = null; this.ready = false; this.closing = false; this.pendingReject = null; }
@@ -651,7 +651,7 @@ const VoiceCore = (function () {
       const timer = setTimeout(function () {
         if (settled) return;
         settled = true; try { ws.close(); } catch (e) { /* closed */ }
-        reject(fail('timeout', 'The local server isn\'t responding: is the Voice Lab app open?'));
+        reject(fail('timeout', 'The local server isn\'t responding: is the VIK app open?'));
       }, 10000);
       ws.onopen = function () { ws.send(JSON.stringify({ type: 'start', settings: pick(s, LOCAL_KEYS) })); };
       ws.onmessage = function (e) {
@@ -671,7 +671,7 @@ const VoiceCore = (function () {
       ws.onclose = function (e) {
         clearTimeout(timer);
         self.ready = false;
-        if (!settled) { settled = true; self.pendingReject = null; reject(self.closing ? fail('cancelled', 'Start cancelled.') : fail('network', 'No local server at ' + s.serverUrl + ': open the Voice Lab app (or run "npm start" in 2_qvac_local).')); return; }
+        if (!settled) { settled = true; self.pendingReject = null; reject(self.closing ? fail('cancelled', 'Start cancelled.') : fail('network', 'No local server at ' + s.serverUrl + ': open the VIK app (or run "npm start" in the app folder).')); return; }
         if (!self.closing) self.h.error('network', 'The local server closed the connection' + (e.reason ? ': ' + e.reason : '.'), true);
       };
     });

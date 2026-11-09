@@ -1,6 +1,6 @@
 # 1. The cables.gl op "VoiceAgent"
 
-An op you paste into the cables.gl editor, **without touching the cables code**. It connects your patch to the **Voice Lab app** (folder [`2_qvac_local`](../2_qvac_local/)), which is the brain: the app listens, thinks and speaks, with its local engine (QVAC) or with Gemini Live, and it holds the persona, the knowledge and the settings. The op follows that conversation and gives you everything you need to design the interaction:
+An op you paste into the cables.gl editor, **without touching the cables code**. It connects your patch to the **VIK app** (folder [`app`](../app/)), which is the brain: the app listens, thinks and speaks, with its local engine (QVAC) or with Gemini Live, and it holds the persona, the knowledge and the settings. The op follows that conversation and gives you everything you need to design the interaction:
 
 - the state of the conversation: listening, hearing, thinking, speaking;
 - the voice and mic levels, about 30 times a second;
@@ -13,7 +13,7 @@ The op is one client among others: a p5.js sketch or a web page can follow the s
 
 ## Install the op (5 minutes)
 
-1. Open the **Voice Lab app** on this computer, and keep it open.
+1. Open the **VIK app** on this computer, and keep it open.
 2. In cables.gl, open your patch. It must belong to you: otherwise the op creation menus are greyed out.
 3. Your avatar menu, top right → **Code a new op**. You can also find it with `Ctrl/Cmd + P` by typing "Code a new op".
 4. Name: `VoiceAgent`, namespace: the patch's one (`Ops.Patch.P…`), then **Create Op**.
@@ -22,7 +22,7 @@ The op is one client among others: a p5.js sketch or a web page can follow the s
 
 A "patch op" travels with the patch: if you share or clone the patch, the op comes along.
 
-**The persona, the voice, the engine (local or Gemini) and the turn-taking settings are chosen in the Voice Lab window**, not on the op: see [`../2_qvac_local/README.md`](../2_qvac_local/README.md). That's also where you give the agent its knowledge, and where Gemini's key or token server goes.
+**The persona, the voice, the engine (local or Gemini) and the turn-taking settings are chosen in the VIK window**, not on the op: see [`../app/README.md`](../app/README.md). That's also where you give the agent its knowledge, and where Gemini's key or token server goes.
 
 > **Upgrading a patch made with the earlier op** (which ran Gemini itself): paste the new code over it. The outputs and triggers keep their names, so their links stay. The settings ports are gone (they live in the app now), and so are the two audio outputs: use `Voice level` and `Mic level`.
 
@@ -32,7 +32,7 @@ A "patch op" travels with the patch: if you share or clone the patch, the op com
 
 | port | role |
 |---|---|
-| App address | the app's address for clients: `ws://localhost:8790/events` (Voice Lab menu **Engine → Copy address for clients**) |
+| App address | the app's address for clients: `ws://localhost:8790/events` (VIK menu **Engine → Copy address for clients**) |
 | Start, Stop | open or close the conversation in the app (Start during a conversation = restart) |
 | Text + Send text | type instead of talking, or a button that "says" something: the agent replies |
 | Context + Send context | inform the agent without it replying ("the user is looking at room 2"). Sent while the agent speaks, it waits for the end of the reply, so it does not cut it off |
@@ -73,7 +73,7 @@ The triggers: `On state change`, `On user start`, `On user end`, `On thinking`, 
 
 ## Design recipes
 
-cables op names sometimes change between versions. To find an op, type the keyword given here in the op search (`Esc`). "In the app" means a setting of the Voice Lab window.
+cables op names sometimes change between versions. To find an op, type the keyword given here in the op search (`Esc`). "In the app" means a setting of the VIK window.
 
 - **A face that breathes and talks.** `Voice level` → the scale of a circle or the opening of a "mouth". `Mic level` → a ring around it, which shows "I hear you". `Thinking` → the speed of a rotation. The booleans `Listening`, `Hearing`, `Thinking` and `Speaking` connect directly to switches or color mixes (search for *switch*, *mix*, *interpolate*).
 - **Subtitles.** `User text` and `Agent text` → a text op (search for *text*), in HTML or WebGL.
