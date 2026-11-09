@@ -35,6 +35,8 @@
     <button data-view="interactions">Interactions</button>
     <button data-view="voice">Voice &amp; timing</button>
     <button data-view="settings">Settings</button>
+    <button data-view="guide" class="nav-guide">Guide</button>
+    <div class="nav-tour" id="navTour" hidden></div>
     <p class="nav-foot" id="engineLine"></p>
   </nav>
 
@@ -69,7 +71,7 @@
       </div>
       <aside class="trace" aria-label="Why it answered">
         <h2>Why it answered</h2>
-        <p class="hint" id="traceHint">Each turn shows the pattern the agent chose, how sure it was, and what came close.</p>
+        <p class="hint" id="traceHint">Each turn shows the pattern the agent chose, how sure it was, and what came close. <a href="#guide/decisions" class="help" data-guide="decisions#reading-why-it-answered">How it decides</a></p>
         <ol id="trace"></ol>
         <details>
           <summary>Every event</summary>
@@ -81,7 +83,7 @@
     <!-- ===================== Persona ===================== -->
     <section class="view" id="view-persona" aria-label="Persona" hidden>
       <h1>Persona</h1>
-      <p class="lede">Who the agent is and how it speaks. The text below is what the language model reads before every reply. Markdown is welcome.</p>
+      <p class="lede">Who the agent is and how it speaks. The text below is what the language model reads before every reply. Markdown is welcome. <a href="#guide/persona" class="help" data-guide="persona#writing-the-persona">Writing a persona</a></p>
       <div class="persona">
         <div class="stack">
           <div class="grid2">
@@ -110,7 +112,7 @@
     <!-- ===================== Knowledge ===================== -->
     <section class="view" id="view-knowledge" aria-label="Knowledge" hidden>
       <h1>Knowledge</h1>
-      <p class="lede">Tables of what the agent knows, one per kind of thing. The first column is how people name an entry; separate other names with |, as in <code>Water Lilies | Nymphéas</code>. A cell that names an entry of another table links the two.</p>
+      <p class="lede">Tables of what the agent knows, one per kind of thing. The first column is how people name an entry; separate other names with |, as in <code>Water Lilies | Nymphéas</code>. A cell that names an entry of another table links the two. <a href="#guide/knowledge" class="help" data-guide="knowledge">How tables work</a></p>
       <div class="tabs" role="tablist" id="tableTabs"></div>
       <div id="tableArea"></div>
       <div class="lookup">
@@ -126,7 +128,7 @@
     <!-- ===================== Interactions ===================== -->
     <section class="view" id="view-interactions" aria-label="Interactions" hidden>
       <h1>Interactions</h1>
-      <p class="lede">How the agent decides. Before any language model writes a word, the decision model compares what was said with these patterns: the closest one fires. The agent is in one stage at a time, and a pattern can belong to a stage.</p>
+      <p class="lede">How the agent decides. Before any language model writes a word, the decision model compares what was said with these patterns: the closest one fires. The agent is in one stage at a time, and a pattern can belong to a stage. <a href="#guide/interactions" class="help" data-guide="interactions">How patterns work</a></p>
       <div class="group">
         <header><h2>Stages</h2><label class="row" style="flex-wrap:nowrap;color:var(--muted);font-size:13px">Every conversation starts in <select id="startStage" style="width:auto"></select></label></header>
         <div class="stages" id="stages"></div>
@@ -157,7 +159,7 @@
     <!-- ===================== Voice & timing ===================== -->
     <section class="view" id="view-voice" aria-label="Voice and timing" hidden>
       <h1>Voice &amp; timing</h1>
-      <p class="lede">How the agent sounds, when it takes its turn, and what it does while it thinks. These belong to the agent.</p>
+      <p class="lede">How the agent sounds, when it takes its turn, and what it does while it thinks. These belong to the agent. <a href="#guide/voice" class="help" data-guide="voice">What each setting changes</a></p>
       <div class="group">
         <header><h2>Voice</h2></header>
         <div class="grid2">
@@ -204,7 +206,7 @@
     <!-- ===================== Settings ===================== -->
     <section class="view" id="view-settings" aria-label="Settings" hidden>
       <h1>Settings</h1>
-      <p class="lede">This computer's settings: they stay here and never travel with an agent.</p>
+      <p class="lede">This computer's settings: they stay here and never travel with an agent. <a href="#guide/models" class="help" data-guide="models">Choosing the models</a></p>
       <div class="group">
         <header><h2>Engine</h2></header>
         <div class="choice-cards">
@@ -271,6 +273,15 @@
         <label class="field" style="max-width:420px"><span>Address of the voice server</span><input type="text" data-k="serverUrl"></label>
         <p class="hint" style="margin-top:8px" id="agentsDir"></p>
       </div>
+    </section>
+
+    <!-- ===================== Guide: the built-in documentation, and the tutorial ===================== -->
+    <section class="view guide" id="view-guide" aria-label="Guide" hidden>
+      <aside class="guide-side">
+        <div id="guideTour"></div>
+        <nav aria-label="Guide pages"><ol class="guide-pages" id="guidePages"></ol></nav>
+      </aside>
+      <article class="doc" id="guideArticle"></article>
     </section>
   </main>
 </div>

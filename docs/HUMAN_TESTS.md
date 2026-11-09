@@ -50,8 +50,9 @@ The tests marked ★ make up the **quick run**, to do first: about 2¾ hours for
 | R15 | a clear way to **input data**: personas in **markdown**, knowledge bases as **CSV** tables, and to **build interactions** | S2, S3, S7, S8, C5, C7 |
 | R16 | a **local decision model**, and a clear way to edit the **decision patterns** related to the knowledge | S3 to S6 |
 | R17 | **everything editable in the app**; replies written by **any language model** (local, an LLM farm, a service) | S2, S9 |
+| R18 | a **built-in documentation** and an **interactive tutorial** | T1 to T4 |
 
-N1 and N2 were not in your original request: they cover what was added since. R13 to R17 come from the VIK rework.
+N1 and N2 were not in your original request: they cover what was added since. R13 to R17 come from the VIK rework; R18 from the Guide and the tutorial.
 
 ---
 
@@ -830,6 +831,44 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ---
 
+## T. The Guide and the tutorial (R18)
+
+### T1 ★ The tutorial, with a newcomer (R18, R12)
+1. On a computer where VIK was never opened (or after **View → Developer tools → Application → Local storage → Clear**), give a student who has never seen VIK the installed app, and say only: "follow what it suggests".
+2. Watch without helping. Time it.
+
+**Expected:** the navigation offers "Start the tutorial"; the student reaches "That's an agent" in 15 minutes or less, and the café agent answers "A Cappuccino? That's espresso with milk foam…" (or their own line). Note each step where they hesitated, and each time they used **Do it for me** or **Skip**: these are the steps to rewrite.
+
+Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
+
+### T2 The tutorial with the real models (R18)
+1. On a first launch with QVAC (the models still downloading), start the tutorial at once.
+2. Reach the **Start** step while the banner still shows the download.
+
+**Expected:** every step before **Start** works during the download (the try field decides with the words matcher until EmbeddingGemma is loaded); at **Start**, the banner shows the progress, and the tutorial waits for the conversation. With the models ready, the café agent's line is spoken.
+
+Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
+
+### T3 Leaving and coming back (R18)
+1. In the middle of the tutorial, click **×**. Quit the app, open it again.
+2. Click **Pick it up** in the navigation (or in **Guide**).
+3. During the tutorial, open another agent from the list at the top.
+
+**Expected:** 1. the tutorial stays closed, the navigation says at which step it was. 2. it goes on at that step. 3. the card says the step is about Café, and **Open Café** brings it back. The example agents are never changed.
+
+Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
+
+### T4 The Guide (R18)
+1. Open **Guide**. Read **Getting started** and **How it decides**; follow three links (a page, a view, a website).
+2. In each view, click the help link at the end of its intro.
+3. Unplug the network, open the Guide again.
+
+**Expected:** 1. the pages read well in light and dark, the views' names match the studio's, a website opens in the browser (not in the studio). 2. each opens the right page. 3. the Guide works offline (only the website links need the network). Note any sentence a student would not understand.
+
+Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
+
+---
+
 ## Summary
 
 | requirement | overall verdict | what needs to change |
@@ -853,6 +892,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 | R15 personas in markdown, knowledge as CSV, interactions | | |
 | R16 a local decision model, editable patterns | | |
 | R17 everything editable in the app, any language model | | |
+| R18 the built-in Guide and the tutorial | | |
 
 Four-axis grid (L1), totals out of 20: Gemini ……… local, default ……… local, tuned ………
 

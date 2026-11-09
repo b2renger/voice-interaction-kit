@@ -203,8 +203,9 @@ function unknownPlaceholders(text, headers) {
   return [...String(text || '').matchAll(/\{([^{}]{1,60})\}/g)].map((m) => m[1]).filter((n) => !known.has(norm(n)));
 }
 
-async function newPattern() {
-  const name = await ask('A new pattern', 'What it is about, in a few words (opening hours, an artwork, goodbye)', '', 'Create');
+/** A new pattern: its name is asked (or given: the tutorial's "Do it for me"). */
+export async function newPattern(given) {
+  const name = typeof given === 'string' ? given : await ask('A new pattern', 'What it is about, in a few words (opening hours, an artwork, goodbye)', '', 'Create');
   if (!name) return;
   const it = I();
   const p = { id: slug(name, new Set(it.patterns.map((x) => x.id)), 'pattern'), name, stage: filter !== '*' ? filter : '', on: true, when: { kind: 'says', examples: [] }, then: [{ do: 'say', text: '' }] };

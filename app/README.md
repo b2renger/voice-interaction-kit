@@ -24,8 +24,13 @@ One window, a few views. Everything is saved as you type, and **Start** / **Stop
 | **Interactions** | its **stages** and **patterns**, "When … → Then …". When the person says something like these examples, mentions an entry of this table, when the conversation starts, when a client sends a signal, or when nothing else fits; then say a line (filled from the entry: `{price}`), let the language model answer (with an instruction), show choices, set a mood, send a signal to the clients, go to another stage. **Try a sentence** shows what the agent would decide, and why. **Confidence** sets how close a sentence must be for a pattern to fire |
 | **Voice & timing** | the voice, turn-taking, and what it does while it thinks |
 | **Settings** | this computer's settings: the engine, the language model, speech recognition, the decision model's state, the clients' address. They never travel with an agent |
+| **Guide** | the documentation, built in: eleven short pages for students, from getting started to troubleshooting, and the **tutorial**. Each view's intro links to its page |
 
 The menu **Manage** (next to the agent's name) creates, duplicates, exports, imports and deletes agents, and brings back the examples.
+
+**The tutorial** ("Build your first agent", about ten minutes) is offered on first launch, in the navigation, and in **Guide**. It walks through a café agent step by step: a ring shows where to act, a card says what to do, and each step moves on when the studio shows it done. **Do it for me** does a step in your place. It can be left and picked up later, and it only edits the agent it made.
+
+**The Guide's pages** are markdown files in `public/guide/`, listed in `pages.json` (order, title, group): a teacher can reword a page or add one, then rebuild the installers. Links can open another page (`knowledge.md#links-between-tables`), a view (`view:interactions`), the tutorial (`tour:first-agent`) or a website; `node tests/test-guide.mjs` checks that none leads nowhere.
 
 ## Agents: the files you build
 

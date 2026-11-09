@@ -53,11 +53,13 @@ Every turn is measured: how long the person spoke, the **felt wait** (from the e
 ## Getting started
 
 1. **Install the studio**: [`app/README.md`](app/README.md). The installers are on the repository's **Releases** page (built by GitHub Actions for Windows and Apple Silicon Macs, see [`PUBLISHING.md`](PUBLISHING.md)).
-2. **Open an example agent**, click **Start** and talk. Then open **Interactions**, type a sentence in "Try a sentence", and change a pattern.
-3. **Connect a client**: the cables op ([`cables/README.md`](cables/README.md)) or an example ([`examples/`](examples/)).
+2. **Take the tutorial**: the studio offers it on first launch (and in **Guide**). In about ten minutes, it walks you through a café agent that answers questions about its menu: a persona, a table, a pattern, a conversation.
+3. **Open an example agent**, click **Start** and talk. Then open **Interactions**, type a sentence in "Try a sentence", and change a pattern.
+4. **Connect a client**: the cables op ([`cables/README.md`](cables/README.md)) or an example ([`examples/`](examples/)).
 
 ## The documentation
 
+- **In the studio, Guide**: the documentation for students, built in (and offline): getting started, persona, knowledge, interactions, how it decides, voice and timing, models, clients and signals, files, exercises, troubleshooting. Each view links to its page. The pages are markdown files in [`app/public/guide/`](app/public/guide/), which a teacher can change.
 - [**`docs/GUIDE.md`**](docs/GUIDE.md): the guide for the workshop: getting started, building an agent, the edge cases of a voice conversation one by one, exercises, troubleshooting, limits.
 - [**`docs/DESIGN.md`**](docs/DESIGN.md): how VIK is built: the pipeline, the agent's files (`persona.md`, CSV tables, `interactions.json`), the decision model and its measurements, the language models, the studio.
 - [**`CONTRACT.md`**](CONTRACT.md): the shared vocabulary (states, events, settings), the clients protocol, the local engine's protocol.
@@ -71,6 +73,7 @@ Every turn is measured: how long the person spoke, the **felt wait** (from the e
 app/                          the VIK studio (Electron)
   agents/                     the example agents (copied into the app's settings folder on first launch)
   public/                     the studio: index.html, vik.css, js/ (one module per view), fonts/, logo.svg
+    guide/                    the built-in Guide: one markdown file per page, pages.json for their order
   src/                        the server: the studio's API, the hub, the conversation (session.mjs)
     agent/                    agents on disk, CSV, persona.md, interactions, knowledge, the decision model
     engines/                  QVAC (Whisper, Qwen3…, voices, EmbeddingGemma) and a simulated engine
@@ -87,7 +90,7 @@ tests/                        the automated tests (npm test)
 
 ## What has been checked
 
-More than **560 automated checks** pass (`npm test` at the root, see [`tests/README.md`](tests/README.md)). They run without models and without a Gemini key, against faithful fakes: Gemini Live, the QVAC SDK (which refuses what the real one refuses), Electron, an LLM farm. They include an agent built entirely in the studio, in Chromium (persona, table, pattern, a try, a conversation that follows the pattern, a signal, an export).
+More than **610 automated checks** pass (`npm test` at the root, see [`tests/README.md`](tests/README.md)). They run without models and without a Gemini key, against faithful fakes: Gemini Live, the QVAC SDK (which refuses what the real one refuses), Electron, an LLM farm. They include an agent built entirely in the studio, in Chromium (persona, table, pattern, a try, a conversation that follows the pattern, a signal, an export), every page of the Guide and its links, and the whole tutorial done as a newcomer would.
 
 **Checked with the real models**, on a Windows computer with QVAC 0.21: Whisper, Qwen3 1.7B and Supertonic load from their files; **EmbeddingGemma 300M** downloads from Hugging Face and runs the decision model: 34 sentences on the example agents, in English and in French, all decided as intended, in about 20 ms each. Its score ranges were measured there.
 

@@ -49,6 +49,8 @@ The studio has two engines:
 
 On first launch, the models download: the banner shows a progress bar. When it says "The models are ready", pick an example agent at the top (the museum guide, say), click **Start**, and talk. Then open **Interactions**, type a sentence in "Try a sentence", and see what the agent would do.
 
+**The tutorial** comes next: the studio offers it on first launch (and in **Guide**). In about ten minutes, each student builds a café agent that answers questions about its menu, step by step, then talks to it. It is a good first half hour of a workshop, before this guide's edge cases. The studio's **Guide** also holds a short version of section 3 and of the troubleshooting, offline, with links to each view.
+
 **Gemini instead of the local engine:** **Settings → Engine → Gemini Live**, then a key, or the address of a token server (for a class: the key stays on the teacher's computer, and each studio gets a token valid for 30 minutes). See "Using Gemini Live" in [`app/README.md`](../app/README.md).
 
 ### 2.2 A client: the cables.gl op (5 minutes)

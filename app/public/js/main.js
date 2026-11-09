@@ -7,6 +7,8 @@ import { initTalk, banner } from './talk.js';
 import { initKnowledge, renderKnowledge } from './knowledge.js';
 import { initInteractions, renderInteractions } from './interactions.js';
 import { initSettings, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
+import { initGuide, renderGuide, openGuide, refreshGuideTour } from './guide.js';
+import { initTour, startTour, tourCard } from './tour.js';
 
 // ———————————————————————————— the conversation ————————————————————————————
 $('#geminiVoices').replaceChildren(...VoiceCore.GEMINI_VOICES.map(([n, c]) => h('option', { value: n }, `${n}, ${c}`)));
@@ -68,18 +70,19 @@ agent.on('start', (ev) => {
 });
 
 // ———————————————————————————— the views ————————————————————————————
-const VIEWS = ['talk', 'persona', 'knowledge', 'interactions', 'voice', 'settings'];
+const VIEWS = ['talk', 'persona', 'knowledge', 'interactions', 'voice', 'settings', 'guide'];
 function show(view) {
   if (!VIEWS.includes(view)) view = 'talk';
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
-  for (const b of $$('.nav button')) b.setAttribute('aria-current', b.dataset.view === view ? 'page' : 'false');
+  for (const b of $$('.nav button[data-view]')) b.setAttribute('aria-current', b.dataset.view === view ? 'page' : 'false');
   if (view === 'knowledge') renderKnowledge();
   if (view === 'interactions') renderInteractions();
   if (view === 'settings') paintSettings();
+  if (view === 'guide') renderGuide();
   document.body.dataset.view = view;
   try { localStorage.setItem('vik.view', view); } catch { /* no storage */ }
 }
-for (const b of $$('.nav button')) b.addEventListener('click', () => show(b.dataset.view));
+for (const b of $$('.nav button[data-view]')) b.addEventListener('click', () => show(b.dataset.view));
 
 // ———————————————————————————— the settings fields ————————————————————————————
 const FMT = {
@@ -147,6 +150,10 @@ async function loadAgents(select) {
   if (id) await openAgent(id);
   return list;
 }
+/** A new agent, opened on its persona (Manage → New agent…, and the tutorial's "Do it for me"). */
+async function createAgent(name) {
+  try { const a = await api.create({ name }); await loadAgents(a.id); show('persona'); } catch (err) { toast(err.message, 'err'); }
+}
 function refreshAgentTitle() {
   const o = $(`#agentSelect option[value="${CSS.escape(state.agentId)}"]`);
   if (o && state.agent) o.textContent = state.agent.settings.title || state.agent.settings.name || state.agentId;
@@ -155,8 +162,7 @@ $('#agentSelect').addEventListener('change', (e) => openAgent(e.target.value).ca
 $('#agentMenuBtn').addEventListener('click', (e) => menu(e.currentTarget, [
   { label: 'New agent…', run: async () => {
     const name = await ask('A new agent', 'Its name, as people will call it', '', 'Create');
-    if (!name) return;
-    try { const a = await api.create({ name }); await loadAgents(a.id); show('persona'); } catch (err) { toast(err.message, 'err'); }
+    if (name) await createAgent(name);
   } },
   { label: 'Duplicate', run: async () => {
     flush();
@@ -215,6 +221,10 @@ async function pollHealth() {
 
 // a table edited in a spreadsheet, a persona in a text editor: seen when the studio comes back to the front
 window.addEventListener('focus', () => { reloadAgent().catch(() => {}); });
+
+// ———————————————————————————— the guide and the tutorial ————————————————————————————
+initGuide({ show, startTour, tourCard });
+initTour({ show, agent, createAgent, openGuide, changed: refreshGuideTour });
 
 // ———————————————————————————— boot ————————————————————————————
 (async () => {

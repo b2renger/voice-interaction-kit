@@ -177,6 +177,7 @@ One window, a few views, saved as you type:
 | **Interactions** | the stages and the patterns (When → Then), and the test field |
 | **Voice & timing** | the voice, turn-taking, feedback |
 | **Settings** | the engine, the models, the language model, the clients' address |
+| **Guide** | nothing: the built-in documentation, and the tutorial (5.1) |
 
 The top bar holds the agent (and **Manage**: new, duplicate, export, import, delete, the examples), "Saved", the live state with the last words said, and **Start** / **Stop**: an agent can be tested from any view while it is being edited.
 
@@ -187,6 +188,16 @@ The top bar holds the agent (and **Manage**: new, duplicate, export, import, del
 **This computer's settings** (the engine, the language model and its address and key, the models, the speakers) are kept in the window, never in an agent: the server drops them from any `persona.md` it reads, writes or imports, and the page ignores them in an agent. An agent from someone else cannot send the conversation elsewhere.
 
 The server behind the window (`app/src/app-server.mjs`) serves the page and a small API (`app/src/api.mjs`): `GET/PUT/POST/DELETE /api/agents/…` (the files), `POST /api/decide` (the test field), `POST /api/llm/models` (a service's models), `GET /models` and `GET /farms`. The API only answers the studio's own page (`sec-fetch-site`, `origin`).
+
+### 5.1 The Guide and the tutorial
+
+**The Guide** is the studio's documentation, inside the app (it works offline, and travels with the installers). Its pages are markdown files in `app/public/guide/`, in the order and groups of `pages.json`: a teacher can change a page, or add one, without touching code. They are written for students, with the studio's own labels, and short: the repository's documents (`docs/GUIDE.md` for the workshop, this file for how it is built) go deeper, and the pages link to them.
+
+A small reader (`app/public/js/markdown.js`) turns a page into a tree: headings, paragraphs, lists, tips (`>`), code, tables, images, and bold, italics, code and links inside. The view builds the page from that tree with text nodes, never HTML, so a page cannot run anything. A link opens another page (`persona.md`, `persona.md#section`), a section, a view of the studio (`view:knowledge`), the tutorial (`tour:first-agent`, drawn as a button), or a website (`https://…`, in the browser); any other link is shown as words. Each view's intro ends with a help link to its page (`data-guide="page#section"`). `tests/test-guide.mjs` checks that no link leads nowhere.
+
+**The tutorial** ("Build your first agent", `app/public/js/tour.js`) walks a newcomer through a café agent in 19 steps: a new agent, its name, persona and greeting, what the model reads, a Menu table and its rows, a pattern that mentions the menu and says a line filled from it, a try, then Start, a question, and Why it answered. A card says what to do, beside a ring around where to do it; the ring glides from one place to the next, the only motion. A step is **done when the studio shows it** (the agent's files, the view, a decision), checked four times a second: it never matters whether the person clicked, typed or used the menu. Click-like steps move on by themselves; typing steps wait for **Next**. **Do it for me** does a step with the views' own functions, so it is saved exactly as the person's edits would be; **Skip** moves on. If the person wanders (another view, another agent), the card says where the step is and offers to go there.
+
+The tutorial only edits **its own agent**: the agents that existed when it started are listed, and the one made at its second step becomes its agent. Its progress is kept in the window (`localStorage`): it can be left (×) and picked up again from the navigation or the Guide, and an open tutorial comes back after a reload. The navigation offers it until it is finished, or until "Not now".
 
 ## 6. Protocol additions
 

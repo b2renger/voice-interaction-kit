@@ -514,6 +514,139 @@ await browser.close();
   await browser5.close();
 }
 
+// =========================== 7. the studio: its guide, and the tutorial ===================================
+// The built-in guide: its pages, its links (another page, a view, the tutorial), the views' help links. Then the
+// tutorial, as a newcomer would do it: some steps by hand, some with "Do it for me", left and picked up again,
+// down to a conversation with the agent it built.
+{
+  const browser7 = await launch(makeFakeMicWav(join(tmpdir(), 'voice-fake-mic-quiet.wav'), { lead: 1, speech: 0, tail: 5 }));
+  const page = await browser7.newPage({ viewport: { width: 1360, height: 860 } });
+  page.on('pageerror', (e) => errors.push('lab (guide): ' + e));
+  await page.goto(base + '/');
+  await page.evaluate(() => { localStorage.clear(); });
+  await page.reload();
+  await page.waitForSelector('#agentSelect option', { state: 'attached' });
+  const answer = async (text) => { await page.fill('#askValue', text); await page.click('#askOk'); };
+  const disk = (id) => fetch(`${base}/api/agents/${id}`).then((r) => r.json());
+  const pages = await (await fetch(`${base}/public/guide/pages.json`)).json();
+  const h1 = () => page.textContent('#guideArticle h1');
+  const reached = (title) => until(async () => (await page.textContent('.coach h2').catch(() => '')) === title, 6000);
+  const doIt = () => page.click('.coach button:has-text("Do it for me")');
+  const next = async () => { await page.waitForSelector('.coach .btn.primary:not([disabled])', { timeout: 6000 }); await page.click('.coach .btn.primary'); };
+
+  // — the guide —
+  check(await page.isVisible('#navTour') && /Start the tutorial/.test(await page.textContent('#navTour')), 'guide: a newcomer is offered the tutorial in the navigation');
+  await page.click('.nav button[data-view="guide"]');
+  await page.waitForSelector('#guideArticle h1');
+  check(await h1() === pages[0].title && (await page.$$('#guidePages > li > ol > li > a')).length === pages.length, 'guide: it opens on its first page, every page listed by group', pages.length);
+  const opened = [];
+  for (const p of pages) {
+    await page.click(`#guidePages a[href="#guide/${p.id}"]`);
+    if (await until(async () => (await h1()) === p.title, 3000)) opened.push(p.id);
+  }
+  const raw = await page.textContent('#guideArticle');
+  check(opened.length === pages.length && !/\*\*|could not be read/.test(raw), 'guide: every page opens and reads as text (no markdown marks left)', { opened, of: pages.length });
+  await page.click('#guidePages a[href="#guide/start"]');
+  await until(async () => (await h1()) === 'Getting started', 3000);
+  check(await page.$$eval('#guideArticle table tbody tr', (r) => r.length) === 6 && await page.$$eval('#guideArticle ol li', (l) => l.length) >= 8, 'guide: tables and lists are drawn');
+  await page.click('#guideArticle a[href="#guide/files"]');
+  check(await until(async () => (await h1()) === 'Files and sharing', 3000), 'guide: a link to another page opens it');
+  await page.click('#guidePages a[href="#guide/clients"]');
+  await until(async () => (await h1()) === 'Clients and signals', 3000);
+  check(await page.$$eval('#guideArticle a.ext', (as) => as.length > 0 && as.every((a) => a.target === '_blank' && a.href.startsWith('https://'))), 'guide: a website opens outside the studio (in the browser)');
+  await page.click('#guideArticle a.go[href="#talk"]');
+  check(await page.isVisible('#view-talk'), 'guide: a link to a view opens the view');
+  await page.click('.nav button[data-view="knowledge"]');
+  await page.click('#view-knowledge .help');
+  check(await until(async () => (await page.isVisible('#view-guide')) && (await h1()) === 'Knowledge', 3000), 'guide: "How tables work", in Knowledge, opens its page in the guide');
+  await page.click('.nav button[data-view="persona"]');
+  await page.click('#view-persona .help');
+  check(await until(async () => (await h1()) === 'Persona' && !!(await page.$('#g-writing-the-persona')), 3000), 'guide: a help link can open a section of a page');
+
+  // — the tutorial: started from the guide —
+  await page.click('#guideTour .btn.primary');
+  await page.waitForSelector('.coach:not([hidden])');
+  check(await page.textContent('.coach h2') === 'Build your first agent' && /Step 1 of 19/.test(await page.textContent('.coach')), 'tutorial: "Start the tutorial" opens its first step', await page.textContent('.coach'));
+  await next();
+  await reached('A new agent');
+  const ringOn = await page.evaluate(() => {
+    const r = document.querySelector('.coach-ring').getBoundingClientRect();
+    const b = document.querySelector('#agentMenuBtn').getBoundingClientRect();
+    return !document.querySelector('.coach-ring').hidden && r.left <= b.left && r.right >= b.right && r.top <= b.top && r.bottom >= b.bottom;
+  });
+  check(ringOn, 'tutorial: a ring shows what to click (Manage)');
+  // by hand: Manage → New agent… → Café
+  await page.click('#agentMenuBtn');
+  await page.click('.menu button:has-text("New agent")');
+  await answer('Café');
+  check(await reached('Its name') && await page.evaluate(() => window.agent.settings.agent === 'cafe'), 'tutorial: the new agent made by hand moves it on, by itself');
+  await page.fill('[data-k="name"]', 'Lou');
+  await next();
+  await reached('Who it is');
+  await doIt();
+  await until(async () => /^You are Lou\. You serve at a small café/.test((await disk('cafe')).body), 4000);
+  check(/^You are Lou\. You serve at a small café/.test((await disk('cafe')).body) && (await disk('cafe')).settings.name === 'Lou', 'tutorial: "Do it for me" writes the persona, saved like the person\'s own edits');
+  await next();
+  await reached('What it says first');
+  await doIt();
+  await next();
+  await reached('What the model reads');
+  await next();
+  await reached('What it knows');
+  await page.click('.nav button[data-view="knowledge"]');
+  await reached('A table');
+  await page.click('#tableArea .empty .btn.primary');
+  await answer('Menu');
+  check(await reached('The entries'), 'tutorial: a table made by hand moves it on');
+  await doIt();
+  const menu = await until(async () => { const t = (await disk('cafe')).tables.find((x) => x.id === 'menu'); return t && t.rows.length === 3 && t; }, 4000);
+  check(menu && menu.rows[1][0] === 'Cappuccino | cappu', 'tutorial: "Do it for me" fills the table, saved to menu.csv', menu && menu.rows);
+  await next();
+  await reached('How it decides');
+  // left, then picked up again from the navigation, after a reload
+  await page.click('.coach-x');
+  check(await page.isHidden('.coach') && /Step 10 of 19/.test(await page.textContent('#navTour')), 'tutorial: left, the navigation offers to pick it up where it was', await page.textContent('#navTour'));
+  await page.reload();
+  await page.waitForSelector('#agentSelect option', { state: 'attached' });
+  check(await page.isHidden('.coach'), 'tutorial: left, it stays closed after a reload');
+  await page.click('#navTour .btn.primary');
+  check(await reached('How it decides'), 'tutorial: "Pick it up" goes on at the same step');
+  await page.reload();
+  check(await reached('How it decides'), 'tutorial: open, it comes back after a reload, at the same step');
+  await page.click('.nav button[data-view="interactions"]');
+  await reached('A pattern');
+  await doIt();
+  await reached('When');
+  await page.selectOption('#patternEditor select[aria-label="When"]', 'mentions');
+  check(await reached('Then'), 'tutorial: choosing "mentions an entry of" by hand moves it on');
+  await doIt();
+  await next();
+  await reached('Try a sentence');
+  await doIt();
+  check(await until(async () => /The menu, Cappuccino/.test(await page.textContent('#tryOut')), 4000), 'tutorial: "Try a sentence" shows the pattern made in the tutorial', await page.textContent('#tryOut'));
+  await next();
+  await reached('Talk to it');
+  await page.click('.nav button[data-view="talk"]');
+  await reached('Start');
+  await page.click('#start');
+  await reached('Ask it');
+  await until(() => page.evaluate(() => window.agent.state === 'listening'), 8000);
+  await doIt();
+  check(await reached('Why it answered'), 'tutorial: the agent\'s decision moves it on');
+  check(await until(async () => (await page.textContent('#botCap')) === 'A Cappuccino? That\'s espresso with milk foam and a little cocoa, three euros.', 4000),
+    'tutorial: the café agent answers with the line of its pattern', await page.textContent('#botCap'));
+  await next();
+  await reached('That\'s an agent');
+  await next();
+  const after = await page.evaluate(() => ({ tour: localStorage.getItem('vik.tour'), done: localStorage.getItem('vik.tour.done') }));
+  check(await page.isHidden('.coach') && after.tour === null && after.done === '1' && await page.isHidden('#navTour'), 'tutorial: "Finish" closes it, and the navigation stops offering it', after);
+  await page.click('#stop');
+  const examples = await Promise.all(['museum-guide', 'chef'].map((id) => disk(id)));
+  check(examples.every((a) => a.settings.name !== 'Lou' && !a.tables.some((t) => t.id === 'menu')), 'tutorial: it only changed its own agent, never an example');
+  await page.close();
+  await browser7.close();
+}
+
 check(errors.length === 0, 'no JavaScript error', errors.slice(0, 5));
 srv.kill();
 const failed = summary();

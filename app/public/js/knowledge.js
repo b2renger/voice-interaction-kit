@@ -71,8 +71,9 @@ function refreshLinks() {
   });
 }
 
-async function newTable() {
-  const name = await ask('A new table', 'What it holds, in a word or two (artworks, dishes, departures)', '', 'Create');
+/** A new table: its name is asked (or given: the tutorial's "Do it for me"). */
+export async function newTable(given) {
+  const name = typeof given === 'string' ? given : await ask('A new table', 'What it holds, in a word or two (artworks, dishes, departures)', '', 'Create');
   if (!name) return;
   const id = slug(name, new Set(state.agent.tables.map((t) => t.id)), 'table');
   try {

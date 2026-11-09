@@ -1,0 +1,13 @@
+[
+  { "id": "start", "title": "Getting started", "group": "Start here" },
+  { "id": "persona", "title": "Persona", "group": "Build an agent" },
+  { "id": "knowledge", "title": "Knowledge", "group": "Build an agent" },
+  { "id": "interactions", "title": "Interactions", "group": "Build an agent" },
+  { "id": "decisions", "title": "How it decides", "group": "Build an agent" },
+  { "id": "voice", "title": "Voice and timing", "group": "Build an agent" },
+  { "id": "models", "title": "Models and engines", "group": "Around the agent" },
+  { "id": "clients", "title": "Clients and signals", "group": "Around the agent" },
+  { "id": "files", "title": "Files and sharing", "group": "Around the agent" },
+  { "id": "exercises", "title": "Exercises", "group": "Go further" },
+  { "id": "troubleshooting", "title": "If something goes wrong", "group": "Go further" }
+]
