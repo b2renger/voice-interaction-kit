@@ -2,6 +2,10 @@
 node_modules/
 app/out/
 dist/
+# written by QVAC's Forge plugin when packaging (npm run package / make)
+app/qvac/
+# no lockfile: app/package.json pins what must not move (@qvac/sdk, and @qvac/inference in "overrides")
+package-lock.json
 *.log
 npm-debug.log*
 
