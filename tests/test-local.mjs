@@ -151,6 +151,7 @@ check(plain.id === 'plain', 'the test agent "Plain" (no pattern) is created thro
     window.__ctx = []; window.__chosen = [];
     const ctx = window.agent.sendContext; window.agent.sendContext = (t) => { window.__ctx.push(t); return ctx(t); };
     const ch = window.agent.choose; window.agent.choose = (o) => { window.__chosen.push(o); return ch(o); };
+    window.__signals = []; const sg = window.agent.sendSignal; window.agent.sendSignal = (n, v) => { window.__signals.push([n, v]); return sg(n, v); };
   });
   const labState = () => lab.evaluate(() => window.agent.state);
 
@@ -183,6 +184,11 @@ check(plain.id === 'plain', 'the test agent "Plain" (no pattern) is created thro
   await set('Context', 'The visitor is in room 2.');
   await fire('Send context');
   check(await until(() => lab.evaluate(() => window.__ctx.includes('The visitor is in room 2.')), 3000), 'op: "Send context" reaches the agent', await lab.evaluate(() => window.__ctx));
+  await set('Signal name', 'visitor-near');
+  await set('Signal value', '1');
+  await fire('Send signal');
+  check(await until(() => lab.evaluate(() => window.__signals.some((s) => s[0] === 'visitor-near' && s[1] === '1')), 3000), 'op: "Send signal" reaches the agent (a sensor, a button)', await lab.evaluate(() => window.__signals));
+  check((await port('Stage')) === 'main' && (await page.evaluate(() => window.P('On decision').triggered)) >= 1, 'op: the agent\'s stage (Stage) and its decisions (On decision) arrive', await port('Stage'));
   await fire('Stop');
   check(await until(async () => (await labState()) === 'ended' && (await port('State')) === 'ended', 4000), 'op: "Stop" stops the conversation', [await labState(), await port('State')]);
 

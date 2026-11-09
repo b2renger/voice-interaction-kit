@@ -35,6 +35,8 @@ function onMessage(m) {
       $('user').textContent = m.userText;
       $('bot').textContent = m.botText;
       showChoices(m.choices);
+      stage = m.stage || '';
+      showSide('');
       break;
     case 'state': showState(m.state); break;                          // idle, listening, hearing, thinking, speaking…
     case 'user.partial': case 'user.text': $('user').textContent = m.text; break;
@@ -45,8 +47,17 @@ function onMessage(m) {
       $('orb').style.setProperty('--mic', m.user);
       $('orb').style.setProperty('--voice', m.bot);
       break;
+    // the agent's decision model: which stage it is in, the signals its patterns send (show-artwork, show-departure…)
+    case 'stage': stage = m.stage; showSide(''); break;
+    case 'signal': showSide(`signal ${m.name}${m.value ? `: ${m.value}` : ''}`); break;
+    case 'decision': if (m.pattern) showSide(`decided: ${m.pattern.name}${m.entry ? `, ${m.entry.key}` : ''}`); break;
     case 'error': $('app').textContent = m.message; break;
   }
+}
+
+let stage = '';
+function showSide(what) {
+  $('agentSide').textContent = [stage ? `stage ${stage}` : '', what].filter(Boolean).join(', ');
 }
 
 function showState(state) {
@@ -63,8 +74,10 @@ function showChoices(options) {
   }));
 }
 
-// The commands: start, stop, interrupt, text, context, choose.
+// The commands: start, stop, interrupt, text, context, choose, signal.
 $('start').onclick = () => send({ type: 'start' });
+// a signal: what a sensor, a button or a moment of the page would send; the agent's patterns can answer it
+$('signal').onclick = () => send({ type: 'signal', name: 'visitor-near', value: '1' });
 $('stop').onclick = () => send({ type: 'stop' });
 $('interrupt').onclick = () => send({ type: 'interrupt' });
 $('contextForm').onsubmit = (e) => {

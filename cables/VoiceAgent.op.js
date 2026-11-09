@@ -1,7 +1,8 @@
 // VoiceAgent — cables.gl op: follows the conversation running in the VIK app, and drives it.
 // The app is the brain: it listens, thinks and speaks (local QVAC engine or Gemini Live), with its persona,
 // knowledge and settings. This op is one of its clients, like a p5.js sketch or a web page: it gets the
-// states, texts, levels, choices and mood, and sends Start, Stop, text, context, choices.
+// states, texts, levels, choices and mood, what the agent decided (its pattern, its stage, its signals), and sends
+// Start, Stop, text, context, choices and signals (a sensor, a button: the agent's patterns can answer them).
 // Paste ALL of this file into the op's code editor. The VIK app must be open on this computer.
 // How to use: cables/README.md. The messages: CONTRACT.md, "The clients protocol".
 
@@ -22,6 +23,12 @@ const inInterrupt = op.inTriggerButton('Interrupt');
 const inToolResult = op.inString('Tool result', '');
 const inSendToolResult = op.inTriggerButton('Send tool result');
 op.setPortGroup('Actions', [inText, inSendText, inContext, inSendContext, inChoiceIndex, inChoose, inInterrupt, inToolResult, inSendToolResult]);
+
+// ---- Signals: a sensor, a button, a moment of the patch → the agent's patterns "when a client sends this signal" ----
+const inSignalName = op.inString('Signal name', 'visitor-near');
+const inSignalValue = op.inString('Signal value', '');
+const inSendSignal = op.inTriggerButton('Send signal');
+op.setPortGroup('Signals', [inSignalName, inSignalValue, inSendSignal]);
 
 // Render → Next: kept so the op can sit in a render chain, as before.
 const inRender = op.inTrigger('Render');
@@ -56,6 +63,13 @@ const outTiming = op.outObject('Turn timing');
 const outStatus = op.outString('Status');
 const outError = op.outString('Error');
 const outEvent = op.outObject('Event');
+// what the agent decided (the local decision model): its pattern, its score, the entry found, its stage, its signals
+const outDecision = op.outString('Decision');
+const outDecisionScore = op.outNumber('Decision score');
+const outEntry = op.outString('Entry');
+const outStage = op.outString('Stage');
+const outSignalName = op.outString('Agent signal');
+const outSignalValue = op.outString('Agent signal value');
 
 const trig = {
   any: op.outTrigger('On event'),
@@ -76,6 +90,9 @@ const trig = {
   mood: op.outTrigger('On mood'),
   tool: op.outTrigger('On tool call'),
   error: op.outTrigger('On error'),
+  decision: op.outTrigger('On decision'),
+  stage: op.outTrigger('On stage'),
+  signal: op.outTrigger('On agent signal'),
 };
 
 // ---- what the app sends --------------------------------------------------------
@@ -113,6 +130,7 @@ function onHello(m) {
   outStatus.set(m.status || '');
   outUserLevel.set((m.levels && m.levels.user) || 0);
   outBotLevel.set((m.levels && m.levels.bot) || 0);
+  outStage.set(m.stage || '');
 }
 
 const handlers = {
@@ -162,6 +180,14 @@ const handlers = {
     outUserLevel.set(0); outBotLevel.set(0);
     op.setUiError('status', null);
   },
+  decision: (ev) => {
+    outDecision.set(ev.pattern ? ev.pattern.name : '');
+    outDecisionScore.set(ev.score == null ? 0 : ev.score);
+    outEntry.set(ev.entry ? ev.entry.key : '');
+    trig.decision.trigger();
+  },
+  stage: (ev) => { outStage.set(ev.stage || ''); trig.stage.trigger(); },
+  signal: (ev) => { outSignalName.set(ev.name || ''); outSignalValue.set(ev.value || ''); trig.signal.trigger(); },
 };
 
 // ---- the connection to the app (it comes back on its own) ------------------------
@@ -232,6 +258,7 @@ inSendToolResult.onTriggered = () => {
   try { result = JSON.parse(result); } catch (e) { /* plain text */ }
   send({ type: 'tool.result', id: call.id, result });
 };
+inSendSignal.onTriggered = () => { if (String(inSignalName.get() || '').trim()) send({ type: 'signal', name: String(inSignalName.get()).trim(), value: String(inSignalValue.get() || '') }); };
 inRender.onTriggered = () => outNext.trigger();
 
 op.onDelete = () => {

@@ -4,17 +4,19 @@
 //    A double-clicked file (file://) is refused: the browser hides where it comes from.
 // The orb's colour is the agent's state, its size the agent's voice, its halo your microphone.
 // Click: start or stop the conversation. Keys 1, 2, 3: tell the agent which room the visitor is in.
+// Key S: send the signal "visitor-near" (what a sensor would send: the agent's patterns can answer it).
 // All the messages: CONTRACT.md, "The clients protocol".
 const APP = 'ws://localhost:8790/events';   // VIK menu: Engine → Copy address for clients
 
 // One colour per state, the same as the VIK window
 const COLORS = {
-  idle: [168, 163, 154], connecting: [168, 163, 154], listening: [62, 142, 126], hearing: [42, 167, 160],
-  thinking: [107, 95, 181], speaking: [216, 116, 59], ended: [168, 163, 154], error: [192, 57, 43],
+  idle: [162, 170, 184], connecting: [162, 170, 184], listening: [35, 55, 198], hearing: [14, 134, 180],
+  thinking: [110, 75, 208], speaking: [208, 138, 18], ended: [162, 170, 184], error: [180, 35, 24],
 };
 
 let ws;
-let agent = { app: false, name: '', state: 'idle', userText: '', botText: '', levels: { user: 0, bot: 0 } };
+let agent = { app: false, name: '', state: 'idle', stage: '', userText: '', botText: '', levels: { user: 0, bot: 0 } };
+let lastSignal = '';   // the last signal the agent's patterns sent (show-artwork: Water Lilies…)
 let voice = 0;
 let mic = 0;
 
@@ -32,6 +34,8 @@ function connect() {
     else if (m.type === 'levels') agent.levels = m;          // about 30 times a second, 0 to 1
     else if (m.type === 'user.partial' || m.type === 'user.text') agent.userText = m.text;
     else if (m.type === 'bot.text') agent.botText = m.text;  // the reply, as it comes
+    else if (m.type === 'stage') agent.stage = m.stage;      // the agent's stage (its decision model)
+    else if (m.type === 'signal') lastSignal = `${m.name}${m.value ? `: ${m.value}` : ''}`;
   };
   ws.onclose = () => { agent.app = false; setTimeout(connect, 2000); };
 }
@@ -41,7 +45,7 @@ function send(command) {
 }
 
 function draw() {
-  background(244, 242, 238);
+  background(236, 238, 241);
   voice = lerp(voice, agent.levels.bot, 0.3);   // smoothed, so the orb breathes instead of flickering
   mic = lerp(mic, agent.levels.user, 0.3);
   const [r, g, b] = COLORS[agent.state] || COLORS.idle;
@@ -54,15 +58,18 @@ function draw() {
   fill(r, g, b);
   circle(width / 2, height / 2, size * (1 + voice * 0.4 + thinking));  // the orb: the agent's voice
 
-  fill(29, 28, 26);
+  fill(20, 28, 43);
   textAlign(CENTER, TOP);
   textSize(18);
   const status = location.protocol === 'file:' ? 'Opened as a file, so the app refuses it: use a local web server or the p5.js editor'
-    : agent.app ? `${agent.name || 'Agent'} · ${agent.state}` : 'Open the VIK app…';
+    : agent.app ? `${agent.name || 'Agent'}, ${agent.state}${agent.stage ? `, stage ${agent.stage}` : ''}` : 'Open the VIK app…';
   text(status, width / 2, 24);
+  fill(94, 104, 121);
+  textSize(14);
+  if (lastSignal) text(`signal ${lastSignal}`, width / 2, 50);
   textSize(15);
   text(agent.userText || '', 40, height - 130, width - 80, 50);
-  fill(109, 106, 100);
+  fill(20, 28, 43);
   text(agent.botText || '', 40, height - 75, width - 80, 60);
 }
 
@@ -74,6 +81,8 @@ function mousePressed() {
 function keyPressed() {
   // context: the agent knows it for its next reply, without answering
   if (['1', '2', '3'].includes(key)) send({ type: 'context', text: `The visitor is now in room ${key}.` });
+  // a signal: the agent's pattern "when a client sends this signal" answers it
+  if (key === 's' || key === 'S') send({ type: 'signal', name: 'visitor-near', value: '1' });
 }
 
 function windowResized() {

@@ -1,19 +1,22 @@
-/* One colour per state: the same as the VIK window. */
+/* The colours of VIK: a cool studio grey, ultramarine, and one colour per state of the conversation. */
 :root {
-  --bg: #f4f2ee; --ink: #1d1c1a; --muted: #6d6a64; --chip: #ece8e0;
-  --idle: #a8a39a; --listening: #3e8e7e; --hearing: #2aa7a0; --thinking: #6b5fb5; --speaking: #d8743b; --error: #c0392b;
+  --bg: #eceef1; --surface: #f8f9fb; --ink: #141c2b; --muted: #5e6879; --rule: #d3d8e0;
+  --idle: #a2aab8; --listening: #2337c6; --hearing: #0e86b4; --thinking: #6e4bd0; --speaking: #d08a12; --error: #b42318;
 }
-body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink); font: 16px/1.4 system-ui, sans-serif; }
-main { width: min(560px, 92vw); display: grid; gap: 14px; justify-items: center; text-align: center; padding: 24px 0; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161b23; --surface: #1d232d; --ink: #e7ebf1; --muted: #9aa4b4; --rule: #2b3340; --idle: #5c6676; --listening: #8394ff; --hearing: #45b8e6; --thinking: #a48dff; --speaking: #f0b240; }
+}
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+main { width: min(600px, 92vw); display: grid; gap: 14px; justify-items: center; text-align: center; padding: 24px 0; }
 #app { color: var(--muted); font-size: 14px; margin: 0; }
 
 /* The orb: its colour is the state; script.js sets --voice and --mic (0 to 1) about 30 times a second. */
 #orb {
   --voice: 0; --mic: 0;
-  width: 160px; height: 160px; border-radius: 50%;
+  width: 150px; height: 150px; border-radius: 50%;
   color: var(--idle); background: currentColor;
   transform: scale(calc(1 + var(--voice) * 0.4));
-  box-shadow: 0 0 0 calc(var(--mic) * 48px) color-mix(in srgb, currentColor 25%, transparent);
+  box-shadow: 0 0 0 calc(10px + var(--mic) * 48px) color-mix(in srgb, currentColor 18%, transparent);
   transition: color .3s;
 }
 #orb.listening { color: var(--listening); }
@@ -24,10 +27,14 @@ main { width: min(560px, 92vw); display: grid; gap: 14px; justify-items: center;
 @keyframes pulse { to { transform: scale(.9); } }
 @media (prefers-reduced-motion: reduce) { #orb.thinking { animation: none; } }
 
-#state { margin: 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.said { margin: 0; min-height: 1.4em; }
-.said b { font-size: 12px; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+#state { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+.said { margin: 0; min-height: 1.45em; }
+.said b { font-size: 13px; font-weight: 500; color: var(--muted); margin-right: 8px; }
+#bot { font-size: 20px; }
+#agentSide { margin: 0; font-size: 13px; color: var(--muted); min-height: 1.45em; }
 #choices, .buttons, form { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-button, input { font: inherit; border-radius: 999px; border: 1px solid #d6d1c7; padding: 8px 14px; background: #fffdf9; color: var(--ink); }
-#choices button { background: var(--chip); border-color: transparent; }
+button, input { font: inherit; font-size: 15px; border-radius: 8px; border: 1px solid var(--rule); padding: 8px 14px; background: var(--surface); color: var(--ink); }
+button { cursor: pointer; }
+#choices button { border-radius: 999px; border-color: var(--ink); background: transparent; }
+#start { background: var(--listening); border-color: var(--listening); color: #fff; }
 input { min-width: min(320px, 80vw); }
