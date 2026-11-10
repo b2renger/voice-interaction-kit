@@ -32,7 +32,7 @@ The tests marked ★ make up the **quick run**, to do first: about 2¾ hours for
 | | requirement | tests |
 |---|---|---|
 | R1 | a **cables.gl node** for Gemini Live, added in a code box, **without modifying cables** | A1 to A4, A13 |
-| R2 | a **local QVAC backend** as an **Electron app**, installable on **every computer** (Windows and Mac M1) | A5 to A12 |
+| R2 | a **local QVAC backend** as an **Electron app**, installable on **every computer** (Windows and Mac M1) | A5 to A12, A15 |
 | R3 | **set up the voice** | B1 to B6 |
 | R4 | play with the agent's **personality** | C1 to C7 |
 | R5 | handle the **end of turn** through design | D1 to D6, L1 |
@@ -187,6 +187,16 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ---
+
+### A15 ★ On a school network that blocks peer to peer (R2)
+1. Once: **Actions → Models mirror → Run workflow**, and wait for it to finish (the `models` release lists four `.gguf` files, `SHA256SUMS.txt` and three licences).
+2. On a school PC that has never run VIK (or after emptying `~/.qvac/models`), on the school network: install VIK and launch it from the Start menu.
+3. Click **Download everything** when VIK offers it.
+4. Choose Parler, then Chatterbox, in **Voice & timing**, and have one sentence said by each.
+
+**Expected:** no terminal window opens. Supertonic downloads with the other models at launch, and the banner says "The models are ready". At step 3 the three other voices download (about 2.3 GB), and no "could not be downloaded" dialog appears. **Files → Server log** shows "downloaded from the mirror" for each voice. At step 4 both voices speak.
+
+Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 ## B. The voice (R3)
 

@@ -6,7 +6,8 @@ Most problems show in the banner of [Talk](view:talk), in plain words. The menu 
 
 | what you see | what to do |
 |---|---|
-| the loading stays at 0 %, "waiting for data" | the network blocks the download (often the voices, which download peer to peer). Do the first launch on another network, a home Wi-Fi or a phone hotspot |
+| the loading stays at 0 %, "waiting for data" | the network blocks the download. Put the model files in the models folder by hand (see [On a school network](models.md#on-a-school-network)), or do the first launch on another network, a home Wi-Fi or a phone hotspot |
+| "3 models could not be downloaded" | the reason is in **Files → Server log**. The dialog's **Open the download page** shows the voice files: put them in the models folder (**Open models folder**), then restart VIK |
 | a Vulkan error (Windows) | update the graphics driver |
 | the first reply is slow | the models load at startup: wait for **The models are ready** |
 | after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner |

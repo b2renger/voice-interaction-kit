@@ -2,7 +2,9 @@
 // and size and loaded from its path (no network), and "Download all models" downloads only the missing ones,
 // giving up on a peer-to-peer download that receives nothing.
 //   node tests/test-models.mjs
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
@@ -25,6 +27,10 @@ writeFileSync(join(dir, 'fedcba9876543210_supertonic3-q8_0.gguf'), Buffer.alloc(
 const { loadConfig } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'config.mjs')).href);
 const { createQvacEngine, hideWorkerConsole } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'engines', 'qvac.mjs')).href);
 const config = loadConfig(join(home, 'none.json'));
+const MIRROR = 'https://github.com/b2renger/voice-interaction-kit/releases/download/models/';
+check(config.modelMirror === MIRROR && JSON.parse(readFileSync(join(ROOT, 'app', 'config.json'), 'utf8')).modelMirror === MIRROR,
+  'the voices\' mirror: the "models" release, in the defaults and in config.json', config.modelMirror);
+config.modelMirror = '';   // until "the mirror" below: QVAC's sources only
 const logs = [];
 const engine = await createQvacEngine(config, (m) => logs.push(m));
 check(process.env.QVAC_RPC_INIT_TIMEOUT_MS === '180000', 'the QVAC worker gets 3 minutes to start (a cold start), not 30 s', process.env.QVAC_RPC_INIT_TIMEOUT_MS);
@@ -87,6 +93,83 @@ check(failed.length === 4 && failed.every((m) => m.p2pOnly), 'the 4 voice files,
 check(fake.calls.filter((c) => c.fn === 'cancel').length === 4 && Date.now() - t0 < 15000, 'each stalled download is cancelled, in time', Date.now() - t0);
 check(logs.some((l) => /peer-to-peer network \(this network seems to block it\)/.test(l)), 'the log says the network seems to block peer-to-peer', logs);
 check(progress.some((p) => p.stage === '1/7 voice detection'), 'the progress names each model ("1/7 voice detection")', progress.slice(0, 3));
+
+// — the mirror: the voices over HTTPS, on a network that blocks peer-to-peer (a school's) —
+{
+  // a mirror of the 4 voice files; the fake catalogue gets their SHA-256, as the real one has
+  const VOICES = ['TTS_MULTILINGUAL_SUPERTONIC3_Q8_0', 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0', 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0', 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0'];
+  const served = {};
+  for (const n of VOICES) {
+    const body = Buffer.alloc(fake[n].expectedSize, n.length);
+    served[fake[n].registryPath.split('/').pop()] = body;
+    fake[n].sha256Checksum = createHash('sha256').update(body).digest('hex');
+  }
+  const asked = [];
+  let mode = {};   // file name → 'bad' (other bytes, same size) or 'hang' (headers, then nothing)
+  const server = createServer((req, res) => {
+    const name = decodeURIComponent(req.url.split('/').pop());
+    asked.push(name);
+    const body = served[name];
+    if (!req.url.startsWith('/models/') || !body) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-length': body.length });
+    if (mode[name] === 'hang') return;
+    res.end(mode[name] === 'bad' ? Buffer.alloc(body.length, 7) : body);
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  config.modelMirror = `http://127.0.0.1:${server.address().port}/models`;   // no final slash: added
+  const here = () => readdirSync(dir);
+  const p2pTried = (n) => fake.calls.some((c) => c.fn === 'downloadAsset' && c.src === n);
+
+  check(engine.models().every((x) => !x.p2pOnly) && engine.models().filter((x) => x.mirror).length === 4,
+    'with a mirror, no model depends on peer-to-peer only any more (the 4 voices have a mirror address)', engine.models().map((x) => [x.name, x.mirror]));
+
+  // Start with Chatterbox, not on this computer: both its files come from the mirror before QVAC loads them
+  const before = fake.calls.length;
+  const seen = [];
+  await engine.prepare({ ...config.defaults, localVoiceEngine: 'chatterbox' }, (p) => seen.push(p));
+  const tts = fake.calls.slice(before).find((c) => c.fn === 'loadModel' && c.modelType === 'tts');
+  check(tts && tts.src === join(dir, 'mirror_chatterbox-t3-mtl-q4_0.gguf') && tts.modelConfig.s3genModelSrc === join(dir, 'mirror_chatterbox-s3gen-mtl-q4_0.gguf'),
+    'Start with Chatterbox: its two files come from the mirror, then load from disk', tts);
+  check(seen.some((p) => p.stage === 'voice (chatterbox, part 2)' && p.progress === 100) && logs.some((l) => /voice \(chatterbox\): downloaded from the mirror/.test(l)),
+    '... with their progress in the banner, and a line in the log', seen.filter((p) => /voice/.test(p.stage)).slice(-2));
+
+  // a copy put in the models folder by hand, under its own name, counts
+  writeFileSync(join(dir, 'parler-mini-v1-q8_0.gguf'), served['parler-mini-v1-q8_0.gguf']);
+  check(engine.models().find((x) => x.name === 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0').file === join(dir, 'parler-mini-v1-q8_0.gguf'),
+    'a voice downloaded by hand and put in the models folder (its own file name) is found');
+
+  // the mirror sends the wrong bytes: refused, deleted, and QVAC's peer-to-peer network is tried
+  mode = { 'supertonic3-q8_0.gguf': 'bad' };
+  asked.length = 0;
+  let failed2 = await engine.install(() => {}, 1);
+  check(asked.join() === 'supertonic3-q8_0.gguf' && failed2.map((x) => x.name).join() === 'TTS_MULTILINGUAL_SUPERTONIC3_Q8_0' && p2pTried('TTS_MULTILINGUAL_SUPERTONIC3_Q8_0'),
+    '"Download all models": only the missing voice is asked for; wrong bytes → peer-to-peer is tried (blocked here): failed', { asked, failed2: failed2.map((x) => x.name) });
+  check(!here().some((f) => /^mirror_supertonic|\.part$/.test(f)) && logs.some((l) => /SHA-256 differs/.test(l)),
+    '... the wrong file is not kept (nor a .part), and the log says why', here());
+
+  // the mirror stops sending: given up after the stall delay
+  mode = { 'supertonic3-q8_0.gguf': 'hang' };
+  const t1 = Date.now();
+  failed2 = await engine.install(() => {}, 1);
+  check(failed2.length === 1 && logs.some((l) => /the mirror .*nothing received in 1 s/.test(l)) && Date.now() - t1 < 10000,
+    'a mirror that sends nothing is given up after the stall delay', Date.now() - t1);
+
+  // the mirror works: the voice arrives, checked, and nothing fails
+  mode = {};
+  const shown = [];
+  failed2 = await engine.install((p) => shown.push(p), 1);
+  check(failed2.length === 0 && here().includes('mirror_supertonic3-q8_0.gguf') && engine.models().filter((x) => VOICES.includes(x.name)).every((x) => x.file),
+    'the mirror works: the voice is downloaded and checked, the 4 voices are now on this computer', { failed2, here: here() });
+  check(shown.some((p) => /^\d\/\d voice \(supertonic\)$/.test(p.stage) && p.progress === 100 && p.total === fake.TTS_MULTILINGUAL_SUPERTONIC3_Q8_0.expectedSize),
+    '... with its progress ("1/4 voice (supertonic)", to 100 %)', shown.filter((p) => /voice/.test(p.stage)).slice(-1));
+
+  // "download": "p2p" means QVAC's network only, and an empty modelMirror means no mirror
+  config.download = 'p2p';
+  check(engine.models().filter((x) => x.mirror).length === 0, '"download": "p2p": no mirror');
+  config.download = 'http';
+  config.modelMirror = '';
+  server.close();
+}
 delete process.env.FAKE_P2P;
 
 // — the models offered in the window (config.json "choices") —

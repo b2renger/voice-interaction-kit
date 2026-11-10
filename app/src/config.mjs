@@ -4,6 +4,9 @@ import { readFileSync, existsSync } from 'node:fs';
 export function loadConfig(file) {
   const base = {
     port: 8790, host: '127.0.0.1', download: 'http', warmup: true,
+    // where the voices QVAC serves only peer-to-peer (blocked by many school networks) are downloaded over HTTPS:
+    // the "models" release (.github/workflows/models.yml), or a folder on the school's own web server; "" = none
+    modelMirror: 'https://github.com/b2renger/voice-interaction-kit/releases/download/models/',
     // the pages that can open a conversation (cables.gl, the studio, offline cables); ["*"] = all
     allowedOrigins: ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*', 'https://editor.p5js.org', 'https://preview.p5js.org'],
     models: {

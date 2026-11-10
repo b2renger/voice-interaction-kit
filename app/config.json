@@ -2,6 +2,7 @@
   "port": 8790,
   "host": "127.0.0.1",
   "download": "http",
+  "modelMirror": "https://github.com/b2renger/voice-interaction-kit/releases/download/models/",
   "warmup": true,
   "allowedOrigins": [
     "https://cables.gl",

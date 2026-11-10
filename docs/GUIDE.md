@@ -436,7 +436,7 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 | the agent cuts in too early | increase the end-of-turn silence, set the end-of-speech sensitivity to low (with Gemini, then `Start`) |
 | the agent doesn't react to a quiet voice | **Start-of-speech sensitivity** on high; check the mic chosen by the system |
 | no sound | click once in the studio (it blocks sound before a click); check Volume |
-| VIK: loading stuck at 0% ("waiting for data") | the network blocks the download (often peer to peer, for the voices): see "Downloading the models" in the studio's README |
+| VIK: loading stuck at 0% ("waiting for data") | the network blocks the download. The voices come from a copy on GitHub (HTTPS) since 3.0.1; without internet, put the files of the [models release](https://github.com/b2renger/voice-interaction-kit/releases/tag/models) in the models folder (**Files → Open models folder**). See "Downloading the models" in the studio's README |
 | VIK: Vulkan error (Windows) | update the graphics driver |
 | VIK: no mic (Mac) | System Settings → Privacy & Security → Microphone → allow "VIK" |
 | a client (cables, p5.js, a page) can't reach the app | is the app open, with its window? Is the address the one in **Settings → Clients**? A page opened by double-click (`file://`) is refused: open it through a local web server (VS Code's Live Server, `npx serve`). A refused page is named in **Files → Server log** |

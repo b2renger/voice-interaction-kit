@@ -22,7 +22,11 @@ function startServer(port, { env: extraEnv = {}, engine = mode, cwd, config } = 
   const env = { ...process.env, VIK_AGENTS: mkdtempSync(join(tmpdir(), 'vik-agents-protocol-')), ...extraEnv };   // never the user's agents
   const args = [join(ROOT, 'app', 'src', 'server.mjs'), '--port', String(port)];
   if (engine === 'mock') args.push('--mock');
-  else { env.QVAC_SDK = pathToFileURL(join(ROOT, 'tests', 'fake-qvac-sdk.mjs')).href; env.FAKE_QVAC_REPORT = report; }
+  else {
+    env.QVAC_SDK = pathToFileURL(join(ROOT, 'tests', 'fake-qvac-sdk.mjs')).href; env.FAKE_QVAC_REPORT = report;
+    // no voices' mirror (on GitHub): the tests never download anything. config.json equals the defaults otherwise.
+    if (!config) { cwd = mkdtempSync(join(tmpdir(), 'vik-config-')); writeFileSync(join(cwd, 'config.json'), '{ "modelMirror": "" }'); config = 'config.json'; }
+  }
   if (config) args.push('--config', config);
   const proc = spawn(process.execPath, args, { env, cwd, stdio: ['ignore', 'pipe', 'pipe'] });
   const tag = `[:${port}] `;
@@ -338,7 +342,7 @@ if (mode === 'mock') {
   console.log('— Smart Turn unavailable —');
   {
     const dir = mkdtempSync(join(tmpdir(), 'vik-config-'));
-    writeFileSync(join(dir, 'config.json'), JSON.stringify({ turn: { smartTurn: { model: join(dir, 'missing-model.onnx') } } }));
+    writeFileSync(join(dir, 'config.json'), JSON.stringify({ modelMirror: '', turn: { smartTurn: { model: join(dir, 'missing-model.onnx') } } }));
     const port = PORT + 3;
     const proc = startServer(port, { cwd: dir, config: 'config.json' });
     await healthy(port);

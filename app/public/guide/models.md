@@ -13,6 +13,12 @@ The models are this computer's choice, in [Settings](view:settings): they never 
 
 **Download everything once** (the menu **Files → Download all models**): afterwards the studio works without the internet.
 
+## On a school network
+
+Many school networks block QVAC's peer-to-peer network, where the voices come from. So VIK downloads the voices from a copy on GitHub, over HTTPS, and checks each file before using it: nothing to do.
+
+Without internet in the room, download the voice files from the [models page](https://github.com/b2renger/voice-interaction-kit/releases/tag/models) on another computer, then put them in the models folder (**Files → Open models folder**), as they are. Copying that whole folder from a computer that has the models works too.
+
 ## Speech recognition
 
 **Settings → Hearing and deciding → Speech recognition.** Whisper tiny and base are faster and make more mistakes; Whisper large v3 turbo is the most accurate, and slow without a graphics card.

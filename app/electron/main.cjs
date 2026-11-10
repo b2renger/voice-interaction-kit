@@ -60,6 +60,7 @@ function userDir() { return app.getPath('userData'); }
 function userConfigPath() { return path.join(userDir(), 'config.json'); }
 function agentsDir() { return path.join(userDir(), 'agents'); }
 function modelsDir() { return path.join(os.homedir(), '.qvac', 'models'); }
+function openModelsFolder() { fs.mkdirSync(modelsDir(), { recursive: true }); shell.openPath(modelsDir()); }
 /** The settings folder of the app's earlier name ("Voice Lab"): its personas become agents, its config.json is kept. */
 function oldUserDir() { return path.join(app.getPath('appData'), 'Voice Lab'); }
 
@@ -138,7 +139,7 @@ function buildMenu() {
       submenu: [
         ...(MOCK ? [] : [{ label: 'Download all models (once)…', click: () => offerInstall(true) }]),
         { label: 'Open agents folder', click: () => { fs.mkdirSync(agentsDir(), { recursive: true }); shell.openPath(agentsDir()); } },
-        { label: 'Open models folder', click: () => { fs.mkdirSync(modelsDir(), { recursive: true }); shell.openPath(modelsDir()); } },
+        { label: 'Open models folder', click: openModelsFolder },
         {
           label: 'Open settings folder (config.json)',
           click: () => {
@@ -204,15 +205,26 @@ async function offerInstall(fromMenu) {
     dialog.showMessageBox(win, { type: 'info', message: 'All the models are on this computer.', detail: 'VIK works without the internet.' });
     return;
   }
-  dialog.showMessageBox(win, {
+  // the voices' mirror (config "modelMirror"): its page, to download them by hand
+  const url = (failed.find((m) => m.mirror) || {}).mirror;
+  const page = url ? url.slice(0, url.lastIndexOf('/')).replace('/releases/download/', '/releases/tag/') : '';
+  const { response: chosen } = await dialog.showMessageBox(win, {
     type: 'warning',
     message: `${failed.length} model${failed.length > 1 ? 's' : ''} could not be downloaded`,
     detail: `${failed.map((m) => m.stage).join(', ')}. The reason is in Files → Server log.\n\n`
-      + (failed.some((m) => m.p2pOnly)
-        ? 'If this network blocks QVAC\'s peer-to-peer network: connect once to another one (home Wi-Fi, a phone hotspot) and choose Files → Download all models again, '
-          + 'or copy the models folder (Files → Open models folder) from a computer that has them.'
-        : 'Check the internet connection and choose Files → Download all models again.'),
+      + (page
+        ? `The voices can also be downloaded by hand from ${page}: put the files in the models folder (Files → Open models folder), then restart VIK. `
+          + 'Or copy that folder from a computer that has the models.'
+        : failed.some((m) => m.p2pOnly)
+          ? 'If this network blocks QVAC\'s peer-to-peer network: connect once to another one (home Wi-Fi, a phone hotspot) and choose Files → Download all models again, '
+            + 'or copy the models folder (Files → Open models folder) from a computer that has them.'
+          : 'Check the internet connection and choose Files → Download all models again.'),
+    buttons: page ? ['OK', 'Open the download page', 'Open models folder'] : ['OK'],
+    defaultId: 0,
+    cancelId: 0,
   });
+  if (chosen === 1) shell.openExternal(page);
+  if (chosen === 2) openModelsFolder();
 }
 
 function showLog() {

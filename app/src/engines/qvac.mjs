@@ -17,10 +17,13 @@
 //               optional voice cloning from a WAV (referenceAudio in config.json). 24 kHz. Every output carries
 //               Resemble's Perth watermark.
 import childProcess from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { isAbsolute, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readdirSync, statSync } from 'node:fs';
+import { createWriteStream, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { AsyncQueue, clamp, num } from '../util.mjs';
 import { modelMatcher } from '../agent/matcher.mjs';
 
@@ -29,19 +32,64 @@ const MODELS_DIR = join(homedir(), '.qvac', 'models');   // QVAC's download fold
 
 /**
  * A catalogue model already on this computer: its path, or null. QVAC names a download "<hash>_<file name>",
- * the hash depending on where it came from (peer-to-peer or Hugging Face), so any copy of the right size will do.
+ * the hash depending on where it came from (peer-to-peer or Hugging Face), so any copy of the right size will do,
+ * and so will the bare file name (a file downloaded by hand from the mirror and put in the folder).
  * Loading from that path never touches the network: QVAC otherwise checks a Hugging Face file online at every
  * launch, and refuses a cached Whisper or Silero file (not GGUF) when it is offline.
  */
+const fileOf = (c) => String(c.registryPath || '').split('/').pop();
 function cachedFile(c) {
-  const name = String(c.registryPath || '').split('/').pop();
+  const name = fileOf(c);
   if (!name || !c.expectedSize) return null;
   try {
     for (const f of readdirSync(MODELS_DIR)) {
-      if (f.endsWith(`_${name}`) && statSync(join(MODELS_DIR, f)).size === c.expectedSize) return join(MODELS_DIR, f);
+      if ((f === name || f.endsWith(`_${name}`)) && statSync(join(MODELS_DIR, f)).size === c.expectedSize) return join(MODELS_DIR, f);
     }
   } catch { /* nothing downloaded yet */ }
   return null;
+}
+
+/**
+ * Downloads catalogue model `c` over HTTPS from `url` (the mirror, config "modelMirror") into QVAC's models
+ * folder as "mirror_<file name>", where cachedFile() finds it. The file must have the catalogue's size and
+ * SHA-256, or it is deleted. Gives up when nothing arrives for stallS seconds. Returns its path.
+ */
+export async function downloadFromMirror(c, url, onProgress = () => {}, stallS = 90) {
+  mkdirSync(MODELS_DIR, { recursive: true });
+  const dest = join(MODELS_DIR, `mirror_${fileOf(c)}`);
+  const part = `${dest}.part`;
+  const ac = new AbortController();
+  let lastAt = Date.now();
+  const tick = setInterval(() => { if (Date.now() - lastAt >= stallS * 1000) ac.abort(); }, 1000);
+  const hash = createHash('sha256');
+  let got = 0;
+  let shown = -1;
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    const total = c.expectedSize || Number(res.headers.get('content-length')) || 0;
+    const count = new Transform({
+      transform(chunk, _, done) {
+        lastAt = Date.now();
+        got += chunk.length;
+        hash.update(chunk);
+        const progress = total ? Math.floor((got / total) * 100) : 0;
+        if (progress !== shown) { shown = progress; onProgress({ progress, downloaded: got, total }); }
+        done(null, chunk);
+      },
+    });
+    await pipeline(res.body, count, createWriteStream(part), { signal: ac.signal });
+    if (c.expectedSize && got !== c.expectedSize) throw new Error(`received ${got} bytes instead of ${c.expectedSize}`);
+    if (c.sha256Checksum && hash.digest('hex') !== c.sha256Checksum) throw new Error('the file received is not the right one (its SHA-256 differs from the catalogue\'s)');
+    renameSync(part, dest);
+    return dest;
+  } catch (e) {
+    rmSync(part, { force: true });
+    if (ac.signal.aborted) throw new Error(`nothing received in ${stallS} s from ${url}`);
+    throw e.cause ? new Error(`${e.message}: ${e.cause.message || e.cause.code || e.cause}`) : e;   // "fetch failed: getaddrinfo ENOTFOUND…"
+  } finally {
+    clearInterval(tick);
+  }
 }
 /**
  * Windows: QVAC starts its worker (bare.exe, a console program) with stdin and stdout inherited and no
@@ -102,7 +150,7 @@ export async function createQvacEngine(config, log) {
     return list.map((c) => {
       const e = sdk[c.src] && sdk[c.src].src ? sdk[c.src] : null;
       // here: null for a path or a URL from config.json (not in the catalogue: unknown)
-      return { src: c.src, label: String(c.label || c.src), default: c.src === String(m.src), size: e ? e.expectedSize || 0 : 0, here: e ? !!cachedFile(e) : null, p2pOnly: e ? !hfUrl(e) : false };
+      return { src: c.src, label: String(c.label || c.src), default: c.src === String(m.src), size: e ? e.expectedSize || 0 : 0, here: e ? !!cachedFile(e) : null, p2pOnly: e ? p2pOnly(e) : false };
     });
   }
   // QVAC releases a recognition stream a little AFTER it has drained: leave it that time before
@@ -116,6 +164,26 @@ export async function createQvacEngine(config, log) {
 
   /** A catalogue entry's Hugging Face address, or null. Some catalogue paths point at the web page (/blob/), not the file. */
   const hfUrl = (c) => (c.registrySource === 'hf' && c.registryPath ? `https://huggingface.co/${c.registryPath.replace('/blob/', '/resolve/')}` : null);
+  /** The mirror's address for a model QVAC serves only peer-to-peer (config "modelMirror"; none if "download": "p2p"). */
+  const mirrorUrl = (c) => (config.modelMirror && config.download !== 'p2p' && !hfUrl(c) && fileOf(c) ? `${String(config.modelMirror).replace(/\/*$/, '/')}${fileOf(c)}` : null);
+  /** Only QVAC's peer-to-peer network has it (no Hugging Face source, no mirror): some networks block it. */
+  const p2pOnly = (c) => !hfUrl(c) && !mirrorUrl(c);
+  /**
+   * A model that is not on this computer and comes from the mirror: downloaded before QVAC is asked for it.
+   * If the mirror fails, QVAC's peer-to-peer network is tried as before.
+   */
+  async function viaMirror(name, stage, onProgress) {
+    const c = sdk[name];
+    const url = c && c.src && !cachedFile(c) && mirrorUrl(c);
+    if (!url) return;
+    const t0 = Date.now();
+    try {
+      await downloadFromMirror(c, url, (p) => { if (onProgress) onProgress({ stage, ...p }); });
+      log(`▸ ${stage}: downloaded from the mirror (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+    } catch (e) {
+      log(`✖ ${stage}: the mirror (${url}): ${e.message}. Trying QVAC's peer-to-peer network.`);
+    }
+  }
 
   /** A model source: a name from the QVAC catalogue (e.g. WHISPER_SMALL_Q8_0), a local path or a URL. */
   function source(name, modelType) {
@@ -159,11 +227,12 @@ export async function createQvacEngine(config, log) {
     ];
     const seen = new Set();
     return wanted.filter(([, n]) => sdk[n] && sdk[n].src && !seen.has(n) && seen.add(n))
-      .map(([stage, name]) => ({ stage, name, size: sdk[name].expectedSize || 0, p2pOnly: !hfUrl(sdk[name]), file: cachedFile(sdk[name]) }));
+      .map(([stage, name]) => ({ stage, name, size: sdk[name].expectedSize || 0, p2pOnly: p2pOnly(sdk[name]), mirror: mirrorUrl(sdk[name]), file: cachedFile(sdk[name]) }));
   }
 
   /**
    * Downloads, without loading them, the models not yet on this computer. Returns those that failed.
+   * The voices come from the mirror first (HTTPS), then from QVAC's peer-to-peer network.
    * A download that receives nothing for STALL_S seconds is cancelled: on a network that blocks QVAC's
    * peer-to-peer registry, no data ever comes and the download would never end.
    */
@@ -173,6 +242,16 @@ export async function createQvacEngine(config, log) {
     for (const [i, m] of todo.entries()) {
       const stage = `${i + 1}/${todo.length} ${m.stage}`;
       const c = sdk[m.name];
+      if (m.mirror) {
+        onProgress({ stage, progress: 0 });
+        try {
+          await downloadFromMirror(c, m.mirror, (p) => onProgress({ stage, ...p }), STALL_S);
+          log(`▸ ${m.stage}: downloaded from the mirror`);
+          continue;
+        } catch (e) {
+          log(`✖ ${m.stage}: the mirror (${m.mirror}): ${e.message}. Trying QVAC's peer-to-peer network.`);
+        }
+      }
       const http = config.download !== 'p2p' && hfUrl(c);
       let last = { stage, progress: 0 };
       let lastAt = Date.now();
@@ -190,7 +269,7 @@ export async function createQvacEngine(config, log) {
         await op;
         log(`▸ ${m.stage}: downloaded`);
       } catch (e) {
-        log(`✖ ${m.stage}: ${stalled ? `nothing received in ${STALL_S} s${m.p2pOnly ? " from QVAC's peer-to-peer network (this network seems to block it)" : ''}` : e.message}`);
+        log(`✖ ${m.stage}: ${stalled ? `nothing received in ${STALL_S} s${http ? '' : " from QVAC's peer-to-peer network (this network seems to block it)"}` : e.message}`);
         failed.push(m);
       } finally {
         clearInterval(tick);
@@ -334,8 +413,15 @@ export async function createQvacEngine(config, log) {
       if (ttsKey !== st.ttsKey) {
         await unload(st.tts);
         st.tts = null; st.ttsKey = '';
+        // a voice not on this computer: from the mirror first (QVAC only has it on its peer-to-peer network)
+        await viaMirror(ttsSrc, `voice (${engine})`, onProgress);
+        if (engine === 'chatterbox') {
+          const s3gen = (M.tts.chatterbox || {}).s3gen || 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0';
+          await viaMirror(s3gen, 'voice (chatterbox, part 2)', onProgress);
+          ttsConfig.s3genModelSrc = asset(s3gen);
+        }
         st.tts = await load(`voice (${engine})`, source(ttsSrc, 'tts'), ttsConfig, onProgress);
-        st.ttsKey = ttsKey; st.ttsEngine = engine; st.ttsSrc = ttsSrc; st.ttsRate = NATIVE_RATE[engine];
+        st.ttsKey = JSON.stringify([ttsSrc, ttsConfig]); st.ttsEngine = engine; st.ttsSrc = ttsSrc; st.ttsRate = NATIVE_RATE[engine];
       }
       // — the decision model: loaded once; if it cannot be (not downloaded, offline), the words matcher decides —
       const D = M.decide || {};

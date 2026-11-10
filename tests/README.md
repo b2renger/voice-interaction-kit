@@ -17,7 +17,7 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-text.mjs` | sentence splitting, cleanup for the voice, the `[[choices: …]]` tags, the same prompt on the browser side and the server side, and the Gemini tools as text or as an array | Node |
 | `node tests/test-protocol.mjs` | the local server protocol (simulated engine): turns, audio, typed text, interruption, voice change, Smart Turn (with a fake verdict), the voice dipping for a backchannel, stop phrases, spoken fillers | Node 22+ |
 | `node tests/test-protocol.mjs fake-qvac` | the same, with the QVAC adapter connected to a fake SDK that checks the options passed to QVAC, including the Parler and Chatterbox voices | Node 22+ |
-| `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final; the models offered in the window (`choices`), and that nothing else loads; an LLM farm frees the local model; on Windows, QVAC's worker starts without a console window | Node 22+ |
+| `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final; the models offered in the window (`choices`), and that nothing else loads; an LLM farm frees the local model; on Windows, QVAC's worker starts without a console window; the voices from the mirror over HTTPS (size and SHA-256 checked; a wrong or silent mirror falls back to peer to peer), and a file put in the models folder by hand | Node 22+ |
 | `node tests/test-agents.mjs` | the agents on disk (`app/src/agent/`): `persona.md` (front matter + markdown), CSV tables (separators, quotes, Excel's UTF-8 mark), `interactions.json` (normalized), the store (examples on first launch, old personas imported, trash, copy, export/import, hand edits seen, names that cannot leave the folder), and the studio's API through the server | Node 22+ |
 | `node tests/test-decide.mjs` | the decision model (`app/src/agent/`): knowledge (links, other names, placeholders), the words matcher, the decider on the example agents (patterns, stages, `otherwise`, free answers, the entry in focus, confidence, ambiguity, signals), the model matcher (prompts, batches, cache), and conversations that follow the decisions (lines filled from rows, signals out and in, `answer` with the entry and its links sent to a fake farm, `start` patterns) | Node 22+ |
 | `node tests/test-guide.mjs` | the studio's built-in guide: its markdown reader (`app/public/js/markdown.js`: headings, lists, tips, code, tables with `\|` in cells, italics that leave `snake_case` alone, HTML kept as text), its pages (each listed in `pages.json`, one title, no link that leads nowhere: pages, sections, views, the tutorial, websites), the views' help links, and the tutorial's steps pointing at elements that exist | Node |
@@ -40,16 +40,16 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-agents | 51 | 0 |
 | test-decide | 50 | 0 |
 | test-guide | 26 | 0 |
-| test-models | 34 | 0 |
+| test-models | 45 | 0 |
 | test-farm | 37 | 0 |
 | test-electron-main | 28 | 0 |
 | test-smart-turn | 41 | 1 |
 | test-gemini | 89 | 0 |
 | test-hub | 22 | 0 |
 | test-local | 128 | 0 |
-| **total** | **637** | **1** |
+| **total** | **648** | **1** |
 
-test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (622 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (633 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
 
 **Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 
