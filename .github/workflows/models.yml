@@ -1,0 +1,48 @@
+# Copies the voice models QVAC serves only over its peer-to-peer network (blocked by many school and company
+# networks) to this repository's "models" release, where VIK downloads them over HTTPS (config.json "modelMirror").
+# Run it by hand (Actions → Models mirror → Run workflow) after changing the voices in app/config.json.
+name: Models mirror
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the app's packages (QVAC's catalogue and registry client)
+        working-directory: app
+        run: npm install --no-audit --no-fund
+
+      - name: Download the voice models from QVAC's registry, checked against its catalogue
+        working-directory: app
+        run: node scripts/mirror-models.mjs ../mirror
+
+      - name: Add the licences
+        run: |
+          curl -fsSL https://huggingface.co/Supertone/supertonic-3/resolve/main/LICENSE -o mirror/LICENSE-supertonic-3.txt
+          curl -fsSL https://raw.githubusercontent.com/huggingface/parler-tts/main/LICENSE -o mirror/LICENSE-parler-tts.txt
+          curl -fsSL https://raw.githubusercontent.com/resemble-ai/chatterbox/master/LICENSE -o mirror/LICENSE-chatterbox.txt
+          ls -l mirror
+
+      # "models" is not a v* tag: the Release workflow does not run, and the app's latest release stays the latest.
+      - name: Publish to the "models" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view models >/dev/null 2>&1; then
+            gh release edit models --notes-file .github/models-release.md
+          else
+            gh release create models --title "Voice models (mirror)" --notes-file .github/models-release.md --latest=false
+          fi
+          gh release upload models mirror/* --clobber
