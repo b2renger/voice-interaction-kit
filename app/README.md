@@ -203,7 +203,7 @@ The menu **Files → Open settings folder** creates a personal `config.json`, wh
 "turn": { "smartTurn": { "model": "models/smart-turn-v3.2-cpu.onnx", "threshold": 0.5, "threads": 1 } }
 ```
 
-`decide.calibration` is the decision model's measured range of cosines, for two sentences (`similar`) and for a sentence against an entry (`search`): change it only with another embedding model. A few optional keys: `parler.seed`, `parler.useGpu`, `chatterbox.useGpu`, and a `mock` section for the simulated engine (`llmDelayMs`: a slower reply, to try fillers; `shortText`: what a short sound is heard as).
+`decide.calibration` is the decision model's measured range of cosines, for two sentences (`similar`) and for a sentence against an entry (`search`): change it only with another embedding model. A few optional keys: `parler.seed`, `parler.useGpu`, `chatterbox.useGpu` (by default Parler and Chatterbox use the graphics card on a Mac only: on Windows, QVAC 0.21 cannot run Parler on it, and Chatterbox next to the other models filled a 4 GB card and crashed QVAC's worker; `true` is for a large card), and a `mock` section for the simulated engine (`llmDelayMs`: a slower reply, to try fillers; `shortText`: what a short sound is heard as).
 
 | if… | try |
 |---|---|

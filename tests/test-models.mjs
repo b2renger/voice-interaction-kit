@@ -25,7 +25,7 @@ writeFileSync(whisperFile, Buffer.alloc(fake.WHISPER_SMALL_Q8_0.expectedSize));
 writeFileSync(join(dir, 'fedcba9876543210_supertonic3-q8_0.gguf'), Buffer.alloc(10));   // an interrupted download
 
 const { loadConfig } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'config.mjs')).href);
-const { createQvacEngine, hideWorkerConsole } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'engines', 'qvac.mjs')).href);
+const { createQvacEngine, hideWorkerConsole, bigVoiceOnGpu } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'engines', 'qvac.mjs')).href);
 const config = loadConfig(join(home, 'none.json'));
 const MIRROR = 'https://github.com/b2renger/voice-interaction-kit/releases/download/models/';
 check(config.modelMirror === MIRROR && JSON.parse(readFileSync(join(ROOT, 'app', 'config.json'), 'utf8')).modelMirror === MIRROR,
@@ -55,6 +55,11 @@ check(process.env.QVAC_RPC_INIT_TIMEOUT_MS === '180000', 'the QVAC worker gets 3
   const real = (await import('node:child_process')).default;
   check(Boolean(real.spawn.vikHidesWorker) === (process.platform === 'win32'), 'the engine applies it, on Windows only', process.platform);
 }
+
+// — Parler and Chatterbox: the graphics card on a Mac only, unless config.json says otherwise —
+check(!bigVoiceOnGpu({}, { useGpu: true }, 'win32') && bigVoiceOnGpu({}, { useGpu: true }, 'darwin') && !bigVoiceOnGpu({}, { useGpu: false }, 'darwin'),
+  'Parler / Chatterbox: on the CPU on Windows (no GPU for Parler there; Chatterbox filled a 4 GB card), on the GPU on a Mac (unless tts.useGpu is false)');
+check(bigVoiceOnGpu({ useGpu: true }, { useGpu: true }, 'win32') && !bigVoiceOnGpu({ useGpu: false }, { useGpu: true }, 'darwin'), '... and their own useGpu in config.json decides, everywhere');
 
 // — what is on this computer —
 const list = engine.models();
@@ -130,6 +135,7 @@ check(progress.some((p) => p.stage === '1/7 voice detection'), 'the progress nam
   const tts = fake.calls.slice(before).find((c) => c.fn === 'loadModel' && c.modelType === 'tts');
   check(tts && tts.src === join(dir, 'mirror_chatterbox-t3-mtl-q4_0.gguf') && tts.modelConfig.s3genModelSrc === join(dir, 'mirror_chatterbox-s3gen-mtl-q4_0.gguf'),
     'Start with Chatterbox: its two files come from the mirror, then load from disk', tts);
+  check(tts && tts.modelConfig.useGPU === (process.platform === 'darwin'), '... on the graphics card on a Mac only', tts && tts.modelConfig.useGPU);
   check(seen.some((p) => p.stage === 'voice (chatterbox, part 2)' && p.progress === 100) && logs.some((l) => /voice \(chatterbox\): downloaded from the mirror/.test(l)),
     '... with their progress in the banner, and a line in the log', seen.filter((p) => /voice/.test(p.stage)).slice(-2));
 

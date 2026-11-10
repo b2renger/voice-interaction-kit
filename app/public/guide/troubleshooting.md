@@ -10,7 +10,7 @@ Most problems show in the banner of [Talk](view:talk), in plain words. The menu 
 | "3 models could not be downloaded" | the reason is in **Files → Server log**. The dialog's **Open the download page** shows the voice files: put them in the models folder (**Open models folder**), then restart VIK |
 | a Vulkan error (Windows) | update the graphics driver |
 | the first reply is slow | the models load at startup: wait for **The models are ready** |
-| after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner |
+| after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner. On Windows, Chatterbox runs on the processor and takes long for each sentence: Supertonic is the fastest voice |
 
 ## Talking
 

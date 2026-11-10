@@ -118,6 +118,15 @@ const SUPERTONIC_VOICES = ['F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4',
 const CHATTERBOX_LANGUAGES = ['en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'tr', 'sv', 'da', 'fi', 'no', 'el', 'ms', 'sw', 'ar', 'ko', 'he', 'ru', 'hi'];
 const NATIVE_RATE = { supertonic: 44100, parler: 44100, chatterbox: 24000 };
 export function voiceEngineOf(s) { return VOICE_ENGINES.includes(s && s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic'; }
+/**
+ * Parler and Chatterbox (o: their section of config.json) use the graphics card on a Mac only, unless their own
+ * useGpu says otherwise. On Windows with QVAC 0.21, Parler does not load on the graphics card ("failed to fuse
+ * decode projection weights": QVAC lists no Windows GPU for it), and Chatterbox next to the other models filled
+ * a 4 GB card and crashed QVAC's worker, every model with it (checked on an RTX 3050 Ti; alone, it ran).
+ */
+export function bigVoiceOnGpu(o, tts, platform = process.platform) {
+  return o.useGpu == null ? platform === 'darwin' && tts.useGpu !== false : o.useGpu !== false;
+}
 
 export async function createQvacEngine(config, log) {
   // QVAC gives its worker process 30 s to start. A cold start (first launch after a restart, the antivirus
@@ -386,7 +395,7 @@ export async function createQvacEngine(config, log) {
         // the voice is chosen per request (a description, or the template speaker)
         const P = M.tts.parler || {};
         ttsSrc = String(P.src || 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0');
-        ttsConfig = { ttsEngine: 'parler', seed: P.seed == null ? 42 : Number(P.seed), useGPU: (P.useGpu == null ? M.tts.useGpu : P.useGpu) !== false };
+        ttsConfig = { ttsEngine: 'parler', seed: P.seed == null ? 42 : Number(P.seed), useGPU: bigVoiceOnGpu(P, M.tts) };
       } else if (engine === 'chatterbox') {
         const C = M.tts.chatterbox || {};
         ttsSrc = String(C.src || 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0');
@@ -395,7 +404,7 @@ export async function createQvacEngine(config, log) {
           language: CHATTERBOX_LANGUAGES.includes(s.language) ? s.language : 'en',
           s3genModelSrc: asset(C.s3gen || 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0'),
           ttsSpeed: speed,
-          useGPU: (C.useGpu == null ? M.tts.useGpu : C.useGpu) !== false,
+          useGPU: bigVoiceOnGpu(C, M.tts),
         };
         if (String(C.referenceAudio || '').trim()) ttsConfig.referenceAudioSrc = localPath(String(C.referenceAudio).trim());
       } else {
