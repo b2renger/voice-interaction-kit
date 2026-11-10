@@ -1,10 +1,17 @@
 # Copies the voice models QVAC serves only over its peer-to-peer network (blocked by many school and company
 # networks) to this repository's "models" release, where VIK downloads them over HTTPS (config.json "modelMirror").
 # Run it by hand (Actions → Models mirror → Run workflow) after changing the voices in app/config.json.
+# By default it is a trial: the files are only kept as the run's artifact ("voice-models"), to check them and
+# test an installation with them (put them in the models folder). Tick "publish" to fill the release.
 name: Models mirror
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to the "models" release (otherwise: only the run''s artifact)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -35,8 +42,17 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/resemble-ai/chatterbox/master/LICENSE -o mirror/LICENSE-chatterbox.txt
           ls -l mirror
 
+      - name: Keep the files as the run's artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-models
+          path: mirror/
+          compression-level: 0   # GGUF files do not compress
+          retention-days: 14
+
       # "models" is not a v* tag: the Release workflow does not run, and the app's latest release stays the latest.
       - name: Publish to the "models" release
+        if: inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

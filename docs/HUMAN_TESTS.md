@@ -189,7 +189,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 ---
 
 ### A15 ★ On a school network that blocks peer to peer (R2)
-1. Once: **Actions → Models mirror → Run workflow**, and wait for it to finish (the `models` release lists four `.gguf` files, `SHA256SUMS.txt` and three licences).
+1. Once: **Actions → Models mirror → Run workflow**, with **publish** ticked, and wait for it to finish (the `models` release lists four `.gguf` files, `SHA256SUMS.txt` and three licences).
 2. On a school PC that has never run VIK (or after emptying `~/.qvac/models`), on the school network: install VIK and launch it from the Start menu.
 3. Click **Download everything** when VIK offers it.
 4. Choose Parler, then Chatterbox, in **Voice & timing**, and have one sentence said by each.
