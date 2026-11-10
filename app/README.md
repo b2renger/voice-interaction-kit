@@ -304,6 +304,7 @@ Any number of clients can follow the conversation and drive it, at the same time
 | "No column fills {…}" under a line | the placeholder is not a column of the table the pattern mentions |
 | `npm run make` fails on native libraries | build on the target platform, run `npm install` again, or let GitHub build the installers |
 | the installed app never loads a model ("RPC initialization timed out", and `Cannot find module '@qvac/llm-llamacpp'` in the server log), while `npm start` works | the package lost QVAC's llama.cpp addons: check the `@qvac/inference` pin (see "For the teacher"), then `node scripts/check-package.mjs` after packaging |
+| Windows, 3.0.0: an empty terminal window opens with the app, titled `…\bare.exe` | QVAC's worker, which runs the models: leave it open (closing it stops them), or install 3.0.1 or later, which hides it (`hideWorkerConsole` in `src/engines/qvac.mjs`) |
 | "Smart Turn is unavailable here: using silence only." | `onnxruntime-node` is missing: run `npm install` again, then `npm run selftest` |
 | after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner |
 | the agent stops for a "mm-hm" | "Talk over it this long to interrupt" is at 0: try 600 ms |

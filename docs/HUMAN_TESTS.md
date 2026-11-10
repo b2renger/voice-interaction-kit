@@ -110,7 +110,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 1. Run the installer: `VIK-Setup-<version>-windows-x64.exe` from the Releases page, or `VIK-Setup.exe` if you built it yourself. Get past the warning ("More info → Run anyway").
 2. Wait for the model download to finish, then click **Start** and talk.
 
-**Expected:** a "VIK" shortcut appears in the Start menu and on the desktop. The app opens; the window's banner shows the download percentage (and a bar moves along on the icon, in the taskbar), then "Models ready". The conversation works.
+**Expected:** a "VIK" shortcut appears in the Start menu and on the desktop. The app opens, and no terminal window opens with it (3.0.0 opened an empty one for QVAC's worker). The window's banner shows the download percentage (and a bar moves along on the icon, in the taskbar), then "Models ready". The conversation works.
 
 Machine (processor, memory, graphics card): ……… Download time: ………
 

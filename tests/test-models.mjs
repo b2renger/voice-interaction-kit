@@ -23,11 +23,32 @@ writeFileSync(whisperFile, Buffer.alloc(fake.WHISPER_SMALL_Q8_0.expectedSize));
 writeFileSync(join(dir, 'fedcba9876543210_supertonic3-q8_0.gguf'), Buffer.alloc(10));   // an interrupted download
 
 const { loadConfig } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'config.mjs')).href);
-const { createQvacEngine } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'engines', 'qvac.mjs')).href);
+const { createQvacEngine, hideWorkerConsole } = await import(pathToFileURL(join(ROOT, 'app', 'src', 'engines', 'qvac.mjs')).href);
 const config = loadConfig(join(home, 'none.json'));
 const logs = [];
 const engine = await createQvacEngine(config, (m) => logs.push(m));
 check(process.env.QVAC_RPC_INIT_TIMEOUT_MS === '180000', 'the QVAC worker gets 3 minutes to start (a cold start), not 30 s', process.env.QVAC_RPC_INIT_TIMEOUT_MS);
+
+// — Windows: QVAC's worker (bare.exe) starts with no console window (an empty terminal, in 3.0.0) —
+{
+  const calls = [];
+  let relays = 0;
+  const cp = { spawn(file, args, opts) { calls.push({ file, args, opts }); return { stdout: { on: () => { relays++; } } }; } };
+  hideWorkerConsole(cp, 'win32');
+  hideWorkerConsole(cp, 'win32');   // applied once
+  cp.spawn('C:\\VIK\\resources\\app\\node_modules\\bare-runtime-win32-x64\\bin\\bare.exe', ['worker.js', '{}'], { platform: 'win32', arch: 'x64', stdio: ['inherit', 'inherit', 'pipe'] });
+  const w = calls[0];
+  check(calls.length === 1 && w.opts.windowsHide === true && w.opts.stdio.join() === 'ignore,pipe,pipe' && w.opts.arch === 'x64' && w.args[0] === 'worker.js' && relays === 1,
+    'the worker: windowsHide, no inherited handle, its output relayed once, the rest as QVAC asked', calls);
+  cp.spawn('C:\\VIK\\Update.exe', ['--createShortcut=VIK.exe'], { detached: true, stdio: 'ignore' });
+  check(calls[1].opts.windowsHide === undefined && calls[1].opts.stdio === 'ignore', 'any other program starts as before', calls[1]);
+  const mac = { spawn() {} };
+  const own = mac.spawn;
+  hideWorkerConsole(mac, 'darwin');
+  check(mac.spawn === own, 'on a Mac (or Linux) nothing changes');
+  const real = (await import('node:child_process')).default;
+  check(Boolean(real.spawn.vikHidesWorker) === (process.platform === 'win32'), 'the engine applies it, on Windows only', process.platform);
+}
 
 // — what is on this computer —
 const list = engine.models();

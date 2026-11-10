@@ -1,7 +1,7 @@
 {
   "name": "vik",
   "productName": "VIK",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "VIK, the Voice Interaction Kit: a studio to build voice agents (persona in markdown, knowledge as CSV, patterns decided by a local model), that listens, decides and speaks on the computer.",
   "author": "Voice interaction workshop",

@@ -16,6 +16,7 @@
 //   chatterbox  multilingual (not ja/zh here: they need extra tokenizer assets); a T3 model + an S3Gen companion,
 //               optional voice cloning from a WAV (referenceAudio in config.json). 24 kHz. Every output carries
 //               Resemble's Perth watermark.
+import childProcess from 'node:child_process';
 import { isAbsolute, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readdirSync, statSync } from 'node:fs';
@@ -42,6 +43,27 @@ function cachedFile(c) {
   } catch { /* nothing downloaded yet */ }
   return null;
 }
+/**
+ * Windows: QVAC starts its worker (bare.exe, a console program) with stdin and stdout inherited and no
+ * windowsHide. Opened from the Start menu, the app has no console, so Windows opened one for the worker: an
+ * empty terminal window that stopped the models when closed. Here the worker gets no window: windowsHide, and
+ * no inherited handle (Windows only skips the console when none is inherited). Its stdout is relayed to ours,
+ * so `npm start` still shows it. Applied once; any other program starts as before.
+ */
+export function hideWorkerConsole(cp = childProcess, platform = process.platform) {
+  if (platform !== 'win32' || cp.spawn.vikHidesWorker) return;
+  const spawn = cp.spawn;
+  const hidden = function (file, args, opts) {
+    if (!/(^|[\\/])bare\.exe$/i.test(String(file)) || !Array.isArray(args) || !opts || typeof opts !== 'object') return spawn.apply(this, arguments);
+    const err = Array.isArray(opts.stdio) && opts.stdio[2] !== undefined ? opts.stdio[2] : 'pipe';
+    const child = spawn.call(this, file, args, { ...opts, windowsHide: true, stdio: ['ignore', 'pipe', err] });
+    if (child && child.stdout) child.stdout.on('data', (d) => { try { process.stdout.write(d); } catch { /* no console */ } });
+    return child;
+  };
+  hidden.vikHidesWorker = true;
+  cp.spawn = hidden;
+}
+
 export const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox'];
 const SUPERTONIC_VOICES = ['F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5'];
 // Chatterbox multilingual languages, minus ja and zh (they need mecabDictSrc / cangjieTsvSrc)
@@ -53,6 +75,7 @@ export async function createQvacEngine(config, log) {
   // QVAC gives its worker process 30 s to start. A cold start (first launch after a restart, the antivirus
   // scanning ~200 MB of native libraries, the GPU driver waking up) can take longer; a warm one takes 3–5 s.
   process.env.QVAC_RPC_INIT_TIMEOUT_MS ||= '180000';
+  hideWorkerConsole();
   let sdk;
   try {
     // QVAC_SDK lets the tests plug in a fake SDK (tests/fake-qvac-sdk.mjs).
