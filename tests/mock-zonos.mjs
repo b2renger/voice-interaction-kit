@@ -31,11 +31,12 @@ const FIELDS = ['text', 'stream', 'format', 'language', 'speaker_embedding_id', 
 
 /**
  * @param {{controls?: boolean, token?: string, seconds?: number}} o  controls false: a server without a steering bundle
- * @returns {Promise<{url: string, port: number, requests: any[], failNext: (how: 'refuse'|'drop') => void, close: () => Promise<void>}>}
+ * @returns {Promise<{url: string, port: number, requests: any[], failNext: (how: 'refuse'|'drop') => void, slow: (on: boolean) => void, close: () => Promise<void>}>}
  */
 export async function startMockZonos(o = {}) {
   const requests = [];
   let fail = '';
+  const pace = { seconds: o.seconds || 0.6, everyMs: 2 };     // how long a sentence is, and how fast its chunks leave
   const json = (res, code, body) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
   const server = createServer((req, res) => {
     const path = (req.url || '/').split('?')[0];
@@ -60,7 +61,7 @@ export async function startMockZonos(o = {}) {
         if (bad.length || (b.controls && o.controls === false)) return json(res, 400, { detail: `unknown control ${bad.join(', ')}` });
         if (b.format === 'wav' && b.stream !== false) return json(res, 400, { detail: 'wav needs stream=false' });
         // the "voice": a 220 Hz tone, float32 LE mono 44.1 kHz, sent in chunks of 4001 bytes (never a whole sample)
-        const n = Math.round((o.seconds || 0.6) * 44100);
+        const n = Math.round(pace.seconds * 44100);
         const pcm = Buffer.alloc(n * 4);
         for (let i = 0; i < n; i++) pcm.writeFloatLE(0.4 * Math.sin((2 * Math.PI * 220 * i) / 44100), i * 4);
         res.writeHead(200, { 'content-type': 'application/octet-stream', 'x-audio-sample-rate': '44100', 'x-audio-channels': '1', 'x-audio-format': 'f32le', 'x-seed': '1' });
@@ -69,7 +70,7 @@ export async function startMockZonos(o = {}) {
           if (res.destroyed) return;
           if (at >= pcm.length) { res.end(); return; }
           res.write(pcm.subarray(at, at + 4001)); at += 4001;
-          setTimeout(step, 2);
+          setTimeout(step, pace.everyMs);
         };
         step();
       });
@@ -82,6 +83,8 @@ export async function startMockZonos(o = {}) {
   return {
     url: `http://127.0.0.1:${port}`, port, requests,
     failNext(how) { fail = how; },
+    /** Slow speech (to interrupt it), or back to the default. */
+    slow(on) { Object.assign(pace, on ? { seconds: 4, everyMs: 25 } : { seconds: o.seconds || 0.6, everyMs: 2 }); },
     close: () => new Promise((r) => { server.closeAllConnections(); server.close(() => r()); }),
   };
 }

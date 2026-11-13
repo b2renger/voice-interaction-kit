@@ -39,9 +39,11 @@ export function loadConfig(file) {
         // and Chatterbox (multilingual; referenceAudio = optional path of a WAV file to clone a voice)
         parler: { src: 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0', voice: 'Laura' },
         chatterbox: { src: 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0', s3gen: 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0', referenceAudio: '' },
-        // Zonos (ZONOS3-Mini, a voice designed with sliders): not a QVAC model, a Zonos server on this computer
-        // (engines/zonos.mjs). voice = a default voice's id or name ('' = the server's first); token = its access token
-        zonos: { url: 'http://127.0.0.1:1919', voice: '', token: '' },
+        // Zonos (ZONOS3-Mini, a voice designed with sliders): not a QVAC model (engines/zonos.mjs).
+        // mode 'web': its in-browser engine runs in the studio's window (WebGPU); 'server': a Zonos server at url.
+        // voice = a default voice's id or name ('' = the first one); token = a server's access token.
+        // engineDir, models, modelsDir: where the engine and its model come from (engines/zonos-files.mjs)
+        zonos: { mode: 'web', url: 'http://127.0.0.1:1919', voice: '', token: '' },
       },
     },
     // Smart Turn, the end-of-turn model (setting turnDetection: 'smart'): a path relative to the app folder, or absolute

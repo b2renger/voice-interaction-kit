@@ -53,6 +53,11 @@ jobs:
           node tests/test-text.mjs
           node tests/test-electron-main.mjs
 
+      # The voice engine "Zonos": Zyphra's in-browser engine, built from their sources at a pinned commit, travels
+      # in the installers (app/zonos-engine/). Its model does not: the app downloads it on first use.
+      - name: Build the Zonos engine
+        run: npm run zonos:engine
+
       - name: Build the installers
         run: npm run make
 

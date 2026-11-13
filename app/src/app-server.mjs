@@ -16,6 +16,7 @@ import { wordsMatcher } from './agent/matcher.mjs';
 import { handleApi } from './api.mjs';
 import { mutex, progressText } from './util.mjs';
 import { createZonosVoice, withZonos } from './engines/zonos.mjs';
+import { createZonosFiles } from './engines/zonos-files.mjs';
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -59,7 +60,9 @@ export async function startServer(o) {
   let warm = 'loading';
   let lastStatus = { text: 'Starting…', progress: null };
   const prepareLock = mutex();
-  const zonos = createZonosVoice(((config.models || {}).tts || {}).zonos, log);
+  const zonosConfig = ((config.models || {}).tts || {}).zonos || {};
+  const zonos = createZonosVoice(zonosConfig, log);
+  const zonosFiles = createZonosFiles(zonosConfig, APP_DIR, log);   // the in-browser engine and its model, for the window
   const sessions = new Set();
   const hub = createHub(log);
   const farms = createFarmFinder(log);
@@ -159,10 +162,16 @@ export async function startServer(o) {
       readJson(req).then((q) => remoteModels(q)).then((models) => json(res, 200, { models }), (e) => json(res, 200, { error: e.message, models: [] }));
       return;
     }
-    // the Zonos voice for the studio: is its server there, its voices, its design sliders
+    // the Zonos voice for the studio: can it speak, its voices, its design sliders, and whether its engine is here
     if (path === '/api/voice/zonos' && req.method === 'GET') {
-      zonos.probe(new URL(req.url || '/', 'http://x').searchParams.has('fresh')).then(() => json(res, 200, zonos.describe()));
+      zonos.probe(new URL(req.url || '/', 'http://x').searchParams.has('fresh')).then(() => json(res, 200, { ...zonos.describe(), engineFiles: zonosFiles.enginePresent() }));
       return;
+    }
+    // its in-browser engine and its model (downloaded once), for the studio's own page only: another website
+    // must not make this computer download a model
+    if (path.startsWith('/zonos/')) {
+      if (!samePage(req)) { res.writeHead(403); res.end(); return; }
+      if (zonosFiles.handle(req, res, path)) return;
     }
     if (handleApi(req, res, path, { store, decide: decideForStudio })) return;
     // The models offered for listening and thinking (config.json "choices"), and whether each is on this computer.
@@ -196,7 +205,7 @@ export async function startServer(o) {
   // /events: the clients (cables, p5.js, pages).
   const ownOrigin = (origin) => [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`].includes(origin);
   attachWebSocket(server, {
-    path: /^\/(voice|brain|events)$/,
+    path: /^\/(voice|brain|events|zonos)$/,
     allowOrigin: (origin, path) => {
       const ok = path === '/events' ? originAllowed(config.allowedOrigins, origin) : !origin || ownOrigin(origin);
       if (!ok) log(`✖ refused a connection to ${path} from the page ${origin}${path === '/events' ? ' (not in "allowedOrigins", config.json)' : ''}`);
@@ -206,6 +215,7 @@ export async function startServer(o) {
       const path = (req.url || '').split('?')[0];
       if (path === '/brain') return hub.brain(ws);
       if (path === '/events') return hub.client(ws);
+      if (path === '/zonos') return zonos.attach(ws);     // the studio's window, running the Zonos engine
       // One conversation at a time: the models run on this machine, for one person.
       for (const s of sessions) { s.error('replaced', 'Another page opened a conversation, so this one is stopping.'); s.close('replaced'); }
       const session = new Session(ws, {

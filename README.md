@@ -41,7 +41,7 @@ Four example agents come with the app: a museum guide, a station kiosk, a chef w
 | **How does it decide?** | Interactions: patterns, stages, confidence, a field to try a sentence | Decision, Stage, Entry, On decision, On stage |
 | **What does it make happen?** | patterns that show choices, set a mood, move to a stage, send a signal | Choices, Mood, Agent signal, On agent signal |
 | **What makes it react?** | patterns "when a client sends this signal": a sensor, a button, a moment of a scene | Send signal (from cables, p5.js, a page) |
-| **Which voice?** | Voice & timing: 10 Supertonic voices, a voice described in words (Parler), Chatterbox, a voice designed with sliders (Zonos, with its own server: [docs/ZONOS.md](docs/ZONOS.md)); 30 Gemini voices | Voice level |
+| **Which voice?** | Voice & timing: 10 Supertonic voices, a voice described in words (Parler), Chatterbox, a voice designed with sliders (Zonos, on the graphics card: [docs/ZONOS.md](docs/ZONOS.md)); 30 Gemini voices | Voice level |
 | **When have you finished speaking?** | end-of-turn silence, sensitivities, the Smart Turn model | Hearing, On user end, Mic level, Turn probability |
 | **Can you interrupt it?** | interruptible, listen while speaking, talk over it this long (a "mm-hm" lets it carry on) | On interruption, On interruption pending / cancelled |
 | **What happens while it thinks?** | reply delay, thinking sound, filler lines | Thinking, On filler, Wait (ms) |

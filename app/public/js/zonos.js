@@ -1,7 +1,10 @@
-// The Zonos voice in the studio (Voice & timing): its server's voices, and the design sliders the server offers
-// (age, gender, pitch, texture, mood…). The design is kept as one line of text, "age +1.5, deep 3" (the setting
-// voiceDesign, in persona.md): the sliders write it, and typing it moves the sliders.
+// The Zonos voice in the studio (Voice & timing): its voices, and the design sliders it offers (age, gender, pitch,
+// texture, mood…). The design is kept as one line of text, "age +1.5, deep 3" (the setting voiceDesign, in
+// persona.md): the sliders write it, and typing it moves the sliders.
+// By default Zonos runs in this very window, on the graphics card (zonos-host.js); the first time, its model is
+// downloaded (about 1 GB). With "mode": "server" in config.json it is a Zonos server on the computer instead.
 import { api } from './api.js';
+import { host, onHost, startZonosHost } from './zonos-host.js';
 import { $, $$, h } from './ui.js';
 import { settings, set, onChange } from './state.js';
 
@@ -38,13 +41,26 @@ function paint() {
   if (document.activeElement !== sel) sel.value = s.zonosVoice || '';
 }
 
+const mb = (bytes) => `${Math.round(bytes / 1e6)} MB`;
+/** The few words next to "Voice", and the sentence under the fields. */
+function words(info) {
+  const designing = sliders.length ? 'Move a slider, then talk: the design goes with each sentence. Stay near the middle; far ends can break the voice.' : 'This Zonos offers no design sliders (its steering file is missing).';
+  if (info.mode !== 'web') {
+    return info.available ? ['server found', designing] : ['no server', `No Zonos server answers at ${info.url}: the default voice speaks instead. Start one, then check again.`];
+  }
+  if (info.engineFiles === false) return ['not installed', 'This copy of VIK does not carry the Zonos engine yet (see docs/ZONOS.md: "npm run zonos:engine" in the app folder). The default voice speaks instead.'];
+  if (host.state === 'failed') return ['cannot run here', `Zonos cannot run on this computer: ${host.error}. The default voice speaks instead.`];
+  if (host.state === 'ready' && info.available) return ['ready', designing];
+  const pct = host.total ? ` ${Math.floor((100 * host.loaded) / host.total)} %` : '';
+  return [`loading${pct}`, `Loading the Zonos voice${host.total ? ` (${mb(host.loaded)} of ${mb(host.total)})` : ''}… The first time, its model is downloaded: about 1 GB. Until it is ready, the default voice speaks.`];
+}
+
+let last = { mode: 'web', available: false, url: '', voices: [], sliders: [] };
 function build(info) {
+  last = info;
   sliders = info.sliders || [];
-  $('#zonosState').textContent = info.available ? 'server found' : 'no server';
-  $('#zonosHelp').textContent = info.available
-    ? (sliders.length ? 'Move a slider, then talk: the design goes with each sentence. Stay near the middle; far ends can break the voice.' : 'This Zonos server offers no design sliders (it was started without its steering file).')
-    : `No Zonos server answers at ${info.url}: the default voice speaks instead. Start one, then check again.`;
-  $('#zonosVoices').replaceChildren(h('option', { value: '' }, 'The server’s first voice'), ...(info.voices || []).map((v) => h('option', { value: v.label }, v.label)));
+  [$('#zonosState').textContent, $('#zonosHelp').textContent] = words(info);
+  $('#zonosVoices').replaceChildren(h('option', { value: '' }, 'The first voice'), ...(info.voices || []).map((v) => h('option', { value: v.label }, v.label)));
   const groups = [];
   for (const sl of sliders) { let g = groups.find((x) => x.name === sl.group); if (!g) groups.push(g = { name: sl.group, items: [] }); g.items.push(sl); }
   $('#zonosDesign').replaceChildren(...groups.map((g) => h('div', { class: 'design-group' },
@@ -66,14 +82,27 @@ function build(info) {
   paint();
 }
 
-export async function loadZonos(fresh = false) {
-  try { build(await api.zonos(fresh)); } catch { build({ available: false, url: 'its address', voices: [], sliders: [] }); }
+/** fresh: ask the server to look again. retry: also load the engine again if it failed ("Check again"). */
+export async function loadZonos(fresh = false, retry = false, again = 0) {
+  let info;
+  try { info = await api.zonos(fresh); } catch { info = { mode: 'server', available: false, url: 'its address', voices: [], sliders: [] }; }
+  build(info);
+  // Zonos in this window: load it now (when the app carries its engine); its voices and sliders come once it is ready
+  if (info.mode === 'web' && info.engineFiles !== false && (host.state === 'off' || (retry && host.state === 'failed'))) startZonosHost();
+  // the engine is ready here but the server has not heard it yet (its "ready" travels on another connection): ask again
+  if (info.mode === 'web' && host.state === 'ready' && !info.available && again < 10) setTimeout(() => loadZonos(true, false, again + 1), 300);
 }
 
 /** pushSettings(delayMs): sends the settings to the conversation (main.js). */
 export function initZonos(pushSettings) {
   push = pushSettings;
-  $('#zonosCheck').addEventListener('click', () => loadZonos(true));
+  $('#zonosCheck').addEventListener('click', () => loadZonos(true, true));
+  // the engine in this window: its loading shows as it goes; once ready (or failed), ask the server again
+  let hostWas = host.state;
+  onHost(() => {
+    if (host.state !== hostWas) { hostWas = host.state; if (host.state === 'ready' || host.state === 'failed') { loadZonos(true); return; } }
+    [$('#zonosState').textContent, $('#zonosHelp').textContent] = words(last);
+  });
   $('#zonosReset').addEventListener('click', () => { set('voiceDesign', ''); push(0); });
   let shown = false;
   const refresh = () => {

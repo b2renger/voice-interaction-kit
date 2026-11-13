@@ -67,6 +67,7 @@
         "referenceAudio": ""
       },
       "zonos": {
+        "mode": "web",
         "url": "http://127.0.0.1:1919",
         "voice": "",
         "token": ""

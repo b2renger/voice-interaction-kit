@@ -15,6 +15,7 @@
     "server": "node src/server.mjs",
     "server:mock": "node src/server.mjs --mock",
     "selftest": "node src/selftest.mjs",
+    "zonos:engine": "node scripts/build-zonos-engine.mjs",
     "package": "node scripts/sync-core.mjs && electron-forge package",
     "make": "node scripts/sync-core.mjs && electron-forge make"
   },
