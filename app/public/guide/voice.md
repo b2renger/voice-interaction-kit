@@ -9,8 +9,19 @@ How the agent sounds, when it takes its turn, and what it does while it thinks. 
 | **Supertonic** | ten preset voices (F1 to F5, M1 to M5), and a speed | fast, 31 languages |
 | **Parler** | a voice you describe in words | English only; downloads about 1.2 GB on first use |
 | **Chatterbox** | many languages, and it can clone a voice | downloads about 1.1 GB on first use; every output carries a watermark |
+| **Zonos** | a voice you design with sliders: age, gender, pitch, texture, mood | many languages, French included; needs a Zonos server running on this computer, see below |
 
 With Parler, write the voice like a persona: who speaks (pitch, pace, warmth) and how it is recorded. "A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone." The new description applies from the next sentence.
+
+### Designing a voice with sliders (Zonos)
+
+Zonos starts from one of its ready-made voices and lets you move it: older or younger, more masculine or feminine, deeper, raspier, softer, calmer, happier. No recording of anyone is needed. Each slider you move is written in **The voice, designed**, as a line such as `age +1.5, deep 3, gender -1`. That line is the design: it is saved with the agent, you can type it by hand, and it applies from the next sentence.
+
+- Stay near the middle of a slider. The far ends can break the voice, or turn it into someone else.
+- A slider at zero leaves the line. **Reset the design** empties it.
+- Design a voice the way you write a persona: decide who speaks first, then move two or three sliders, and listen.
+
+Zonos is not built into VIK: a Zonos server has to run on this computer (by default at `http://127.0.0.1:1919`). When there is none, Voice & timing says "no server", the agent speaks with the default voice instead, and the conversation goes on. Start the server, then click **Check again**. How to install one is in the kit's `docs/ZONOS.md`.
 
 > **Cloning a voice needs consent.** A voice identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards.
 

@@ -16,6 +16,9 @@
 //   chatterbox  multilingual (not ja/zh here: they need extra tokenizer assets); a T3 model + an S3Gen companion,
 //               optional voice cloning from a WAV (referenceAudio in config.json). 24 kHz. Every output carries
 //               Resemble's Perth watermark.
+// A fourth voice, Zonos (a voice designed with sliders), does not go through QVAC: engines/zonos.mjs wraps this
+// engine and speaks through a Zonos server. Here 'zonos' is an unknown voice engine, so Supertonic is prepared:
+// it is the voice that takes over when no Zonos server answers.
 import childProcess from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, dirname } from 'node:path';

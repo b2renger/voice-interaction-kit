@@ -15,6 +15,7 @@ import { createDecider } from './agent/decide.mjs';
 import { wordsMatcher } from './agent/matcher.mjs';
 import { handleApi } from './api.mjs';
 import { mutex, progressText } from './util.mjs';
+import { createZonosVoice, withZonos } from './engines/zonos.mjs';
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -58,6 +59,7 @@ export async function startServer(o) {
   let warm = 'loading';
   let lastStatus = { text: 'Starting…', progress: null };
   const prepareLock = mutex();
+  const zonos = createZonosVoice(((config.models || {}).tts || {}).zonos, log);
   const sessions = new Set();
   const hub = createHub(log);
   const farms = createFarmFinder(log);
@@ -82,6 +84,8 @@ export async function startServer(o) {
         const { createQvacEngine } = await import('./engines/qvac.mjs');
         engine = await createQvacEngine(config, log);
       }
+      // the Zonos voice (setting localVoiceEngine 'zonos'): an extra voice around either engine, see engines/zonos.mjs
+      engine = withZonos(engine, zonos, log);
       log(`▸ engine: ${engine.name === 'mock' ? 'SIMULATED (no models)' : 'QVAC'}`);
     } catch (e) {
       engineError = e;
@@ -153,6 +157,11 @@ export async function startServer(o) {
     // the models a farm or a service offers: {url, key} → [ids] (POST: the key stays out of the address)
     if (path === '/api/llm/models' && req.method === 'POST') {
       readJson(req).then((q) => remoteModels(q)).then((models) => json(res, 200, { models }), (e) => json(res, 200, { error: e.message, models: [] }));
+      return;
+    }
+    // the Zonos voice for the studio: is its server there, its voices, its design sliders
+    if (path === '/api/voice/zonos' && req.method === 'GET') {
+      zonos.probe(new URL(req.url || '/', 'http://x').searchParams.has('fresh')).then(() => json(res, 200, zonos.describe()));
       return;
     }
     if (handleApi(req, res, path, { store, decide: decideForStudio })) return;

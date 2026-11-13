@@ -12,6 +12,7 @@ const DEFAULTS = {
   interruptible: true, repairLine: '', replyDelayMs: 0, uiTools: true,
   turnDetection: 'silence', interruptAfterMs: 0, fillerLines: '', fillerAfterMs: 1200,
   localVoiceEngine: 'supertonic', voiceDescription: '',
+  zonosVoice: '', voiceDesign: '',   // the Zonos voice: one of its voices (id or name), and its design ("age +1.5, deep 3")
   // the models (config.json "choices"; '' = the config's), or an LLM farm on the network instead of the local model
   // the language model: 'local' (QVAC: localLlm), or 'farm' / 'service' (llmUrl, llmModel, llmKey)
   localAsr: '', localLlm: '', llm: 'local', llmUrl: '', llmModel: '', llmKey: '',
@@ -19,13 +20,14 @@ const DEFAULTS = {
 };
 const ASR_KEYS = ['language', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'localAsr'];
 const LLM_KEYS = ['localLlm', 'llm'];        // a change loads (or frees) the local language model
-const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox'];
+const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox', 'zonos'];
 const voiceEngine = (s) => (VOICE_ENGINES.includes(s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic');
 /** The settings a voice model is LOADED with (a change reloads it). Parler's description is per request. */
 const TTS_KEYS = {
   supertonic: ['localVoiceEngine', 'language', 'localVoice', 'localSpeed'],
   parler: ['localVoiceEngine'],
   chatterbox: ['localVoiceEngine', 'language', 'localSpeed'],
+  zonos: ['localVoiceEngine'],          // its voice and design go with each sentence; the switch checks its server
 };
 export const PARLER_ENGLISH_ONLY = 'Parler only speaks English: replies will sound English-accented.';
 const parlerNotEnglish = (s) => voiceEngine(s) === 'parler' && (s.language || 'en') !== 'en';
@@ -126,6 +128,7 @@ export class Session {
     this.send({ type: 'ready', ...this.engine.info() });
     this.log(`▸ conversation opened (${this.s.name || 'agent'}, voice ${voiceEngine(this.s)}${voiceEngine(this.s) === 'supertonic' ? ' ' + this.s.localVoice : ''}, ${this.s.language}${remoteOf(this.s) ? `, ${this.s.llm === 'farm' ? 'LLM farm' : 'service'} ${this.s.llmUrl} ${this.s.llmModel}` : ''})`);
     if (parlerNotEnglish(this.s)) this.status(PARLER_ENGLISH_ONLY, null);
+    this.voiceFallbackNote();
     this.useTurnDetection();
     // the agent: its first stage, then its "start" pattern if it has one, otherwise the greeting
     const moment = await this.enterAgent();
@@ -180,6 +183,7 @@ export class Session {
       this.status('', null);
     }
     if (parlerNotEnglish(this.s) && (!parlerNotEnglish(prev) || changed(['language']))) this.status(PARLER_ENGLISH_ONLY, null);
+    if (changed(['localVoiceEngine'])) this.voiceFallbackNote();
     if (asrChanged && !this.closed && !this.asr) this.openAsr();
     if (changed(['turnDetection'])) this.useTurnDetection();
     if (changed(['agent'])) this.enterAgent();
@@ -636,7 +640,14 @@ export class Session {
     return {
       voice: this.s.localVoice, speed: this.s.localSpeed, language: this.s.language,
       engine: voiceEngine(this.s), description: String(this.s.voiceDescription || '').trim(),
+      zonosVoice: String(this.s.zonosVoice || '').trim(), design: String(this.s.voiceDesign || '').trim(),
     };
+  }
+
+  /** The chosen voice could not be used (Zonos without its server): say which voice speaks instead. */
+  voiceFallbackNote() {
+    const note = this.engine.info().voiceFallback;
+    if (note) { this.status(note, null); this.log(`(${note})`); }
   }
 
   // — spoken fillers ——————————————————————————————————————————————————————————————
@@ -664,7 +675,8 @@ export class Session {
 
   fillerKey(text) {
     const s = this.s;
-    return JSON.stringify([voiceEngine(s), s.localVoice, num(s.localSpeed, 1), s.language, String(s.voiceDescription || '').trim(), text]);
+    return JSON.stringify([voiceEngine(s), s.localVoice, num(s.localSpeed, 1), s.language, String(s.voiceDescription || '').trim(),
+      voiceEngine(s) === 'zonos' ? [String(s.zonosVoice || '').trim(), String(s.voiceDesign || '').trim()] : 0, text]);
   }
 
   /** The audio of a filler in the current voice: from the cache, or synthesized now. */
