@@ -41,7 +41,7 @@ export function modelsInUse() {
   let brain = short('#llmLocal') || 'the local model';
   if (s.llm === 'farm') { const f = farms.find((x) => x.url === s.llmUrl); brain = `LLM farm ${f ? f.name : s.llmUrl} (${s.llmModel})`; }
   if (s.llm === 'service') { let host = s.llmUrl; try { host = new URL(s.llmUrl).host; } catch { /* as typed */ } brain = `${s.llmModel} at ${host}`; }
-  const voice = { supertonic: 'Supertonic', parler: 'Parler', chatterbox: 'Chatterbox' }[s.localVoiceEngine] || 'Supertonic';
+  const voice = { supertonic: 'Supertonic', parler: 'Parler', chatterbox: 'Chatterbox', zonos: 'Zonos' }[s.localVoiceEngine] || 'Supertonic';
   return [short('#asrModels'), brain, voice].filter(Boolean).join(', ');
 }
 

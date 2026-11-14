@@ -137,6 +137,12 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 16
 .hint { color: var(--muted); font-size: 12.5px; margin: 0; max-width: 64ch; }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px 22px; }
+/* the Zonos voice's design sliders (Voice & timing): one block across the grid, its sliders by group */
+.design { grid-column: 1 / -1; display: grid; gap: 12px; }
+.design[hidden] { display: none; }
+#zonosDesign { display: grid; gap: 16px; }
+.design-group h3 { color: var(--muted); }
+button.link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent, inherit); text-decoration: underline; cursor: pointer; }
 .stack { display: grid; gap: 14px; }
 
 /* a group of settings: a title, then its fields; separated by space, not boxes */

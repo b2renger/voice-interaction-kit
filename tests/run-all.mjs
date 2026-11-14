@@ -21,6 +21,7 @@ const SUITES = [
   { name: 'test-farm', args: ['tests/test-farm.mjs'] },
   { name: 'test-electron-main', args: ['tests/test-electron-main.mjs'] },
   { name: 'test-smart-turn', args: ['tests/test-smart-turn.mjs'] },
+  { name: 'test-zonos', args: ['tests/test-zonos.mjs'] },
   { name: 'test-gemini', args: ['tests/test-gemini.mjs'], browser: true },
   { name: 'test-hub', args: ['tests/test-hub.mjs'] },
   { name: 'test-local', args: ['tests/test-local.mjs'], browser: true },

@@ -32,6 +32,7 @@ The kit's own code is under the MIT license (see `LICENSE`). It includes, or dow
 | Supertonic 3 | default voice engine | OpenRAIL-M (use restrictions apply; upstream archived in September 2026) |
 | Parler-TTS Mini v1 | voice engine "Parler" | Apache-2.0 |
 | Chatterbox multilingual | voice engine "Chatterbox" | MIT. Every output carries Resemble AI's Perth audio watermark. |
+| ZONOS3-Mini (Zyphra) | voice engine "Zonos" ([docs/ZONOS.md](docs/ZONOS.md)). The installers carry Zyphra's in-browser engine, built unchanged from their sources (`app/zonos-engine/`, with its licence and notices beside it); the model is downloaded from Hugging Face on first use | engine MIT (Zyphra, Inc.); weights Apache-2.0 |
 
 ## Online services
 

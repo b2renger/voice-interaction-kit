@@ -82,9 +82,11 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `creativity` | 1 | 0 calm → 2 unpredictable | `temperature` | `temp` × 0.7 |
 | `speakingStyle` | empty | way of speaking ("slow, calm") | prompt | — |
 | `geminiVoice` | Kore | one of the 30 Gemini voices | `voiceName` | — |
-| `localVoiceEngine` | `supertonic` | the local voice engine: `supertonic` (10 preset voices), `parler` (a voice described in words, English only) or `chatterbox` (multilingual, can clone a voice) | — | voice reload |
+| `localVoiceEngine` | `supertonic` | the local voice engine: `supertonic` (10 preset voices), `parler` (a voice described in words, English only), `chatterbox` (multilingual, can clone a voice) or `zonos` (a voice designed with sliders, spoken by Zonos's engine in the studio's window, on the graphics card: [`docs/ZONOS.md`](docs/ZONOS.md); when it cannot speak, the default voice does and a status says so) | — | voice reload (`zonos`: waits for its engine to load) |
 | `localVoice`, `localSpeed` | F1, 1 | Supertonic voice (F1–F5, M1–M5); speed (Supertonic and Chatterbox) | — | voice reload |
 | `voiceDescription` | empty | Parler only: the voice described in words ("A warm, low-pitched female voice…"). Empty = Parler's template voice | — | sent with each sentence (no reload) |
+| `zonosVoice` | empty | Zonos only: one of its voices, by its name ("Gaspard") or its id. Empty = `voice` in `config.json`, else the first default voice | — | sent with each sentence (no reload) |
+| `voiceDesign` | empty | Zonos only: the voice designed, as a line of slider names and values: "age +1.5, deep 3, gender -1" (the sliders Zonos lists; a raw `<set>.<direction>` dose is sent as written). Unknown names are left out | — | sent with each sentence (no reload) |
 | `localAsr`, `localLlm` (this computer) | empty (= `src` in `config.json`) | the speech recognition and local language models: a QVAC name among the `choices` in `config.json` (any other value = the default) | — | model reload |
 | `llm` (this computer) | `local` | who writes the replies: `local` (`localLlm`), `farm` (an [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm on the network) or `service` (any OpenAI-compatible address: Ollama, LM Studio, OpenAI, Gemini, Mistral, OpenRouter) | — | switching loads or frees the local model |
 | `llmUrl`, `llmModel`, `llmKey` (this computer) | empty | the farm's or the service's OpenAI address (`http://<host>:4000/v1`), the model there, its key or password | — | sent with each reply |
@@ -112,7 +114,7 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `serverUrl` (this computer) | the studio's own server | address of the local backend | | |
 | `title` | the name | the agent's name in the studio's list (persona.md only) | | |
 
-On the Gemini side, an open session cannot change persona, voice or turn rules. The studio then says "click Start to restart". On the local side, everything applies live, except the server address. The settings added with the open-source borrowings (`turnDetection`, `interruptAfterMs`, `awayAfterMs`, `repromptLine`, `fillerLines`, `fillerAfterMs`, `localVoiceEngine`, `voiceDescription`) never need a restart, nor do the model choices (`localAsr`, `localLlm`, `llm`…) or the agent (`agent`: back to its first stage). A "—" in the Gemini column means Gemini ignores the setting.
+On the Gemini side, an open session cannot change persona, voice or turn rules. The studio then says "click Start to restart". On the local side, everything applies live, except the server address. The settings added with the open-source borrowings (`turnDetection`, `interruptAfterMs`, `awayAfterMs`, `repromptLine`, `fillerLines`, `fillerAfterMs`, `localVoiceEngine`, `voiceDescription`, `zonosVoice`, `voiceDesign`) never need a restart, nor do the model choices (`localAsr`, `localLlm`, `llm`…) or the agent (`agent`: back to its first stage). A "—" in the Gemini column means Gemini ignores the setting.
 
 ## The clients protocol (the hub)
 
@@ -164,7 +166,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
 
 - as JSON:
   - `{type:'status', text, progress}`;
-  - `{type:'ready', engine, voices, models, voiceEngine}`: `voices` is empty (`[]`) for Parler and Chatterbox;
+  - `{type:'ready', engine, voices, models, voiceEngine}`: `voices` is empty (`[]`) for Parler, Chatterbox and Zonos. With `localVoiceEngine: 'zonos'` and a Zonos that cannot speak (not installed, no WebGPU, the studio's window closed), `voiceEngine` is the default voice's, `voiceFallback` holds the reason, and a `status` says "Zonos voice unavailable (…): the default voice speaks instead.";
   - `{type:'vad', speaking}`;
   - `{type:'user.partial'|'user.text', text}`. A stop phrase comes as `{type:'user.text', text, reply:false}`: it goes into the history, but the agent does not reply;
   - `{type:'turn.prediction', probability, complete, ms}`: the Smart Turn model's verdict on the turn;

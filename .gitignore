@@ -4,6 +4,8 @@ app/out/
 dist/
 # written by QVAC's Forge plugin when packaging (npm run package / make)
 app/qvac/
+# Zonos's in-browser engine, built by app/scripts/build-zonos-engine.mjs (npm run zonos:engine)
+app/zonos-engine/
 # no lockfile: app/package.json pins what must not move (@qvac/sdk, and @qvac/inference in "overrides")
 package-lock.json
 *.log

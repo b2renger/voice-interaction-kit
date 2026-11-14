@@ -29,4 +29,5 @@ export const api = {
   farms: (add) => call('GET', `/farms${add ? `?add=${enc(add)}` : ''}`),
   llmModels: (url, key) => call('POST', '/api/llm/models', { url, key }),
   health: () => call('GET', '/health'),
+  zonos: (fresh) => call('GET', `/api/voice/zonos${fresh ? '?fresh' : ''}`),
 };

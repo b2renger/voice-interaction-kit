@@ -65,6 +65,12 @@
         "src": "TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0",
         "s3gen": "TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0",
         "referenceAudio": ""
+      },
+      "zonos": {
+        "mode": "web",
+        "url": "http://127.0.0.1:1919",
+        "voice": "",
+        "token": ""
       }
     }
   },

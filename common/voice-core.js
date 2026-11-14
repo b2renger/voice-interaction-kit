@@ -52,9 +52,10 @@ const VoiceCore = (function () {
   /** The Supertonic voices (QVAC's local TTS engine): F = female, M = male. */
   const LOCAL_VOICES = ['F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5'];
 
-  /** The local voice engines (QVAC): Supertonic (preset voices), Parler (a voice described in words, English),
-   *  Chatterbox (multilingual, can clone a voice). */
-  const LOCAL_VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox'];
+  /** The local voice engines. QVAC's: Supertonic (preset voices), Parler (a voice described in words, English),
+   *  Chatterbox (multilingual, can clone a voice). And Zonos (a voice designed with sliders, spoken by a Zonos
+   *  server on the computer; without one, the default voice speaks). */
+  const LOCAL_VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox', 'zonos'];
 
   /** The moods an agent can show (set_mood tool / [[mood: …]] tag). */
   const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
@@ -74,10 +75,12 @@ const VoiceCore = (function () {
     speakingStyle: '',                // Gemini: voice style asked for in the prompt ("slow, calm")
     // — voice —
     geminiVoice: 'Kore',
-    localVoiceEngine: 'supertonic',   // local: 'supertonic' | 'parler' | 'chatterbox' (a change reloads the voice)
+    localVoiceEngine: 'supertonic',   // local: 'supertonic' | 'parler' | 'chatterbox' | 'zonos' (a change reloads the voice)
     localVoice: 'F1',                 // Supertonic only
     localSpeed: 1,                    // speed of the local voice (0.5 – 2): Supertonic and Chatterbox
     voiceDescription: '',             // Parler only: the voice described in words, applied to each sentence
+    zonosVoice: '',                   // Zonos only: one of its voices, by id or name ('' = its first)
+    voiceDesign: '',                  // Zonos only: the voice designed, "age +1.5, deep 3", applied to each sentence
     // — models (local) —
     localAsr: '',                     // local: speech recognition model, one of config.json's "choices" ('' = its default)
     localLlm: '',                     // local: language model, one of config.json's "choices" ('' = its default)
@@ -137,7 +140,7 @@ const VoiceCore = (function () {
   const LOCAL_KEYS = ['name', 'persona', 'language', 'greeting', 'shortAnswers', 'creativity', 'localVoice',
     'localSpeed', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'interruptible', 'repairLine',
     'replyDelayMs', 'uiTools', 'turnDetection', 'interruptAfterMs', 'fillerLines', 'fillerAfterMs',
-    'localVoiceEngine', 'voiceDescription', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'agent'];
+    'localVoiceEngine', 'voiceDescription', 'zonosVoice', 'voiceDesign', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'agent'];
 
   const GEMINI_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService';
   const IN_RATE = 16000;              // what both engines listen to

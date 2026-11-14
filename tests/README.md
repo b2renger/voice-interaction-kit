@@ -25,6 +25,7 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-electron-main.mjs` | the Electron app with a fake Electron: Windows installer (shortcuts), built-in server, window, mic permission, menus, personas and their knowledge files, closing | Node 22+ |
 | `node tests/test-hub.mjs` | the hub (`app/src/hub.mjs`) through the real server: a fake studio publishes, two clients follow; snapshots, events, levels, commands, refused commands, who may connect | Node 22+ |
 | `node tests/test-smart-turn.mjs` | the Smart Turn end-of-turn pipeline (`app/src/turn/`), see below | Node 22+ (optional: Python 3 with numpy and onnxruntime) |
+| `node tests/test-zonos.mjs` | the Zonos voice (`app/src/engines/zonos.mjs`), with a fake Zonos server (`mock-zonos.mjs`) and a fake in-browser engine (`fixtures/zonos-engine/`): the design line and the doses it becomes; Zonos speaking (language, voice, design in each request; audio at 44.1 kHz), and the default voice taking over when Zonos is missing, refuses a request or disappears mid-reply; the engine in the studio's window (the default): its files and its model served by the app, downloaded once and usable offline, a window that answers over the bridge, loads, fails, closes and comes back; and, with Playwright, the studio hosting the engine, its voice picker and its design sliders | Node 22+ (optional: Playwright) |
 | `node tests/test-gemini.mjs` | voice-core's Gemini Live engine (run by the studio) in Chromium, with a fake mic, against a fake Gemini Live server, including away and the reprompt | Node + Playwright |
 | `node tests/test-local.mjs` | the studio in Chromium, with the simulated engine and a fake mic: a conversation (the voice dipping, fillers, away, the voice fields); Settings (the models, an LLM farm added by its address, a service, an imported agent that cannot change them); an agent built entirely in the studio (persona, a table, a pattern, a try, a conversation that follows it, its signal, an export, a table changed outside); the Guide (every page, its links to pages, views and websites, the views' help links) and the tutorial done as a newcomer would (by hand and with "Do it for me", left and picked up after a reload, down to a conversation with the café it built, the examples untouched); and its clients through the hub: the cables op (signals, stage, decisions), the HTML and p5.js examples (p5.js comes from its CDN) | Node + Playwright |
 
@@ -44,12 +45,13 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-farm | 39 | 0 |
 | test-electron-main | 28 | 0 |
 | test-smart-turn | 41 | 1 |
+| test-zonos | 125 | 0 |
 | test-gemini | 89 | 0 |
 | test-hub | 22 | 0 |
 | test-local | 128 | 0 |
-| **total** | **653** | **1** |
+| **total** | **778** | **1** |
 
-test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (638 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (763 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
 
 **Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 
@@ -74,6 +76,8 @@ The Python tools are in `tools/`: `make_smart_turn_fixtures.py` makes the refere
 - `core-harness.html` + `fixtures/core-ports.js`: the same fake cables running `common/voice-core.js` behind the ports of the former op (which ran Gemini itself), so `test-gemini.mjs` can drive the Gemini engine port by port;
 - `mock-gemini.mjs`: a fake Gemini Live server (setup, audio, transcripts, tools, interruption, `goAway`). It is as strict as the real one: an unknown field closes the session, and any `clientContent` cuts off the current reply. It can also make a startup hang (key `silent-key`) and hand out ephemeral tokens (`POST /token`);
 - `fake-qvac-sdk.mjs`: a fake `@qvac/sdk` (same functions and same data as version 0.21). Like QVAC, it accepts only one recognition stream at a time per model, released shortly after it closes. It checks the Parler and Chatterbox calls against QVAC 0.21's docs and schemas;
+- `fixtures/zonos-engine/engine.js`: a fake of Zonos's in-browser engine (the same two exports as the real `engine.js`, no WebGPU), loaded by the studio's page in the tests.
+- `mock-zonos.mjs`: a fake Zonos server (ZONOS3-Mini's HTTP API: health, voices, design sliders, `/v2/generate`). As strict as the real one's schema: an unknown field is a 422, an unknown voice, language or control a 400.
 - `electron-stub/`: a fake `electron` module.
 
 **Test hooks** (environment variables, read by the VIK server or by the tests):
