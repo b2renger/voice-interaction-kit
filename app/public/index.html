@@ -178,6 +178,15 @@
           <label class="field" data-show="gemini"><span>Gemini voice</span><select data-k="geminiVoice" id="geminiVoices"></select></label>
           <label class="field" data-show="gemini"><span>Way of speaking, asked of Gemini</span><input type="text" data-k="speakingStyle" placeholder="slow, calm, with a smile"></label>
           <label class="field"><span>Volume <output data-out="volume"></output></span><input type="range" min="0" max="2" step="0.05" data-k="volume"></label>
+          <div class="voices" data-show="local">
+            <label class="field"><span>Saved voices <span>the voice above, kept under a name</span></span><select id="voiceList"><option value="">None saved yet</option></select></label>
+            <div class="row">
+              <button type="button" class="btn" id="voiceSave">Save this voice…</button>
+              <button type="button" class="btn" id="voiceUse" title="Give the agent this voice">Use</button>
+              <button type="button" class="btn quiet danger" id="voiceDelete">Delete</button>
+            </div>
+            <p class="hint" id="voiceAbout"></p>
+          </div>
         </div>
       </div>
       <div class="group">

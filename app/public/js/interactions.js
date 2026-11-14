@@ -16,6 +16,7 @@ const THEN = {
   answer: ['Answer', 'the language model writes it'],
   choices: ['Show choices', 'buttons to tap'],
   mood: ['Set the mood', 'for the interface'],
+  voice: ['Change voice', 'from this reply on'],
   signal: ['Send a signal', 'to cables, p5.js, pages'],
   go: ['Go to', 'another stage'],
 };
@@ -154,6 +155,13 @@ function renderEditor() {
         h('input', { type: 'text', value: a.options.join(' | '), placeholder: 'Option A | Option B', 'aria-label': 'Options', oninput: edit((e) => { a.options = e.target.value.split('|').map((x) => x.trim()).filter(Boolean).slice(0, 6); }) })];
     } else if (a.do === 'mood') {
       body = [h('select', { 'aria-label': 'Mood', onchange: edit((e) => { a.mood = e.target.value; }) }, ...optionsOf(MOODS.map((m) => [m, m]), a.mood))];
+    } else if (a.do === 'voice') {
+      const voices = state.agent.voices || [];
+      const gone = a.voice && !voices.some((v) => v.id === a.voice);
+      body = [h('select', { 'aria-label': 'Voice', onchange: edit((e) => { a.voice = e.target.value; }) },
+        ...optionsOf([['', 'The agent’s own voice'], ...voices.map((v) => [v.id, v.name]), ...(gone ? [[a.voice, `${a.voice} (deleted)`]] : [])], a.voice)),
+        h('p', { class: 'hint' }, voices.length ? 'The agent answers in this voice from this reply on, until another pattern changes it. Voices are saved in Voice & timing.'
+          : 'No saved voice yet: set a voice in Voice & timing and save it under a name. It will appear here.')];
     } else if (a.do === 'signal') {
       body = [h('div', { class: 'row', style: 'flex-wrap:nowrap' },
         h('input', { type: 'text', value: a.name, placeholder: 'name, like show-artwork', 'aria-label': 'Signal name', oninput: edit((e) => { a.name = e.target.value; }) }),
@@ -169,7 +177,7 @@ function renderEditor() {
         i < p.then.length - 1 ? h('button', { type: 'button', title: 'Move down', 'aria-label': 'Move down', onclick: move(i, 1) }, '↓') : '',
         h('button', { type: 'button', title: 'Remove', 'aria-label': 'Remove this action', onclick: redraw(() => p.then.splice(i, 1)) }, '×')));
   };
-  const blank = { say: { text: '' }, answer: { instruction: '' }, choices: { question: '', options: [] }, mood: { mood: 'happy' }, signal: { name: '', value: '' }, go: { stage: (it.stages[0] || {}).id || '' } };
+  const blank = { say: { text: '' }, answer: { instruction: '' }, choices: { question: '', options: [] }, mood: { mood: 'happy' }, voice: { voice: '' }, signal: { name: '', value: '' }, go: { stage: (it.stages[0] || {}).id || '' } };
 
   box.replaceChildren(h('div', { class: 'peditor' },
     h('div', { class: 'head' },
@@ -245,7 +253,7 @@ const tryIt = debounce(async () => {
   flush();
   try {
     const d = await api.decide({ agent: state.agentId, text, stage: $('#tryStage').value });
-    const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'choices' ? `choices ${a.options.join(' | ')}` : `mood ${a.mood}`));
+    const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : `mood ${a.mood}`));
     out.replaceChildren(
       h('p', { class: 'took' }, d.pattern ? `${d.kind === 'otherwise' ? 'Otherwise: ' : ''}${d.pattern.name}${d.entry ? `, ${d.entry.key}` : ''}${d.score != null ? `  ${pct(d.score)}` : ''}` : 'A free answer'),
       h('p', { class: 'hint' }, d.pattern ? (then.length ? `Then: ${then.join(', then ')}.` : 'This pattern does nothing yet.') : `No pattern reaches the confidence (${pct(I().confidence)}): the language model answers, with what it knows.`),

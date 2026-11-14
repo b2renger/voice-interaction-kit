@@ -89,6 +89,7 @@ export function initTalk(agent) {
   const note = (text) => { if (lastDecision) lastDecision.append(h('p', { class: 'note' }, text)); else add(h('li', { class: 'event' }, text)); };
   agent.on('stage', (ev) => { if (ev.from) note(`Now in the stage ${ev.stage}.`); });
   agent.on('signal', (ev) => note(`Signal to the clients: ${ev.name}${ev.value ? ` = ${ev.value}` : ''}.`));
+  agent.on('voice', (ev) => note(ev.voice ? `Now speaking with the voice “${ev.name}”.` : 'Back to its own voice.'));
 
   // — every event, for the curious —
   agent.on('*', (ev) => {

@@ -52,6 +52,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `turn` | summary of a turn | `user`, `bot`, `interrupted`, `ms` | `On turn` |
 | `ui.choices` | the agent offers choices | `question`, `options` | `On choices` |
 | `ui.mood` | the agent changes mood | `mood` | `On mood` |
+| `voice` | a pattern changed the agent's voice to one of its saved voices (VIK, the local engine), or back to its own | `voice` (the saved voice's id, `''` = its own), `name` | — |
 | `tool.call` | the agent calls a tool declared in the settings (`extraTools`, Gemini). A client sends the result back (`tool.result`) | `id`, `name`, `args` | `On tool call` |
 | `tool.cancel` | Gemini cancels tool calls | `ids` | — |
 | `timing` | measurements from the local server | `turnId`, `ms` | — |
@@ -180,6 +181,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
   - `{type:'bot.filler', text, turnId}`: a spoken filler, followed by its audio frames;
   - `{type:'ui.choices', question, options}`;
   - `{type:'ui.mood', mood}`;
+  - `{type:'voice', voice, name}`: a pattern's "Change voice" took effect (`voice` `''`: the agent's own again);
   - `{type:'timing', turnId, ms}`: `ms` includes `smartTurn` when the model was used, and `decide` (the decision model);
   - `{type:'decision', …}`, `{type:'stage', stage, from}`, `{type:'signal', name, value}`: as the events of the same names. A decision comes after `thinking`; a pattern's choices, mood, signals and stage come right after it, before the reply's sentences;
   - `{type:'error', code, message, fatal}`.

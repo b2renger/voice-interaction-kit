@@ -26,6 +26,7 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-hub.mjs` | the hub (`app/src/hub.mjs`) through the real server: a fake studio publishes, two clients follow; snapshots, events, levels, commands, refused commands, who may connect | Node 22+ |
 | `node tests/test-smart-turn.mjs` | the Smart Turn end-of-turn pipeline (`app/src/turn/`), see below | Node 22+ (optional: Python 3 with numpy and onnxruntime) |
 | `node tests/test-zonos.mjs` | the Zonos voice (`app/src/engines/zonos.mjs`), with a fake Zonos server (`mock-zonos.mjs`) and a fake in-browser engine (`fixtures/zonos-engine/`): the design line and the doses it becomes; Zonos speaking (language, voice, design in each request; audio at 44.1 kHz), and the default voice taking over when Zonos is missing, refuses a request or disappears mid-reply; the engine in the studio's window (the default): its files and its model served by the app, downloaded once and usable offline, a window that answers over the bridge, loads, fails, closes and comes back; and, with Playwright, the studio hosting the engine, its voice picker and its design sliders | Node 22+ (optional: Playwright) |
+| `node tests/test-voices.mjs` | the saved voices (`app/src/agent/voices.mjs`) and the pattern action "Change voice": what a saved voice holds, where an agent keeps them (duplicate, export, import); a conversation where patterns change the voice (at once within an engine, after a reload across engines), the change lasting, ending, and never leaking into a new conversation; and, with Playwright, saving, using and deleting a voice in the studio, and the action in a pattern | Node 22+ (optional: Playwright) |
 | `node tests/test-gemini.mjs` | voice-core's Gemini Live engine (run by the studio) in Chromium, with a fake mic, against a fake Gemini Live server, including away and the reprompt | Node + Playwright |
 | `node tests/test-local.mjs` | the studio in Chromium, with the simulated engine and a fake mic: a conversation (the voice dipping, fillers, away, the voice fields); Settings (the models, an LLM farm added by its address, a service, an imported agent that cannot change them); an agent built entirely in the studio (persona, a table, a pattern, a try, a conversation that follows it, its signal, an export, a table changed outside); the Guide (every page, its links to pages, views and websites, the views' help links) and the tutorial done as a newcomer would (by hand and with "Do it for me", left and picked up after a reload, down to a conversation with the café it built, the examples untouched); and its clients through the hub: the cables op (signals, stage, decisions), the HTML and p5.js examples (p5.js comes from its CDN) | Node + Playwright |
 
@@ -46,12 +47,13 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-electron-main | 28 | 0 |
 | test-smart-turn | 41 | 1 |
 | test-zonos | 125 | 0 |
+| test-voices | 42 | 0 |
 | test-gemini | 89 | 0 |
 | test-hub | 22 | 0 |
 | test-local | 128 | 0 |
-| **total** | **778** | **1** |
+| **total** | **820** | **1** |
 
-test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (763 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (805 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
 
 **Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 

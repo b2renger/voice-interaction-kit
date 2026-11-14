@@ -6,7 +6,7 @@
 import { api } from './api.js';
 import { host, onHost, startZonosHost } from './zonos-host.js';
 import { $, $$, h } from './ui.js';
-import { settings, set, onChange } from './state.js';
+import { state, settings, set, onChange } from './state.js';
 
 /** "age +1.5, deep 3" → {age: 1.5, deep: 3} (the same reading as the server's, engines/zonos.mjs). */
 export function parseDesign(text) {
@@ -76,7 +76,8 @@ function build(info) {
       });
       input.addEventListener('change', () => push(0));
       return h('label', { class: 'field' },
-        h('span', {}, sl.poles ? `${sl.label}: ${sl.poles[0]} ↔ ${sl.poles[1]}` : sl.label, h('output', { 'data-for': sl.id }, '—')),
+        // (a label that already names its two ends, "Read ↔ chatty", is not given them again)
+        h('span', {}, sl.poles && !sl.label.includes('↔') ? `${sl.label}: ${sl.poles[0]} ↔ ${sl.poles[1]}` : sl.label, h('output', { 'data-for': sl.id }, '—')),
         input);
     })))));
   paint();
@@ -111,6 +112,8 @@ export function initZonos(pushSettings) {
     if (on && !shown) loadZonos(true);                 // asked each time the engine is chosen: the server may have started since
     shown = on;
     if (on) paint();
+    // a saved voice of the agent is a Zonos one (a pattern may change to it): have the engine ready too
+    if (!on && s.engine === 'local' && state.agent && (state.agent.voices || []).some((v) => v.settings.localVoiceEngine === 'zonos') && host.state === 'off') loadZonos(true);
   };
   onChange(refresh);
   refresh();

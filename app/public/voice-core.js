@@ -33,7 +33,7 @@ const VoiceCore = (function () {
     'thinking', 'bot.start', 'bot.text', 'bot.sentence', 'bot.end', 'interrupted', 'turn',
     'ui.choices', 'ui.mood', 'tool.call', 'tool.cancel', 'timing', 'error', 'ended',
     'turn.prediction', 'interruption.pending', 'interruption.cancelled', 'bot.filler', 'user.away',
-    'decision', 'stage', 'signal',
+    'decision', 'stage', 'signal', 'voice',
   ];
   const EVENT_SET = new Set(EVENTS);
 
@@ -718,6 +718,7 @@ const VoiceCore = (function () {
       case 'bot.unduck': h.duck(false, m); break;
       case 'decision': h.decision(m); break;
       case 'stage': h.stage(String(m.stage || ''), String(m.from || '')); break;
+      case 'voice': h.voice(String(m.voice || ''), String(m.name || '')); break;
       case 'signal': h.signal(String(m.name || ''), m.value == null ? '' : String(m.value)); break;
       case 'error':
         // Another page took over the conversation: this one is over, and THIS message must stay on screen
@@ -1153,6 +1154,8 @@ const VoiceCore = (function () {
           example: String(m.example || ''), entry: m.entry || null, candidates: Array.isArray(m.candidates) ? m.candidates : [], matcher: String(m.matcher || ''), ms: Number(m.ms) || 0 });
       },
       stage: function (stage, from) { emit('stage', { stage: stage, from: from }); },
+      // a pattern changed the agent's voice: one of its saved voices (its id and name), or '' = its own again
+      voice: function (voice, name) { emit('voice', { voice: voice, name: name }); },
       signal: function (name, value) { emit('signal', { name: name, value: value }); },
       toolCancel: function (ids) { emit('tool.cancel', { ids: ids }); },
       timing: function (turnId, ms) { Object.assign(turn.ms, ms || {}); emit('timing', { turnId: turnId, ms: ms || {} }); },

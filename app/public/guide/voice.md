@@ -25,6 +25,16 @@ Zonos runs inside this window, on the computer's graphics card. The first time y
 
 > **Cloning a voice needs consent.** A voice identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards.
 
+### Saved voices: several voices for one agent
+
+Under the voice, **Save this voice…** keeps the voice as it is set (its engine, its voice, its speed or its design) under a name: "the old sailor", "the child", "calm". The list holds the agent's saved voices, and those of the other agents on this computer.
+
+- **Use** gives the agent the voice chosen in the list: it becomes its own voice.
+- In a pattern, the action **Change voice** makes the agent answer in a saved voice from that reply on: a storyteller who becomes the wolf when you ask for the wolf, a guide who whispers in the last room. The change lasts until another pattern changes the voice again, or gives the agent "its own voice" back. A new conversation always starts in the agent's own voice.
+- A voice of the same engine changes at once. A voice of another engine has to be loaded first ("Changing voice…"), which takes a moment: for a quick back-and-forth between characters, save voices of the same engine.
+
+Saved voices belong to the agent: they are duplicated, exported and imported with it.
+
 ## Turn-taking: when have you finished?
 
 The agent has to guess when you have finished speaking. Too early, and it cuts off someone who hesitates. Too late, and it seems slow.

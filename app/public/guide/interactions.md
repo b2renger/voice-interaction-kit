@@ -28,6 +28,7 @@ A pattern does one or more things, in order:
 | **Answer** | the language model writes the reply, following your instruction ("in two sentences, then ask a question") |
 | **Show choices** | buttons on the screen, with an optional question |
 | **Set the mood** | a mood for the interface: happy, curious, sorry… |
+| **Change voice** | from this reply on, the agent speaks with one of its saved voices (Voice & timing), or with its own again |
 | **Send a signal** | a signal to cables, p5.js and pages: `show-artwork` with the value `{name}` |
 | **Go to** | moves the conversation to another stage |
 
