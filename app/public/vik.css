@@ -140,8 +140,14 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 16
 /* the Zonos voice's design sliders (Voice & timing): one block across the grid, its sliders by group */
 .design { grid-column: 1 / -1; display: grid; gap: 12px; }
 .design[hidden] { display: none; }
+/* the saved voices (Voice & timing): a list, its buttons, and what the chosen one is */
+.voices { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(260px, 1fr) auto; gap: 8px 16px; align-items: end; padding-top: 6px; }
+.voices[hidden] { display: none; }
+.voices .hint { grid-column: 1 / -1; margin: 0; }
 #zonosDesign { display: grid; gap: 16px; }
 .design-group h3 { color: var(--muted); }
+/* (auto-fill: a group with a single slider keeps the width of the others) */
+.design-group .grid2 { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 button.link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent, inherit); text-decoration: underline; cursor: pointer; }
 .stack { display: grid; gap: 14px; }
 

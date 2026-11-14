@@ -16,6 +16,7 @@ export const THEN = {
   answer: 'the language model answers',
   choices: 'show choice buttons',
   mood: 'set the mood',
+  voice: 'change voice',
   signal: 'send a signal to the clients',
   go: 'go to another stage',
 };
@@ -77,6 +78,8 @@ function action(a) {
     case 'answer': return { do: 'answer', instruction: text(a.instruction) };
     case 'choices': return { do: 'choices', question: text(a.question, 200), options: list(a.options).slice(0, 6) };
     case 'mood': return { do: 'mood', mood: MOODS.includes(a.mood) ? a.mood : 'neutral' };
+    // one of the agent's saved voices (voices.mjs), by its id; '' = back to the agent's own voice
+    case 'voice': return { do: 'voice', voice: slug(a.voice, '') };
     case 'signal': return { do: 'signal', name: text(a.name, 80), value: text(a.value, 500) };
     case 'go': return { do: 'go', stage: slug(a.stage, '') };
     default: return null;

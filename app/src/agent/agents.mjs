@@ -2,6 +2,7 @@
 //
 //   <dir>/<id>/persona.md            who it is (markdown + settings)
 //   <dir>/<id>/knowledge/<table>.csv what it knows
+//   <dir>/<id>/voices.json           its saved voices, if it has any (voices.mjs)
 //   <dir>/<id>/interactions.json     how it decides
 //
 // The studio edits them through the server's API (app-server.mjs); they can also be edited by hand while the app
@@ -12,6 +13,7 @@ import { join, basename, extname } from 'node:path';
 import { parsePersona, writePersona } from './persona.mjs';
 import { parseCsv, writeCsv } from './csv.mjs';
 import { normalizeInteractions, slug } from './interactions.mjs';
+import { normalizeVoices } from './voices.mjs';
 
 export const ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const MARKER = '.vik';
@@ -61,12 +63,13 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
     const add = (p) => { try { const s = statSync(p); parts.push(`${p}:${s.size}:${s.mtimeMs}`); } catch { parts.push(`${p}:-`); } };
     add(join(f, 'persona.md'));
     add(join(f, 'interactions.json'));
+    add(join(f, 'voices.json'));
     const k = join(f, 'knowledge');
     if (existsSync(k)) for (const n of readdirSync(k).sort()) if (n.endsWith('.csv')) add(join(k, n));
     return parts.join('|');
   }
 
-  /** Everything about an agent, parsed: {id, settings, body, tables, interactions}. Cached until a file changes. */
+  /** Everything about an agent, parsed: {id, settings, body, tables, interactions, voices}. Cached until a file changes. */
   function compiled(id) {
     const f = must(id);
     const sig = signature(f);
@@ -87,7 +90,9 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
     }
     let raw = {};
     try { raw = JSON.parse(readText(join(f, 'interactions.json')) || '{}'); } catch (e) { log(`✖ agent ${id}: interactions.json is not valid JSON (${e.message})`); }
-    const agent = { id, settings, body, tables, interactions: normalizeInteractions(raw) };
+    let saved = {};
+    try { saved = JSON.parse(readText(join(f, 'voices.json')) || '{}'); } catch (e) { log(`✖ agent ${id}: voices.json is not valid JSON (${e.message})`); }
+    const agent = { id, settings, body, tables, interactions: normalizeInteractions(raw), voices: normalizeVoices(saved).voices };
     cache.set(id, { sig, agent });
     return agent;
   }
@@ -108,12 +113,13 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
   }
 
   /** Writes a whole agent (a new one, an import). */
-  function writeAgent(id, { persona, tables = [], interactions = {} }) {
+  function writeAgent(id, { persona, tables = [], interactions = {}, voices = null }) {
     const f = folder(id);
     mkdirSync(join(f, 'knowledge'), { recursive: true });
     atomicWrite(join(f, 'persona.md'), typeof persona === 'string' ? persona : writePersona(persona));
     for (const t of tables) atomicWrite(join(f, 'knowledge', `${tableId(t.id)}.csv`), typeof t.csv === 'string' ? t.csv : writeCsv(cleanTable(t)));
     atomicWrite(join(f, 'interactions.json'), `${JSON.stringify(normalizeInteractions(interactions), null, 2)}\n`);
+    if (normalizeVoices(voices).voices.length) atomicWrite(join(f, 'voices.json'), `${JSON.stringify(normalizeVoices(voices), null, 2)}\n`);
     changed(id);
     return id;
   }
@@ -162,6 +168,20 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
       return clean;
     },
 
+    /** The agent's saved voices (voices.mjs): the whole list at once. Returns it, cleaned. */
+    saveVoices(id, data) {
+      const clean = normalizeVoices(data);
+      atomicWrite(join(must(id), 'voices.json'), `${JSON.stringify(clean, null, 2)}\n`);
+      changed(id);
+      return clean.voices;
+    },
+    /** The saved voices of every agent, for "use a voice of another agent": [{agent, title, id, name, settings}]. */
+    allVoices() {
+      const out = [];
+      for (const id of ids()) { try { const a = compiled(id); for (const v of a.voices) out.push({ agent: id, title: String(a.settings.title || a.settings.name || id), ...v }); } catch { /* an unreadable agent */ } }
+      return out;
+    },
+
     /** A new agent: empty, a copy of another (from), or an import (bundle). Returns its summary. */
     create({ name = '', from = '', bundle = null } = {}) {
       if (bundle) return summary(importBundle(bundle));
@@ -199,6 +219,7 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
         persona: readText(join(f, 'persona.md')),
         knowledge: Object.fromEntries(a.tables.map((t) => [t.id, writeCsv(t)])),
         interactions: a.interactions,
+        ...(a.voices.length ? { voices: a.voices } : {}),
       };
     },
     importBundle,
@@ -224,7 +245,7 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
       const title = String(p.settings.title || p.settings.name || b.id || 'Imported agent');
       const tables = Object.entries(b.knowledge && typeof b.knowledge === 'object' ? b.knowledge : {})
         .filter(([t]) => ID.test(slug(t, ''))).map(([t, csv]) => ({ id: slug(t, ''), ...parseCsv(String(csv)) }));
-      return writeAgent(newId(b.id || title), { persona: { settings: agentOnly(p.settings), body: p.body }, tables, interactions: b.interactions || {} });
+      return writeAgent(newId(b.id || title), { persona: { settings: agentOnly(p.settings), body: p.body }, tables, interactions: b.interactions || {}, voices: b.voices });
     }
     if (typeof b.persona === 'string' || typeof b.name === 'string') return writeAgent(newId(b.title || b.name || 'Imported agent'), fromLegacy(b, ''));
     throw httpError(400, 'This file is not an agent (no persona).');

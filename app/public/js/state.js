@@ -112,6 +112,15 @@ export function saveTableSoon(t) {
 const saveInteractionsNow = () => { const id = state.agentId; const data = state.agent.interactions; return guard(() => api.saveInteractions(id, data)); };
 export const saveInteractionsSoon = debounce(saveInteractionsNow, 500);
 
+/** The agent's saved voices, saved now (the whole list). Returns the list as kept, or null if it failed. */
+export async function saveVoices(list) {
+  const id = state.agentId;
+  let kept = null;
+  await guard(async () => { kept = await api.saveVoices(id, list); });
+  if (kept && id === state.agentId) { state.agent.voices = kept; emit('setting', 'voices'); }
+  return kept;
+}
+
 /** Edits not yet on disk (waiting, or being sent). */
 export function busy() {
   return saving > 0 || savePersonaSoon.pending() || saveInteractionsSoon.pending() || [...tableSavers.values()].some((s) => s.pending());

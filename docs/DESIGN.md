@@ -29,6 +29,7 @@ agents/
       artworks.csv        what it knows, one table per kind of thing
       artists.csv
     interactions.json     its stages and patterns: how it decides
+    voices.json           its saved voices, if it has any: a pattern can change to one
 ```
 
 The studio edits these files and saves them as you type. They stay readable, so they can also be written by hand, shared, or kept in git. **Export** packs an agent into one `.vik.json` file, and **Import** unpacks it (the studio also imports the persona JSON files of earlier versions).

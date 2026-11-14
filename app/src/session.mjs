@@ -5,6 +5,7 @@ import { ReplyParser, systemPrompt, heardNothing, speakable, trimHistory, classi
 import { delay, clamp, num, progressText } from './util.mjs';
 import { fill } from './agent/knowledge.mjs';
 import { knowledgePrompt } from './agent/decide.mjs';
+import { VOICE_KEYS } from './agent/voices.mjs';
 
 const DEFAULTS = {
   name: 'Ada', persona: '', language: 'en', greeting: '', shortAnswers: true, creativity: 1,
@@ -56,6 +57,7 @@ export class Session {
   constructor(ws, engine, prepareLock, log) {
     this.ws = ws; this.engine = engine; this.lock = prepareLock; this.log = log;
     this.s = { ...DEFAULTS };
+    this.voice = null;            // the saved voice a pattern switched to ({id, name, settings}); null: the agent's own
     this.history = [];
     this.context = [];
     this.stage = '';              // the agent's current stage
@@ -118,6 +120,7 @@ export class Session {
   // — start and settings ——————————————————————————————————————————————————————
   async start(settings) {
     this.s = { ...DEFAULTS, ...settings };
+    this.voice = null;                                // a new conversation starts in the agent's own voice
     this.status('Preparing the models…', 0);
     await this.lock(() => this.engine.prepare(this.s, (p) => this.status(progressText(p), p.progress)));
     if (this.closed) return;                          // the page left during loading
@@ -169,20 +172,27 @@ export class Session {
   }
 
   async applySettings(patch) {
-    const prev = this.s;
+    const prev = this.vs;
+    const own = this.s;
     this.s = { ...this.s, ...patch };
+    // the voice edited in the studio during a conversation is the one to hear: it ends a pattern's change of
+    // voice (another agent too)
+    if (this.voice && ['agent', ...VOICE_KEYS].some((k) => k in patch && JSON.stringify(patch[k]) !== JSON.stringify(own[k]))) {
+      this.voice = null;
+      if (this.started) this.send({ type: 'voice', voice: '', name: '' });
+    }
     if (!this.started) return;
-    const changed = (keys) => keys.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(this.s[k]));
+    const changed = (keys) => keys.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(this.vs[k]));
     const asrChanged = changed(ASR_KEYS);
-    const ttsChanged = changed(TTS_KEYS[voiceEngine(this.s)]);
+    const ttsChanged = changed(TTS_KEYS[voiceEngine(this.vs)]);
     if (asrChanged && this.asr) { this.asr.close(); this.asr = null; }   // close BEFORE reloading the model
     if (asrChanged || ttsChanged || changed(LLM_KEYS)) {
       this.status('New settings: reloading…', null);
-      await this.lock(() => this.engine.prepare(this.s, (p) => this.status(progressText(p), p.progress)));
+      await this.lock(() => this.engine.prepare(this.vs, (p) => this.status(progressText(p), p.progress)));
       if (this.closed) return;
       this.status('', null);
     }
-    if (parlerNotEnglish(this.s) && (!parlerNotEnglish(prev) || changed(['language']))) this.status(PARLER_ENGLISH_ONLY, null);
+    if (parlerNotEnglish(this.vs) && (!parlerNotEnglish(prev) || changed(['language']))) this.status(PARLER_ENGLISH_ONLY, null);
     if (changed(['localVoiceEngine'])) this.voiceFallbackNote();
     if (asrChanged && !this.closed && !this.asr) this.openAsr();
     if (changed(['turnDetection'])) this.useTurnDetection();
@@ -492,6 +502,9 @@ export class Session {
     const plan = d && d.kind !== 'free' ? actions.filter((a) => a.do === 'say' || a.do === 'answer') : [{ do: 'answer', instruction: '' }];
     if (d && d.entry) this.focus = d.entry;
     for (const a of actions) this.act(a, d, userText);
+    // a change of voice: this very reply is said in the new one (the last change wins)
+    const voice = actions.filter((a) => a.do === 'voice').pop();
+    if (voice) { await this.switchVoice(voice.voice); if (abort.signal.aborted || this.closed) return; }
 
     const tts = this.engine.speak(this.voiceParams());
     bot.tts = tts;
@@ -635,13 +648,47 @@ export class Session {
     tts.end();
   }
 
+  /**
+   * The settings the voice speaks with: the agent's, or, after a pattern's "Change voice", those of the saved
+   * voice it switched to (this.voice), for the rest of the conversation or until the next change.
+   */
+  get vs() { return this.voice ? { ...this.s, ...this.voice.settings } : this.s; }
+
   /** The voice settings of a synthesis. */
   voiceParams() {
+    const s = this.vs;
     return {
-      voice: this.s.localVoice, speed: this.s.localSpeed, language: this.s.language,
-      engine: voiceEngine(this.s), description: String(this.s.voiceDescription || '').trim(),
-      zonosVoice: String(this.s.zonosVoice || '').trim(), design: String(this.s.voiceDesign || '').trim(),
+      voice: s.localVoice, speed: s.localSpeed, language: s.language,
+      engine: voiceEngine(s), description: String(s.voiceDescription || '').trim(),
+      zonosVoice: String(s.zonosVoice || '').trim(), design: String(s.voiceDesign || '').trim(),
     };
+  }
+
+  /**
+   * A pattern's "Change voice": from this reply on, the agent speaks with one of its saved voices (id), or with
+   * its own again (''). A voice of the engine already loaded changes at once; another engine is loaded first
+   * (the reply waits for it). An unknown voice changes nothing. The clients are told: {type:'voice', voice, name}.
+   */
+  async switchVoice(id) {
+    const decider = this.engine.decider;
+    const saved = id && decider && typeof decider.voice === 'function' ? decider.voice(String(this.s.agent), id) : null;
+    if (id && !saved) { this.log(`(no saved voice "${id}": the voice stays)`); return; }
+    if ((this.voice ? this.voice.id : '') === (saved ? saved.id : '')) return;
+    const before = this.vs;
+    this.voice = saved;
+    const after = this.vs;
+    this.send({ type: 'voice', voice: saved ? saved.id : '', name: saved ? saved.name : '' });
+    this.log(`▸ voice: ${saved ? saved.name : "the agent's own"}`);
+    const loaded = (s) => JSON.stringify(TTS_KEYS[voiceEngine(s)].map((k) => s[k]));
+    if (voiceEngine(before) !== voiceEngine(after) || loaded(before) !== loaded(after)) {
+      this.status('Changing voice…', null);
+      await this.lock(() => this.engine.prepare(after, (p) => this.status(progressText(p), p.progress)));
+      if (this.closed) return;
+      this.status('', null);
+      if (parlerNotEnglish(after)) this.status(PARLER_ENGLISH_ONLY, null);
+      this.voiceFallbackNote();
+    }
+    this.warmFillers();
   }
 
   /** The chosen voice could not be used (Zonos without its server): say which voice speaks instead. */
@@ -674,7 +721,7 @@ export class Session {
   }
 
   fillerKey(text) {
-    const s = this.s;
+    const s = this.vs;
     return JSON.stringify([voiceEngine(s), s.localVoice, num(s.localSpeed, 1), s.language, String(s.voiceDescription || '').trim(),
       voiceEngine(s) === 'zonos' ? [String(s.zonosVoice || '').trim(), String(s.voiceDesign || '').trim()] : 0, text]);
   }

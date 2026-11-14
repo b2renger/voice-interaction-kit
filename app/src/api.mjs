@@ -3,10 +3,12 @@
 //   GET    /api/agents                          the agents: [{id, name, title, language, tables, patterns}]
 //   POST   /api/agents                          a new agent: {name} | {from: id} (a copy) | {bundle} (an import)
 //                                               | {examples: true} (the example agents not here yet)
-//   GET    /api/agents/:id                      everything: {id, settings, body, tables, interactions}
+//   GET    /api/agents/:id                      everything: {id, settings, body, tables, interactions, voices}
 //   DELETE /api/agents/:id                      moves it to the trash folder
 //   PUT    /api/agents/:id/persona              {settings, body}
 //   PUT    /api/agents/:id/interactions         {start, stages, sensitivity, patterns}
+//   PUT    /api/agents/:id/voices               {voices: [{name, settings}]}: its saved voices, the whole list
+//   GET    /api/voices                          the saved voices of every agent: [{agent, title, id, name, settings}]
 //   PUT    /api/agents/:id/tables/:table        {headers, rows}            (creates the table if needed)
 //   DELETE /api/agents/:id/tables/:table
 //   POST   /api/agents/:id/tables/:table/rename {to}
@@ -39,6 +41,7 @@ async function route(req, path, { store, decide }) {
     if (!decide) throw status(404, 'No decision model here.');
     return decide(await body(req));
   }
+  if (parts[0] === 'voices' && parts.length === 1 && m === 'GET') return store.allVoices();
   if (parts[0] !== 'agents') throw status(404, 'Not found.');
   const [, id, sub, table, action] = parts;
   if (!id) {
@@ -55,6 +58,8 @@ async function route(req, path, { store, decide }) {
     return store.savePersona(id, await body(req));
   } else if (sub === 'interactions' && m === 'PUT') {
     return store.saveInteractions(id, await body(req));
+  } else if (sub === 'voices' && m === 'PUT') {
+    return store.saveVoices(id, await body(req));
   } else if (sub === 'export' && m === 'GET') {
     return { ...store.exportBundle(id), __file: `${id}.vik.json` };
   } else if (sub === 'tables' && table) {

@@ -10,6 +10,7 @@ import { initSettings, loadModels, paintSettings, showHealth, modelsInUse } from
 import { initGuide, renderGuide, openGuide, refreshGuideTour } from './guide.js';
 import { initTour, startTour, tourCard } from './tour.js';
 import { initZonos } from './zonos.js';
+import { initVoices } from './voices.js';
 
 // ———————————————————————————— the conversation ————————————————————————————
 $('#geminiVoices').replaceChildren(...VoiceCore.GEMINI_VOICES.map(([n, c]) => h('option', { value: n }, `${n}, ${c}`)));
@@ -21,6 +22,7 @@ initKnowledge();
 initInteractions();
 initSettings();
 initZonos((ms) => pushSettings(ms));
+initVoices((ms) => pushSettings(ms));
 
 /** The settings go to the conversation after a short pause (a slider, a word typed): some reload a model. */
 let pushTimer = 0;

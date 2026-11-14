@@ -163,6 +163,8 @@ export function createDecider({ store, matcher, log = () => {} }) {
     /** The first stage of an agent. */
     startStage: (id) => store.compiled(id).interactions.start,
     hasStage: (id, stage) => store.compiled(id).interactions.stages.some((s) => s.id === stage),
+    /** One of the agent's saved voices, by its id: {id, name, settings}, or null. */
+    voice: (id, voice) => { try { return store.compiled(id).voices.find((v) => v.id === voice) || null; } catch { return null; } },
     /** Computes an agent's embeddings ahead of its first sentence. */
     warm: (id) => indexOf(id).then(() => true, (e) => { log(`(decision model: ${e.message})`); return false; }),
   };
