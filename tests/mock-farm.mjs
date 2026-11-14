@@ -1,13 +1,14 @@
 // A FAKE LLM farm (LlmOnLan), on one port: GET /lol/self (its snapshot, as farm/src/snapshot.js builds it) and
 // POST /v1/chat/completions (the OpenAI format, streamed, as LiteLLM answers). It records the requests.
 //   const farm = await startMockFarm({ key: 'secret' });   farm.state.full = true → 429 (all places taken)
+//                                                          farm.state.starting = true → 503 (its model is starting)
 import { createServer } from 'node:http';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function startMockFarm({ key = '', model = 'assistant', underlying = 'gemma4:12b', reply = ['Hello', ' from', ' the farm.'] } = {}) {
   const requests = [];
-  const state = { full: false, wordMs: 20 };
+  const state = { full: false, starting: false, wordMs: 20 };
   const json = (res, status, o) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); };
   const server = createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/lol/self') return json(res, 200, snapshot());
@@ -21,6 +22,7 @@ export async function startMockFarm({ key = '', model = 'assistant', underlying 
       const b = JSON.parse(body);
       requests.push({ authorization: req.headers.authorization, body: b });
       if (key && req.headers.authorization !== `Bearer ${key}`) return json(res, 401, { error: { message: 'Authentication Error, Invalid proxy server token passed.' } });
+      if (state.starting) { res.setHeader('retry-after', '120'); return json(res, 503, { error: { message: 'This farm\'s model is starting: about 2 minutes. Try again then.', type: 'api_error', code: 'lol_engine_starting' } }); }
       if (state.full) { res.setHeader('retry-after', '120'); return json(res, 429, { error: { message: 'lol_seats_full: every seat is taken', type: 'lol_seats_full' } }); }
       if (b.model !== model) return json(res, 400, { error: { message: `Invalid model name passed in model=${b.model}` } });
       res.writeHead(200, { 'content-type': 'text/event-stream' });

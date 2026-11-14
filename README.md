@@ -11,6 +11,10 @@ It has **one studio and several clients**:
 | [**The VIK studio**](app/) | **the brain**, a Windows / Mac app. You build an agent (persona, knowledge, interactions, voice), you talk to it, and you see why it answered. It listens, decides and speaks on the computer. | designing the agent and the conversation |
 | **Its clients** | [**the cables.gl op "VoiceAgent"**](cables/), and [**p5.js and HTML/CSS/JS examples**](examples/): they follow the conversation, show it, and drive it | designing the interface: visuals, animation, subtitles, buttons, sensors |
 
+<p align="center"><img src="docs/screenshots/talk.png" alt="The Talk view of the studio: the agent's presence in the middle, the last exchange under it, and on the right why it answered: the pattern that fired, how sure it was, and what came close" width="900"></p>
+
+<p align="center"><em>The studio's Talk view: you talk to the agent, and you see why it answered.</em></p>
+
 ## How an agent works
 
 ```
@@ -31,6 +35,29 @@ An agent is made of four things, all edited in the studio:
 Four example agents come with the app: a museum guide, a station kiosk, a chef who guides a recipe step by step, and a gardener.
 
 **Gemini Live** is also there, as an all-online mode: Gemini hears, decides and speaks by itself, with the persona and the knowledge but without the patterns. It is a reference to compare a designed agent with.
+
+## The studio in pictures
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/persona.png" alt="The Persona view: the agent's name, language, greeting, its persona in markdown, and what the language model reads"><br><strong>Persona</strong>: who the agent is and how it speaks.</td>
+    <td width="50%"><img src="docs/screenshots/knowledge.png" alt="The Knowledge view: a table of artists edited like a spreadsheet, and a field showing what the agent would look up for a sentence"><br><strong>Knowledge</strong>: tables of what it knows, and what it would look up.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/interactions.png" alt="The Interactions view: stages, the confidence slider, a sentence being tried with the score of each pattern, and the list of patterns"><br><strong>Interactions</strong>: patterns and stages; try a sentence and see which pattern fires.</td>
+    <td><img src="docs/screenshots/voice.png" alt="The Voice and timing view: the voice engine, the voice and its speed, the turn-taking settings and what the agent does while it thinks"><br><strong>Voice &amp; timing</strong>: the voice, when it takes its turn, what it does while it thinks.</td>
+  </tr>
+</table>
+
+**Saving and reopening.** Everything is saved as you type: each agent is a folder on the computer (its persona, its knowledge, its interactions). You reopen an agent by choosing it in the list at the top. The **Manage** menu next to it creates, duplicates, exports an agent to one file (`.vik.json`) to carry it to another computer, and imports such a file.
+
+<p align="center"><img src="docs/screenshots/manage.png" alt="The Manage menu open next to the agent's name: New agent, Duplicate, Export to a file, Import a file, Add the example agents, Delete this agent" width="700"></p>
+
+**Where the replies are written.** By default, on the computer. In **Settings**, the language model can also be an **LLM farm**, a computer of the room that serves a bigger model with [LlmOnLan](https://github.com/b2renger/LlmOnLan), or an online service. It is a choice of each computer, never the default, and hearing, deciding and the voice stay local.
+
+<p align="center"><img src="docs/screenshots/settings.png" alt="The Settings view: the engine (VIK on this computer, or Gemini Live), and the language model: on this computer, an LLM farm (LlmOnLan), or a service" width="700"></p>
+
+<sub>The pictures are taken with the simulated engine (menu Engine → Simulated), by <code>node docs/screenshots/capture.mjs</code>.</sub>
 
 ## What you can explore, and with what
 
@@ -90,7 +117,7 @@ tests/                        the automated tests (npm test)
 
 ## What has been checked
 
-More than **610 automated checks** pass (`npm test` at the root, see [`tests/README.md`](tests/README.md)). They run without models and without a Gemini key, against faithful fakes: Gemini Live, the QVAC SDK (which refuses what the real one refuses), Electron, an LLM farm. They include an agent built entirely in the studio, in Chromium (persona, table, pattern, a try, a conversation that follows the pattern, a signal, an export), every page of the Guide and its links, and the whole tutorial done as a newcomer would.
+More than **650 automated checks** pass (`npm test` at the root, see [`tests/README.md`](tests/README.md)). They run without models and without a Gemini key, against faithful fakes: Gemini Live, the QVAC SDK (which refuses what the real one refuses), Electron, an LLM farm. They include an agent built entirely in the studio, in Chromium (persona, table, pattern, a try, a conversation that follows the pattern, a signal, an export), every page of the Guide and its links, and the whole tutorial done as a newcomer would.
 
 **Checked with the real models**, on a Windows computer with QVAC 0.21: Whisper, Qwen3 1.7B and Supertonic load from their files; **EmbeddingGemma 300M** downloads from Hugging Face and runs the decision model: 34 sentences on the example agents, in English and in French, all decided as intended, in about 20 ms each. Its score ranges were measured there.
 

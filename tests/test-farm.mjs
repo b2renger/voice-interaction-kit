@@ -37,9 +37,10 @@ const rejects = async (p) => { try { await p; return null; } catch (e) { return 
     'beacon: its models (the served name, the real model behind it)', one && one.models);
   check(finder.list().length === 1, 'beacon: a packet that is not a farm snapshot is ignored', finder.list().map((f) => f.id));
   // another farm, sending from 127.0.0.1 but advertising its LAN address: the advertised one wins
-  await send({ ...farm.snapshot(), id: 'far-farm', name: 'Far farm', endpoint: 'http://10.1.2.3:4000', proxyPort: 4000, requiresKey: false });
+  await send({ ...farm.snapshot(), id: 'far-farm', name: 'Far farm', endpoint: 'http://10.1.2.3:4000', proxyPort: 4000, requiresKey: false, capacity: { slots: 8, clients: 0, seatsUsed: 3 } });
   const far = await until(() => finder.list().find((f) => f.id === 'far-farm'), 3000);
   check(far && far.url === 'http://10.1.2.3:4000/v1' && !far.requiresKey, 'beacon: the address the farm advertises beats the packet\'s', far);
+  check(far && far.slots === 8 && far.clients === 3, 'beacon: the places taken are the farm\'s seats in use (seatsUsed), not only the LlmOnLan apps connected', far);
   udp.close();
   finder.close();
 }
@@ -76,6 +77,10 @@ const ask = (o = {}, onDelta = () => {}) => remoteGenerate({
   farm.state.full = true;
   check(/is full: all its places are taken \(one frees in about 2 min\)/.test(await rejects(ask().done) || ''), 'refusal: a full farm (429 lol_seats_full) → "is full", and when a place frees');
   farm.state.full = false;
+  farm.state.starting = true;
+  const starting = await rejects(ask().done) || '';
+  check(starting === 'the LLM farm cannot answer right now. This farm\'s model is starting: about 2 minutes. Try again then.', 'refusal: a farm whose model is starting (503) → its own sentence, and when to try again', starting);
+  farm.state.starting = false;
   check(/does not answer: is it on, and on this network\?/.test(await rejects(ask({ url: 'http://127.0.0.1:1/v1' }).done) || ''), 'refusal: a farm that is off → "does not answer"');
   // any OpenAI-compatible service (Ollama, OpenAI, Gemini…): the same client, its own words
   const svc = (o = {}) => remoteGenerate({ remote: { kind: 'service', url: farm.url, model: 'assistant', key: 'secret', ...o }, system: 'S', history: [], temperature: 0.7, maxTokens: 50, onDelta: () => {} });

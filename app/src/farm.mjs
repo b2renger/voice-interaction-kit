@@ -6,7 +6,9 @@
 //   - each farm sends a small JSON snapshot every 5 s over UDP, to 239.255.43.10:41998 and to the broadcast
 //     address. We only listen once the studio asks for farms (Windows then asks to allow the app).
 //   - a farm the beacon does not reach (another subnet): its address, asked at http://<host>:41997/lol/self.
-// The snapshot: {v, id, name, proxyPort, endpoint, requiresKey, models: [{id, underlying, default}], healthy, ...}.
+// The snapshot: {v, id, name, proxyPort, endpoint, requiresKey, models: [{id, underlying, default}], healthy,
+// capacity: {slots, seatsUsed, clients}, ...} (LlmOnLan's farm/contract/snapshot.schema.json; checked against
+// farm-v0.0.53, November 2026).
 // The replies: POST http://<host>:<proxyPort>/v1/chat/completions, streamed, with the farm password as the key
 // (src/llm.mjs, the same client as for any OpenAI-compatible service).
 import dgram from 'node:dgram';
@@ -95,7 +97,9 @@ function view(id, { snap: s, host, seen }, now) {
     requiresKey: !!s.requiresKey,
     healthy: s.healthy !== false && now - seen < STALE_MS,
     models,
-    clients: Number.isFinite(cap.clients) ? cap.clients : null,
+    // the places taken: the farm's seats in use (seatsUsed, farms with the seat gate), which counts anyone who
+    // generates, VIK included; older farms only give the LlmOnLan apps connected (clients)
+    clients: Number.isFinite(cap.seatsUsed) ? cap.seatsUsed : Number.isFinite(cap.clients) ? cap.clients : null,
     slots: Number.isFinite(cap.slots) ? cap.slots : null,
   };
 }
