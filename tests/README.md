@@ -41,15 +41,15 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-decide | 50 | 0 |
 | test-guide | 26 | 0 |
 | test-models | 48 | 0 |
-| test-farm | 37 | 0 |
+| test-farm | 39 | 0 |
 | test-electron-main | 28 | 0 |
 | test-smart-turn | 41 | 1 |
 | test-gemini | 89 | 0 |
 | test-hub | 22 | 0 |
 | test-local | 128 | 0 |
-| **total** | **651** | **1** |
+| **total** | **653** | **1** |
 
-test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (636 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (638 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
 
 **Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 

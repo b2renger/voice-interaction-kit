@@ -118,6 +118,9 @@ async function refusal(res, remote) {
     }
     return `${it} says there are too many requests (or the account has no credit left): wait a moment. (${msg})`;
   }
+  // a farm whose model is starting, stopped or being changed by the person running it (LlmOnLan's seat gate: 503,
+  // with its own sentence, which says when to try again)
+  if (res.status === 503 && remote.kind === 'farm') return `the LLM farm cannot answer right now. ${msg}`;
   if ((res.status === 400 || res.status === 404) && /model/i.test(msg)) {
     return `${it} does not serve the model "${remote.model}": choose the language model again (${where(remote)}). (${msg})`;
   }
