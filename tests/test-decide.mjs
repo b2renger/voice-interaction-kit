@@ -1,7 +1,7 @@
 // The decision model (app/src/agent/: knowledge, matcher, decide) and how a conversation follows it: patterns,
 // stages, entries, placeholders, signals, the knowledge given to the language model, the explanation events.
 //   node tests/test-decide.mjs
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
@@ -44,6 +44,32 @@ const museum = {
   check(entriesOf({ tables: [{ id: 'a', name: 'A', headers: ['name', 'by'], rows: [['X', 'Monet']] }, { id: 'b', name: 'B', headers: ['name'], rows: [['Claude Monet | Monet']] }] })[0].links[0].key === 'Claude Monet',
     'knowledge: a cell naming any name of another entry links to it');
   check(/^Water Lilies \(also: Nymphéas\) \(artworks\)/.test(describe(alias[0])), 'knowledge: the other names are part of the entry\'s text (the matcher, the model)', describe(alias[0]));
+}
+
+// — 1b. OSC out (app/src/osc.mjs): the action, its value, where it goes, the bytes —
+const json = (x) => JSON.stringify(x);
+/** One OSC message → {address, args}: strings, int32 and float32 (what the action sends). */
+function decodeOsc(b) {
+  let i = 0;
+  const str = () => { const end = b.indexOf(0, i); const s = b.toString('utf8', i, end); i = (end + 4) & ~3; return s; };
+  const address = str();
+  const args = [...str().slice(1)].map((t) => { const v = t === 's' ? str() : t === 'i' ? b.readInt32BE(i) : b.readFloatBE(i); if (t !== 's') i += 4; return v; });
+  return { address, args };
+}
+{
+  const { oscArgs, oscTargets, encodeOsc } = await import(src('osc.mjs'));
+  const { normalizeInteractions } = await import(src('agent/interactions.mjs'));
+  const n = normalizeInteractions({ patterns: [{ name: 'P', then: [{ do: 'osc', address: ' artlux/scene/ recall', value: '{name}' }, { do: 'osc', to: 'evil.example:1' }] }] });
+  check(json(n.patterns[0].then) === json([{ do: 'osc', address: '/artlux/scene/recall', value: '{name}' }, { do: 'osc', address: '', value: '' }]),
+    'osc: the action keeps an address (spaces out, a leading /) and a value, never a destination', n.patterns[0].then);
+  check(json([oscArgs(''), oscArgs('12'), oscArgs('-0.5'), oscArgs('Story A'), oscArgs('3 apples')]) === json([[], [{ type: 'i', value: 12 }], [{ type: 'f', value: -0.5 }], [{ type: 's', value: 'Story A' }], [{ type: 's', value: '3 apples' }]]),
+    'osc: the value is typed by its look: none, an integer, a float, a string');
+  check(json(oscTargets('127.0.0.1:10000, 192.168.1.20:8000;arduino.local:9000 nope 1.2.3.4:0 5.6.7.8:70000')) === json([{ host: '127.0.0.1', port: 10000 }, { host: '192.168.1.20', port: 8000 }, { host: 'arduino.local', port: 9000 }]),
+    'osc: "Send to" holds several host:port, separated by commas (what is not one is left out)');
+  // a packet built by hand from the OSC 1.0 spec: "/a\0\0" ",si\0" "Gr\xc3\xb6ve\0\0" (UTF-8, padded) then int 7
+  const want = Buffer.concat([Buffer.from('/a\0\0,si\0'), Buffer.from('Gröve\0\0', 'utf8'), Buffer.from([0, 0, 0, 7])]);
+  check(encodeOsc('/a', [{ type: 's', value: 'Gröve' }, { type: 'i', value: 7 }]).equals(want) && json(decodeOsc(encodeOsc('/f', oscArgs('0.25')))) === json({ address: '/f', args: [0.25] }),
+    'osc: the bytes follow OSC 1.0 (padding, UTF-8, big-endian numbers)');
 }
 
 // — 2. the words matcher —
@@ -213,6 +239,40 @@ const decider = createDecider({ store, matcher: () => words });
   await plain.after(n, 'bot.done');
   check(!plain.msgs.some((m) => m.type === 'decision' || m.type === 'stage'), 'conversation: no agent → no decision, no stage (a persona alone)');
   plain.ws.close();
+
+  // "Send OSC": the ArtLux example agent, two listeners standing in for ArtLux and an Arduino
+  const { createSocket } = await import('node:dgram');
+  const listener = async () => {
+    const got = [];
+    const s = createSocket('udp4');
+    s.on('message', (b) => got.push(decodeOsc(b)));
+    await new Promise((r) => s.bind(0, '127.0.0.1', r));
+    return { got, port: s.address().port, close: () => s.close() };
+  };
+  const artlux = await listener();
+  const arduino = await listener();
+  const bundle = JSON.parse(readFileSync(join(ROOT, 'examples', 'artlux', 'artlux-scenes.vik.json'), 'utf8'));
+  const lux = await api('/agents', { bundle });
+  const show = await open({ agent: lux.id, name: 'Lux', persona: 'Lights.', oscTo: `127.0.0.1:${artlux.port}, 127.0.0.1:${arduino.port}` });
+  n = show.msgs.length;
+  show.ws.send(JSON.stringify({ type: 'text', text: 'show me the forest' }));
+  const forest = await show.after(n, 'bot.done');
+  await until(() => artlux.got.length && arduino.got.length, 2000);
+  const ev = show.msgs.slice(n).find((m) => m.type === 'osc');
+  check(forest && forest.text === 'Here is Grove.' && json(artlux.got) === json([{ address: '/artlux/scene/recall', args: ['Grove'] }]) && json(arduino.got) === json(artlux.got),
+    'osc: "show me the forest" → /artlux/scene/recall "Grove", filled from the entry, to every address of oscTo', { said: forest && forest.text, artlux: artlux.got, arduino: arduino.got });
+  check(ev && ev.address === '/artlux/scene/recall' && json(ev.args) === json(['Grove']) && ev.to.length === 2 && show.msgs.indexOf(ev) < show.msgs.indexOf(forest),
+    'osc: an "osc" event says what went where (the trace), before the reply is said', ev);
+  // this computer's setting changes during the conversation: nowhere → nothing sent, and the event says so
+  show.ws.send(JSON.stringify({ type: 'settings', settings: { oscTo: '' } }));
+  n = show.msgs.length;
+  show.ws.send(JSON.stringify({ type: 'text', text: 'lights out' }));
+  await show.after(n, 'bot.done');
+  await sleep(300);
+  const none = show.msgs.slice(n).find((m) => m.type === 'osc');
+  check(none && none.to.length === 0 && json(none.args) === json(['Blackout']) && artlux.got.length === 1, 'osc: no address in Settings → nothing sent, and the event says it', none);
+  show.ws.close();
+  artlux.close(); arduino.close();
   await srv.close();
   await farm.close();
 }

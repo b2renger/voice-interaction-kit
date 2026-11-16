@@ -24,7 +24,7 @@ const MAX_COLUMNS = 50;
  * come from an agent: an agent shared by someone else must not send the conversation (or a key) elsewhere.
  */
 export const MACHINE_KEYS = ['engine', 'apiKey', 'tokenUrl', 'geminiEndpoint', 'geminiModel', 'serverUrl', 'localAsr', 'localLlm',
-  'llm', 'llmUrl', 'llmModel', 'llmKey', 'llmFarm', 'llmFarmModel', 'llmFarmKey', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'agent', 'persona', 'knowledge', 'id'];
+  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'llmFarm', 'llmFarmModel', 'llmFarmKey', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'agent', 'persona', 'knowledge', 'id'];
 const agentOnly = (s) => Object.fromEntries(Object.entries(s || {}).filter(([k]) => !MACHINE_KEYS.includes(k)));
 
 /** "opening-hours" → "Opening hours" */

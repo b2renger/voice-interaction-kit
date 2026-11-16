@@ -6,6 +6,7 @@ import { delay, clamp, num, progressText } from './util.mjs';
 import { fill } from './agent/knowledge.mjs';
 import { knowledgePrompt } from './agent/decide.mjs';
 import { VOICE_KEYS } from './agent/voices.mjs';
+import { oscArgs, oscTargets, sendOsc } from './osc.mjs';
 
 const DEFAULTS = {
   name: 'Ada', persona: '', language: 'en', greeting: '', shortAnswers: true, creativity: 1,
@@ -17,7 +18,8 @@ const DEFAULTS = {
   // the models (config.json "choices"; '' = the config's), or an LLM farm on the network instead of the local model
   // the language model: 'local' (QVAC: localLlm), or 'farm' / 'service' (llmUrl, llmModel, llmKey)
   localAsr: '', localLlm: '', llm: 'local', llmUrl: '', llmModel: '', llmKey: '',
-  agent: '',                     // the agent (its folder name): its knowledge and its patterns (docs/DESIGN.md)
+  oscTo: '127.0.0.1:10000',      // where the patterns' OSC messages go (this computer's setting): "host:port, host:port"
+  agent: '',                    // the agent (its folder name): its knowledge and its patterns (docs/DESIGN.md)
 };
 const ASR_KEYS = ['language', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'localAsr'];
 const LLM_KEYS = ['localLlm', 'llm'];        // a change loads (or frees) the local language model
@@ -565,7 +567,7 @@ export class Session {
     if (!bot.audio) this.onPlaybackEnded(id);
   }
 
-  /** An interface action of a pattern: choices, mood, a signal to the clients, another stage. */
+  /** An interface action of a pattern: choices, mood, a signal to the clients, an OSC message, another stage. */
   act(a, d, said) {
     const entry = d && d.entryCells;
     if (a.do === 'choices') {
@@ -575,6 +577,11 @@ export class Session {
       this.send({ type: 'ui.mood', mood: a.mood });
     } else if (a.do === 'signal') {
       this.send({ type: 'signal', name: a.name, value: fill(a.value, entry, { said }) });
+    } else if (a.do === 'osc' && a.address) {
+      const targets = oscTargets(this.s.oscTo);
+      const args = oscArgs(fill(a.value, entry, { said }));
+      if (targets.length) sendOsc(targets, a.address, args, (m) => this.log(m));
+      this.send({ type: 'osc', address: a.address, args: args.map((x) => x.value), to: targets.map((t) => `${t.host}:${t.port}`) });
     } else if (a.do === 'go') {
       this.goTo(a.stage);
     }

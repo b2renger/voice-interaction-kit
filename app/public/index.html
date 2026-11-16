@@ -284,6 +284,11 @@
         <div class="row"><span class="addr" id="clientsAddr">…</span><button class="btn" id="copyAddr" type="button">Copy</button></div>
       </div>
       <div class="group" data-show="local">
+        <header><h2>OSC</h2><p>Where the patterns' "Send OSC" messages go: ArtLux, an Arduino, a show controller.</p></header>
+        <label class="field" style="max-width:420px"><span>Send to</span><input type="text" data-k="oscTo" placeholder="127.0.0.1:10000" autocomplete="off"></label>
+        <p class="hint" style="margin-top:8px">One or more <code>address:port</code>, separated by commas. 127.0.0.1 is this computer; ArtLux listens on port 10000.</p>
+      </div>
+      <div class="group" data-show="local">
         <header><h2>Local server</h2></header>
         <label class="field" style="max-width:420px"><span>Address of the voice server</span><input type="text" data-k="serverUrl"></label>
         <p class="hint" style="margin-top:8px" id="agentsDir"></p>
