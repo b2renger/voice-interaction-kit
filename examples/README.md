@@ -6,6 +6,7 @@ The VIK studio is the brain: it listens, decides and speaks, with its agent (per
 |---|---|
 | [`html-css-js/`](html-css-js/) | a plain web page: an orb coloured by the state and sized by the levels (CSS only), the subtitles, the choices as buttons, the stage and the agent's signals, Start / Stop / Interrupt, a "someone comes near" signal, and a field that sends context |
 | [`p5js/`](p5js/) | a p5.js sketch: an orb drawn every frame from the state and the levels, the subtitles, the stage and the agent's last signal. Click: start / stop. Keys 1, 2, 3: tell the agent which room the visitor is in. Key S: the signal `visitor-near` |
+| [`artlux/`](artlux/) | not a page: a Node script and an agent. Say "show me the forest", and ArtLux switches scene (OSC `/artlux/scene/recall`) |
 
 ## Run one
 

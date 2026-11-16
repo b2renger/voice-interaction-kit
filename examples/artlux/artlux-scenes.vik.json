@@ -1,0 +1,29 @@
+{
+  "vik": "agent",
+  "id": "artlux-scenes",
+  "persona": "---\nname: Lux\ntitle: ArtLux scenes\nlanguage: en\ngreeting: Hello. What shall I show? The fire, the sea, the forest, or darkness?\n---\n\nYou are Lux, the voice of a light installation. You change what is shown when people ask for it.\nYou answer in one short sentence.\n",
+  "knowledge": {
+    "scenes": "scene,looks like\nAttract | start | beginning | accueil,the waiting loop: soft and slow\nEmber | fire | flames | embers | feu,warm glowing fire\nTide | sea | ocean | waves | water | mer,blue waves of the sea\nGrove | forest | trees | woods | forêt,green light of a forest\nBlackout | dark | darkness | lights out | noir,everything off\n"
+  },
+  "interactions": {
+    "version": 1,
+    "start": "main",
+    "stages": [{ "id": "main", "name": "Main" }],
+    "confidence": 0.5,
+    "patterns": [
+      {
+        "id": "scene", "name": "A scene", "stage": "", "on": true,
+        "when": { "kind": "mentions", "table": "scenes" },
+        "then": [
+          { "do": "signal", "name": "artlux-scene", "value": "{scene}" },
+          { "do": "say", "text": "Here is {scene}." }
+        ]
+      },
+      {
+        "id": "anything-else", "name": "Anything else", "stage": "main", "on": true,
+        "when": { "kind": "otherwise" },
+        "then": [{ "do": "say", "text": "I can show the fire, the sea, the forest, darkness, or go back to the start." }]
+      }
+    ]
+  }
+}
