@@ -579,9 +579,11 @@ export class Session {
       this.send({ type: 'signal', name: a.name, value: fill(a.value, entry, { said }) });
     } else if (a.do === 'osc' && a.address) {
       const targets = oscTargets(this.s.oscTo);
+      // the address too can be filled from the entry: /vik/{scene} → /vik/Grove (an OSC address has no spaces)
+      const address = fill(a.address, entry, { said }).replace(/\s+/g, '');
       const args = oscArgs(fill(a.value, entry, { said }));
-      if (targets.length) sendOsc(targets, a.address, args, (m) => this.log(m));
-      this.send({ type: 'osc', address: a.address, args: args.map((x) => x.value), to: targets.map((t) => `${t.host}:${t.port}`) });
+      if (targets.length) sendOsc(targets, address, args, (m) => this.log(m));
+      this.send({ type: 'osc', address, args: args.map((x) => x.value), to: targets.map((t) => `${t.host}:${t.port}`) });
     } else if (a.do === 'go') {
       this.goTo(a.stage);
     }

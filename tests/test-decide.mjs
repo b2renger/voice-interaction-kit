@@ -271,6 +271,16 @@ const decider = createDecider({ store, matcher: () => words });
   await sleep(300);
   const none = show.msgs.slice(n).find((m) => m.type === 'osc');
   check(none && none.to.length === 0 && json(none.args) === json(['Blackout']) && artlux.got.length === 1, 'osc: no address in Settings → nothing sent, and the event says it', none);
+  // the address filled from the entry, no value: one address per scene (ArtLux's "OSC jump" into a state)
+  const it = (await api(`/agents/${lux.id}`)).interactions;
+  it.patterns[0].then[0] = { do: 'osc', address: '/vik/{scene}', value: '' };
+  await fetch(`http://127.0.0.1:${srv.port}/api/agents/${lux.id}/interactions`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(it) });
+  show.ws.send(JSON.stringify({ type: 'settings', settings: { oscTo: `127.0.0.1:${artlux.port}` } }));
+  n = show.msgs.length;
+  show.ws.send(JSON.stringify({ type: 'text', text: 'the fire please' }));
+  await show.after(n, 'bot.done');
+  await until(() => artlux.got.length === 2, 2000);
+  check(json(artlux.got[1]) === json({ address: '/vik/Ember', args: [] }), 'osc: the address filled from the entry (/vik/{scene} → /vik/Ember), no value', artlux.got);
   show.ws.close();
   artlux.close(); arduino.close();
   await srv.close();

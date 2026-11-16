@@ -31,7 +31,7 @@ In [Talk](view:talk), **Send a signal…** does it by hand, to try a pattern wit
 
 A pattern's **Send OSC** action sends a message to the software and devices that speak OSC: ArtLux, an Arduino, a show controller, TouchDesigner. No client to write: VIK sends it itself, at the moment it decides, before the agent speaks.
 
-- **The message** belongs to the pattern: an address, like `/artlux/scene/recall`, and a value. The value can be filled from the entry found (`{name}`) or be fixed (`Grove`, `1`). A number is sent as a number, anything else as text. Empty: no value.
+- **The message** belongs to the pattern: an address, like `/artlux/scene/recall`, and a value. Both can be filled from the entry found: the value `{name}`, or the address `/vik/{name}`, one address per entry. Or they are fixed (`Grove`, `1`). A number is sent as a number, anything else as text. Empty: no value.
 - **What triggers it** is the pattern's **When**: a sentence ("show me the forest"), an entry mentioned (a scene of a **Scenes** table), a client's signal, the start of the conversation.
 - **Where it goes** is set in [Settings](view:settings), under **OSC**: one or more `address:port`, separated by commas. It is this computer's setting, so an agent shared by someone else cannot send your conversation elsewhere. ArtLux on this computer: `127.0.0.1:10000`.
 

@@ -272,8 +272,15 @@ export function textToSpeech(o) {
   const samples = new Array(n);
   for (let k = 0; k < n; k++) samples[k] = Math.round(8000 * Math.sin(2 * Math.PI * 180 * k / rate) * Math.sin(Math.PI * k / n));
   let cancelled = false;
-  running.set(requestId, { cancel() { cancelled = true; } });
-  const buffer = new Promise((res, rej) => setTimeout(() => (cancelled ? rej(new Error('cancelled')) : res(samples)), 40));
+  // as QVAC tts-ggml 0.10.2 (measured 2026-11-16): a cancelled Supertonic sentence leaves the engine cancelled, and
+  // every later sentence fails "cancelled before duration" until the voice is loaded again
+  running.set(requestId, { cancel() {
+    cancelled = true;
+    if (eng === 'supertonic') { m.poisoned = true; need(false, 'cancel on a Supertonic sentence: the voice then stays silent until it is reloaded (QVAC tts-ggml 0.10.2)'); }
+  } });
+  const poisoned = m.poisoned;
+  const buffer = new Promise((res, rej) => setTimeout(() => (cancelled ? rej(new Error('cancelled'))
+    : poisoned ? rej(new Error('supertonic.synthesize: Supertonic Engine: cancelled before duration')) : res(samples)), 40));
   buffer.catch(() => {});
   return { requestId, buffer, sampleRate: Promise.resolve(rate), done: buffer.then(() => true, () => false) };
 }

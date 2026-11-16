@@ -129,10 +129,10 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 | `choices` | shows choice buttons | `question`, `options` (separated by `\|`) |
 | `mood` | sets the agent's mood | `mood` |
 | `signal` | sends a signal to the clients (cables, p5.js, pages) | `name`, `value` |
-| `osc` | sends an OSC message (ArtLux, an Arduino, a show controller) to the addresses in **Settings → OSC** (`oscTo`, this computer's, never the agent's) | `address`, `value` (a number is sent as a number, other text as a string, empty: no argument) |
+| `osc` | sends an OSC message (ArtLux, an Arduino, a show controller) to the addresses in **Settings → OSC** (`oscTo`, this computer's, never the agent's) | `address` (`/vik/{name}`: filled, spaces removed), `value` (a number is sent as a number, other text as a string, empty: no argument) |
 | `go` | moves to another stage | `stage` |
 
-**Placeholders.** In `text`, `question`, `options` and `value` (of `signal` and `osc`), `{column}` is replaced by that column of the entry found (or of the entry in focus): `{name}`, `{artist}`, `{year}`. `{said}` is what the person said.
+**Placeholders.** In `text`, `question`, `options`, `value` (of `signal` and `osc`) and the `address` of `osc`, `{column}` is replaced by that column of the entry found (or of the entry in focus): `{name}`, `{artist}`, `{year}`. `{said}` is what the person said.
 
 ## 3. The decision model
 

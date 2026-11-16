@@ -78,6 +78,24 @@ check(w && /^https:\/\/huggingface\.co\//.test(w.modelConfig.vadModelSrc), 'Sile
 check(loads.find((c) => c.modelType === 'tts').src === 'TTS_MULTILINGUAL_SUPERTONIC3_Q8_0', 'Supertonic, incomplete on disk, comes from the QVAC registry');
 const emb = loads.find((c) => c.modelType === 'embeddings');
 check(emb && /^https:\/\/huggingface\.co\/.*embeddinggemma/.test(emb.src) && emb.modelConfig.device === 'gpu', 'the decision model (EmbeddingGemma) loads too, from Hugging Face', emb);
+
+// — someone talks over the agent: its sentence is cut, and the next one must still sound —
+// (QVAC tts-ggml 0.10.2: a cancelled Supertonic sentence leaves the voice cancelled until it is reloaded; the fake does
+// the same, so the adapter must let a Supertonic sentence finish, unheard, instead of cancelling it in QVAC)
+{
+  const samples = async (t) => { let n = 0; for await (const f of t.frames) n += f.pcm.length; return n; };
+  const voice = { voice: 'F1', speed: 1, language: 'en', engine: 'supertonic' };
+  const cut = engine.speak(voice);
+  cut.write('A sentence cut while it is being made.');
+  await new Promise((r) => setTimeout(r, 10));            // the fake makes a sentence in 40 ms: this one is under way
+  cut.cancel();
+  await samples(cut);
+  const next = engine.speak(voice);
+  next.write('The next sentence.');
+  next.end();
+  const n = await samples(next).catch((e) => e.message);
+  check(n > 0 && !fake.getProblems().some((p) => /Supertonic/.test(p)), 'talking over the agent: the next sentence still sounds (a Supertonic sentence is never cancelled in QVAC)', { samples: n, problems: fake.getProblems() });
+}
 const m = engine.matcher();
 check(m && m.name === 'EmbeddingGemma 300M' && m.calibration.similar[0] === 0.55, 'it becomes the matcher of the decision model (with its calibration from config.json)', m && m.name);
 const [va, vb, vc] = await m.vectors(['when do you open', 'what time do you open', 'tickets please'], 'similar');

@@ -579,7 +579,10 @@ export async function createQvacEngine(config, log) {
         end() { chain = chain.then(() => q.end(), () => q.end()); },
         cancel() {
           cancelled = true;
-          if (current && current.requestId) sdk.cancel({ requestId: current.requestId }).catch(() => {});
+          // Supertonic: a cancel stays set in QVAC's engine (tts-ggml 0.10.2, measured 2026-11-16), and every later
+          // sentence fails "cancelled before duration" until the voice is reloaded: the agent goes silent for good the
+          // first time someone talks over it. A Supertonic sentence takes a fraction of a second: let it end, unheard.
+          if (current && current.requestId && st.ttsEngine !== 'supertonic') sdk.cancel({ requestId: current.requestId }).catch(() => {});
           q.end();
         },
       };
