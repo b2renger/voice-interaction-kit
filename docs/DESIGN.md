@@ -129,9 +129,10 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 | `choices` | shows choice buttons | `question`, `options` (separated by `\|`) |
 | `mood` | sets the agent's mood | `mood` |
 | `signal` | sends a signal to the clients (cables, p5.js, pages) | `name`, `value` |
+| `osc` | sends an OSC message (ArtLux, an Arduino, a show controller) to the addresses in **Settings → OSC** (`oscTo`, this computer's, never the agent's) | `address` (`/vik/{name}`: filled, spaces removed), `value` (a number is sent as a number, other text as a string, empty: no argument) |
 | `go` | moves to another stage | `stage` |
 
-**Placeholders.** In `text`, `question`, `options` and `value`, `{column}` is replaced by that column of the entry found (or of the entry in focus): `{name}`, `{artist}`, `{year}`. `{said}` is what the person said.
+**Placeholders.** In `text`, `question`, `options`, `value` (of `signal` and `osc`) and the `address` of `osc`, `{column}` is replaced by that column of the entry found (or of the entry in focus): `{name}`, `{artist}`, `{year}`. `{said}` is what the person said.
 
 ## 3. The decision model
 
@@ -184,7 +185,7 @@ The top bar holds the agent (and **Manage**: new, duplicate, export, import, del
 
 **The look.** One family, Schibsted Grotesk (bundled: the studio works offline); a cool studio grey; one pigment, ultramarine; and the colours of the conversation's states (listening ultramarine, hearing cerulean, thinking violet, speaking amber). The agent's presence in Talk is the one bold element: a body and rings that leave it with the voices, in the state's colour. Light and dark follow the system.
 
-**Saving.** Each field is saved a moment after you stop typing (`persona.md`, the CSV of a table, `interactions.json`). When the window comes back to the front, the agent is read again from disk (a table edited in a spreadsheet), unless the studio still has edits of its own to save.
+**Saving.** Each field is saved a moment after you stop typing (`persona.md`, the CSV of a table, `interactions.json`). **Save** (the button in the top bar, Ctrl+S, Files → Save) writes every edit at once and says so; the top bar says **Unsaved changes**, **Saving…**, **Saved**, or why a save failed. When the window comes back to the front, the agent is read again from disk (a table edited in a spreadsheet), unless the studio still has edits of its own to save.
 
 **This computer's settings** (the engine, the language model and its address and key, the models, the speakers) are kept in the window, never in an agent: the server drops them from any `persona.md` it reads, writes or imports, and the page ignores them in an agent. An agent from someone else cannot send the conversation elsewhere.
 

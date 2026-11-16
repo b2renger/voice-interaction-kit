@@ -18,6 +18,7 @@ export const THEN = {
   mood: 'set the mood',
   voice: 'change voice',
   signal: 'send a signal to the clients',
+  osc: 'send an OSC message (ArtLux, Arduino…)',
   go: 'go to another stage',
 };
 export const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
@@ -32,7 +33,9 @@ export function slug(s, fallback = 'item') {
 }
 
 const text = (v, max = MAX_TEXT) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
-const list = (v) => (Array.isArray(v) ? v : String(v || '').split(/\n|\|/)).map((x) => text(x, 300)).filter(Boolean).slice(0, 200);
+/** An OSC address as typed: no spaces, starts with "/" ('' when there is nothing). */
+const oscAddress = (v) => { const a = String(v == null ? '' : v).replace(/\s+/g, '').slice(0, 200); return !a || a.startsWith('/') ? a : `/${a}`; };
+const list = (v) =>(Array.isArray(v) ? v : String(v || '').split(/\n|\|/)).map((x) => text(x, 300)).filter(Boolean).slice(0, 200);
 
 /** A unique id among `taken`, from `wanted` or the name. */
 function uniqueId(wanted, name, taken, fallback) {
@@ -81,6 +84,8 @@ function action(a) {
     // one of the agent's saved voices (voices.mjs), by its id; '' = back to the agent's own voice
     case 'voice': return { do: 'voice', voice: slug(a.voice, '') };
     case 'signal': return { do: 'signal', name: text(a.name, 80), value: text(a.value, 500) };
+    // where it goes is this computer's setting (oscTo), never the agent's: app/src/osc.mjs
+    case 'osc': return { do: 'osc', address: oscAddress(a.address), value: text(a.value, 500) };
     case 'go': return { do: 'go', stage: slug(a.stage, '') };
     default: return null;
   }

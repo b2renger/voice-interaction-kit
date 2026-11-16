@@ -2,7 +2,7 @@
 // sentence on the decision model. Saved as you type.
 import { $, h, debounce, toast, ask, slug, pct } from './ui.js';
 import { api } from './api.js';
-import { state, saveInteractionsSoon, touched, flush } from './state.js';
+import { state, settings, saveInteractionsSoon, touched, flush } from './state.js';
 
 const WHEN = {
   says: 'the person says something like',
@@ -18,6 +18,7 @@ const THEN = {
   mood: ['Set the mood', 'for the interface'],
   voice: ['Change voice', 'from this reply on'],
   signal: ['Send a signal', 'to cables, p5.js, pages'],
+  osc: ['Send OSC', 'to ArtLux, an Arduino…'],
   go: ['Go to', 'another stage'],
 };
 const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
@@ -166,6 +167,11 @@ function renderEditor() {
       body = [h('div', { class: 'row', style: 'flex-wrap:nowrap' },
         h('input', { type: 'text', value: a.name, placeholder: 'name, like show-artwork', 'aria-label': 'Signal name', oninput: edit((e) => { a.name = e.target.value; }) }),
         h('input', { type: 'text', value: a.value, placeholder: 'value, like {name}', 'aria-label': 'Signal value', oninput: edit((e) => { a.value = e.target.value; }) }))];
+    } else if (a.do === 'osc') {
+      body = [h('div', { class: 'row', style: 'flex-wrap:nowrap' },
+        h('input', { type: 'text', value: a.address, placeholder: 'address, like /artlux/scene/recall', 'aria-label': 'OSC address', oninput: edit((e) => { a.address = e.target.value; }) }),
+        h('input', { type: 'text', value: a.value, placeholder: 'value, like {name} or 1', 'aria-label': 'OSC value', oninput: edit((e) => { a.value = e.target.value; }) })),
+        h('p', { class: 'hint' }, `A number is sent as a number, anything else as text; empty: no value.${headers.length ? ` Fill the address or the value from the entry: ${headers.map((x) => `{${x}}`).join(' ')}.` : ''} It goes to ${settings().oscTo || 'nowhere yet'} (Settings).`)];
     } else if (a.do === 'go') {
       body = [h('select', { 'aria-label': 'Stage', onchange: edit((e) => { a.stage = e.target.value; }) }, ...optionsOf(it.stages.map((s) => [s.id, s.name]), a.stage))];
     }
@@ -177,7 +183,7 @@ function renderEditor() {
         i < p.then.length - 1 ? h('button', { type: 'button', title: 'Move down', 'aria-label': 'Move down', onclick: move(i, 1) }, '↓') : '',
         h('button', { type: 'button', title: 'Remove', 'aria-label': 'Remove this action', onclick: redraw(() => p.then.splice(i, 1)) }, '×')));
   };
-  const blank = { say: { text: '' }, answer: { instruction: '' }, choices: { question: '', options: [] }, mood: { mood: 'happy' }, voice: { voice: '' }, signal: { name: '', value: '' }, go: { stage: (it.stages[0] || {}).id || '' } };
+  const blank = { say: { text: '' }, answer: { instruction: '' }, choices: { question: '', options: [] }, mood: { mood: 'happy' }, voice: { voice: '' }, signal: { name: '', value: '' }, osc: { address: '', value: '' }, go: { stage: (it.stages[0] || {}).id || '' } };
 
   box.replaceChildren(h('div', { class: 'peditor' },
     h('div', { class: 'head' },
@@ -253,7 +259,7 @@ const tryIt = debounce(async () => {
   flush();
   try {
     const d = await api.decide({ agent: state.agentId, text, stage: $('#tryStage').value });
-    const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : `mood ${a.mood}`));
+    const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'osc' ? `OSC ${a.address} ${a.value}`.trim() :a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : `mood ${a.mood}`));
     out.replaceChildren(
       h('p', { class: 'took' }, d.pattern ? `${d.kind === 'otherwise' ? 'Otherwise: ' : ''}${d.pattern.name}${d.entry ? `, ${d.entry.key}` : ''}${d.score != null ? `  ${pct(d.score)}` : ''}` : 'A free answer'),
       h('p', { class: 'hint' }, d.pattern ? (then.length ? `Then: ${then.join(', then ')}.` : 'This pattern does nothing yet.') : `No pattern reaches the confidence (${pct(I().confidence)}): the language model answers, with what it knows.`),

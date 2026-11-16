@@ -139,6 +139,9 @@ function buildMenu() {
     {
       label: 'Files',
       submenu: [
+        // the agent's edits, on disk now (they are also saved a moment after you type): app/public/js/main.js
+        { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => { if (win) win.webContents.executeJavaScript('window.vikSave && window.vikSave()').catch(() => {}); } },
+        { type: 'separator' },
         ...(MOCK ? [] : [{ label: 'Download all models (once)…', click: () => offerInstall(true) }]),
         { label: 'Open agents folder', click: () => { fs.mkdirSync(agentsDir(), { recursive: true }); shell.openPath(agentsDir()); } },
         { label: 'Open models folder', click: openModelsFolder },

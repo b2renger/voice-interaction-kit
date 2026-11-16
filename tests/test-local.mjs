@@ -467,6 +467,17 @@ await browser.close();
   await page.fill('.sheet tbody tr:nth-child(2) td:nth-child(2) input', '900 euros');
   const t1 = await until(async () => { const a = await disk('bike-shop'); const t = a.tables.find((x) => x.id === 'bikes'); return t && t.rows.length === 2 && t.rows[1][1] === '900 euros' && t; }, 4000);
   check(t1 && t1.headers.join() === 'name,price' && t1.rows[0].join() === 'City bike,300 euros', 'studio: the table is saved to knowledge/bikes.csv as you type', t1);
+  // Save: the status says an edit is not on disk yet; Ctrl+S writes it at once (a cell typed a moment ago), and says so
+  check((await page.textContent('#saved')) === 'Saved', 'studio: the top bar says the agent is saved', await page.textContent('#saved'));
+  await page.fill('.sheet tbody tr:nth-child(1) td:nth-child(2) input', '350 euros');
+  const unsaved = await page.textContent('#saved');
+  await page.keyboard.press('Control+s');
+  const cell = await until(async () => (await disk('bike-shop')).tables.find((x) => x.id === 'bikes').rows[0][1] === '350 euros', 3000);
+  check(unsaved === 'Unsaved changes' && cell && await until(async () => (await page.textContent('#saved')) === 'Saved', 2000) && /^Saved: Bike shop/.test(await page.textContent('.toast')),
+    'studio: "Unsaved changes", then Ctrl+S saves the cell just typed and says "Saved"', { unsaved, toast: await page.textContent('.toast') });
+  await page.fill('.sheet tbody tr:nth-child(1) td:nth-child(2) input', '300 euros');
+  await page.click('#saveBtn');
+  check(await until(async () => (await disk('bike-shop')).tables.find((x) => x.id === 'bikes').rows[0][1] === '300 euros', 3000), 'studio: the Save button does the same');
   // a pattern (Interactions → New pattern): when a bike is mentioned, say its price, and signal it
   await page.click('.nav button[data-view="interactions"]');
   await page.click('#newPattern');
@@ -477,8 +488,21 @@ await browser.close();
   await page.click('#patternEditor .add-actions button:has-text("Send a signal")');
   await page.fill('#patternEditor input[aria-label="Signal name"]', 'show-bike');
   await page.fill('#patternEditor input[aria-label="Signal value"]', '{name}');
-  const p1 = await until(async () => { const a = await disk('bike-shop'); const p = a.interactions.patterns[0]; return p && p.then.length === 2 && p.then[1].value === '{name}' && p; }, 4000);
+  await page.click('#patternEditor .add-actions button:has-text("Send OSC")');
+  await page.fill('#patternEditor input[aria-label="OSC address"]', '/bike/show');
+  await page.fill('#patternEditor input[aria-label="OSC value"]', '{name}');
+  const p1 = await until(async () => { const a = await disk('bike-shop'); const p = a.interactions.patterns[0]; return p && p.then.length === 3 && p.then[1].value === '{name}' && p.then[2].value === '{name}' && p; }, 4000);
   check(p1 && p1.when.kind === 'mentions' && p1.when.table === 'bikes' && p1.then[0].text === 'The {name} costs {price}.', 'studio: the pattern is saved to interactions.json as you edit it', p1);
+  check(p1 && JSON.stringify(p1.then[2]) === JSON.stringify({ do: 'osc', address: '/bike/show', value: '{name}' }), 'studio: "Send OSC" saves an address and a value in the pattern', p1 && p1.then[2]);
+  // where OSC goes: this computer's setting (Settings → OSC), here a listener standing in for ArtLux
+  const oscGot = [];
+  const oscIn = (await import('node:dgram')).createSocket('udp4');
+  oscIn.on('message', (b) => oscGot.push(b.toString('latin1')));
+  await new Promise((r) => oscIn.bind(0, '127.0.0.1', r));
+  await page.click('.nav button[data-view="settings"]');
+  await page.fill('[data-k="oscTo"]', `127.0.0.1:${oscIn.address().port}`);
+  await page.click('.nav button[data-view="interactions"]');
+  check(await until(async () => new RegExp(`goes to 127\\.0\\.0\\.1:${oscIn.address().port}`).test(await page.textContent('#patternEditor')), 2000), 'studio: the OSC action says where it goes (Settings)');
   await page.fill('#patternEditor textarea[aria-label="The line"]', 'The {name} costs {colour}.');
   check(await until(async () => /No column fills \{colour\}/.test(await page.textContent('#patternEditor')), 2000), 'studio: a placeholder no column fills is pointed out');
   await page.fill('#patternEditor textarea[aria-label="The line"]', 'The {name} costs {price}.');
@@ -498,6 +522,10 @@ await browser.close();
   check(evs.some((e) => e.type === 'decision' && e.pattern && e.pattern.name === 'A bike') && evs.some((e) => e.type === 'signal' && e.name === 'show-bike' && e.value === 'Racing bike'),
     'studio: the decision and the signal are events (for the trace and the clients)');
   check(/A bike\s*Racing bike/.test(await page.textContent('#trace')), 'studio: "Why it answered" shows the pattern and the entry', (await page.textContent('#trace')).slice(0, 200));
+  await until(() => oscGot.length, 2000);
+  check(oscGot.length === 1 && oscGot[0].startsWith('/bike/show\0\0,s\0\0Racing bike\0'), 'studio: the pattern\'s OSC message goes out, filled from the entry', oscGot);
+  check(new RegExp(`OSC to 127\\.0\\.0\\.1:${oscIn.address().port}: /bike/show Racing bike\\.`).test(await page.textContent('#trace')), 'studio: "Why it answered" says which OSC message went where', (await page.textContent('#trace')).slice(0, 400));
+  oscIn.close();
   await page.click('#stop');
   // export (Manage → Export to a file)
   await page.click('#agentMenuBtn');

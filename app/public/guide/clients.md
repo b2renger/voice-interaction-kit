@@ -27,6 +27,18 @@ Signals connect the voice to the space around it.
 
 In [Talk](view:talk), **Send a signal…** does it by hand, to try a pattern without a sensor.
 
+## OSC
+
+A pattern's **Send OSC** action sends a message to the software and devices that speak OSC: ArtLux, an Arduino, a show controller, TouchDesigner. No client to write: VIK sends it itself, at the moment it decides, before the agent speaks.
+
+- **The message** belongs to the pattern: an address, like `/artlux/scene/recall`, and a value. Both can be filled from the entry found: the value `{name}`, or the address `/vik/{name}`, one address per entry. Or they are fixed (`Grove`, `1`). A number is sent as a number, anything else as text. Empty: no value.
+- **What triggers it** is the pattern's **When**: a sentence ("show me the forest"), an entry mentioned (a scene of a **Scenes** table), a client's signal, the start of the conversation.
+- **Where it goes** is set in [Settings](view:settings), under **OSC**: one or more `address:port`, separated by commas. It is this computer's setting, so an agent shared by someone else cannot send your conversation elsewhere. ArtLux on this computer: `127.0.0.1:10000`.
+
+In [Talk](view:talk), "Why it answered" shows each message sent, and where it went. Type a sentence there to try a pattern without speaking.
+
+**ArtLux.** In ArtLux, turn **OSC receive** on (Preferences ▸ OSC / Tracking, port 10000). `/artlux/scene/recall` with a scene's name changes the scene; `/artlux/cue/fire` fires a cue; `/artlux/state/trigger` fires a state machine transition. A ready-made agent is in the [examples](https://github.com/b2renger/voice-interaction-kit/tree/main/examples/artlux).
+
 ## cables.gl
 
 The **VoiceAgent** op connects a patch to the studio. Paste the op's code in a new op of your patch, and **App connected** goes to 1. Its outputs and triggers are described in the [cables README](https://github.com/b2renger/voice-interaction-kit/blob/main/cables/README.md). From cables.gl online, Chrome may ask for access to the local network: accept it.

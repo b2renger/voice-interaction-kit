@@ -41,6 +41,6 @@ The quickest way in is the tutorial: in about ten minutes, you build a café age
 | [Voice & timing](view:voice) | how it sounds, and when it takes its turn |
 | [Settings](view:settings) | this computer's settings: the engine and the models |
 
-Everything is saved as you type. **Start** and **Stop** stay at the top, so you can talk to the agent while you change it.
+Your edits are saved a moment after you type, and **Save** (or Ctrl+S) saves them at once. Next to it, the top bar says **Saved** or **Unsaved changes**. **Start** and **Stop** stay at the top, so you can talk to the agent while you change it.
 
 The **Manage** menu, next to the agent's name, creates, duplicates, exports, imports and deletes agents. See [Files and sharing](files.md).

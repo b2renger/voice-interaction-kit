@@ -59,6 +59,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `decision` | the local decision model has decided what to do with a sentence, a signal or the start (docs/DESIGN.md §3) | `text`, `stage`, `kind` (`pattern`, `otherwise` or `free`), `pattern` (`{id, name, kind}` or null), `score` (0 to 1), `example` (the closest one), `entry` (`{table, key}` or null), `candidates` (the next best: `{id, name, score, example, entry}`), `matcher` (`EmbeddingGemma 300M` or `Words`), `ms` | `On decision` (`Decision`, `Decision score`, `Entry` ports) |
 | `stage` | the agent moves to another stage (and once at the start) | `stage`, `from` | `On stage` (`Stage` port) |
 | `signal` | a pattern sends a signal to the clients ("show-artwork: Water Lilies") | `name`, `value` | `On agent signal` (`Agent signal`, `Agent signal value` ports) |
+| `osc` | a pattern has sent an OSC message (ArtLux, an Arduino…), to the addresses of the setting `oscTo` | `address`, `args` (its value: none or one), `to` (`host:port` list; empty: not sent) | — |
 | `error` | an error | `code`, `message`, `fatal` | `On error` |
 | `ended` | conversation closed | `reason` | — |
 
@@ -91,6 +92,7 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `localAsr`, `localLlm` (this computer) | empty (= `src` in `config.json`) | the speech recognition and local language models: a QVAC name among the `choices` in `config.json` (any other value = the default) | — | model reload |
 | `llm` (this computer) | `local` | who writes the replies: `local` (`localLlm`), `farm` (an [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm on the network) or `service` (any OpenAI-compatible address: Ollama, LM Studio, OpenAI, Gemini, Mistral, OpenRouter) | — | switching loads or frees the local model |
 | `llmUrl`, `llmModel`, `llmKey` (this computer) | empty | the farm's or the service's OpenAI address (`http://<host>:4000/v1`), the model there, its key or password | — | sent with each reply |
+| `oscTo` (this computer) | `127.0.0.1:10000` | where the patterns' "Send OSC" messages go: one or more `host:port`, separated by commas (an agent never sets it) | — | applies to the next message |
 | `endSilenceMs` | 800 | silence that ends a turn | `silenceDurationMs` | Whisper end of turn (with Smart Turn: the longest wait) |
 | `turnDetection` | `silence` | how the end of turn is decided: `silence` (the end silence alone) or `smart` (silence + the Smart Turn model: a sentence that sounds finished ends the turn at once) | — | Smart Turn model |
 | `startSensitivity` | `high` | how easily the start of speech is detected | `startOfSpeechSensitivity` | Silero VAD threshold |

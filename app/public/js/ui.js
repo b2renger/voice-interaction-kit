@@ -26,8 +26,10 @@ export function h(tag, attrs = {}, ...children) {
 
 export function debounce(fn, ms) {
   let t = 0;
-  const run = (...a) => { clearTimeout(t); t = setTimeout(() => { t = 0; fn(...a); }, ms); };
-  run.flush = (...a) => { if (t) { clearTimeout(t); t = 0; fn(...a); } };
+  let last = [];
+  const run = (...a) => { last = a; clearTimeout(t); t = setTimeout(() => { t = 0; fn(...last); }, ms); };
+  // now, with the arguments of the last call (a table waiting to be saved is saved, not called with nothing)
+  run.flush = () => { if (t) { clearTimeout(t); t = 0; fn(...last); } };
   run.pending = () => !!t;
   return run;
 }

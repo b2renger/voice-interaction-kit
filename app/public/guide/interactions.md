@@ -30,6 +30,7 @@ A pattern does one or more things, in order:
 | **Set the mood** | a mood for the interface: happy, curious, sorry… |
 | **Change voice** | from this reply on, the agent speaks with one of its saved voices (Voice & timing), or with its own again |
 | **Send a signal** | a signal to cables, p5.js and pages: `show-artwork` with the value `{name}` |
+| **Send OSC** | an OSC message to ArtLux, an Arduino, a show controller: `/artlux/scene/recall` with the value `{name}`. See [OSC](clients.md#osc) |
 | **Go to** | moves the conversation to another stage |
 
 A **Say** line can be filled from the entry found: write the column names in braces. `A {name}? That's {description}, {price}.` If no column fills a placeholder, the editor says so under the line. `{said}` is what the person said. Several lines separated by `|`: one is picked at random.

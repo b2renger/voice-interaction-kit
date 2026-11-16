@@ -2,7 +2,7 @@
 // (the voice core, common/voice-core.js). docs/DESIGN.md, 5.
 import { $, $$, h, toast, ask, menu, seconds } from './ui.js';
 import { api } from './api.js';
-import { state, settings, valueOf, set, onChange, openAgent, lastAgent, flush, reloadAgent } from './state.js';
+import { state, settings, valueOf, set, onChange, openAgent, lastAgent, flush, reloadAgent, saveNow } from './state.js';
 import { initTalk, banner } from './talk.js';
 import { initKnowledge, renderKnowledge } from './knowledge.js';
 import { initInteractions, renderInteractions } from './interactions.js';
@@ -142,7 +142,8 @@ onChange((what, detail) => {
   } else if (what === 'saved') {
     const el = $('#saved');
     el.className = `saved${detail.status === 'error' ? ' err' : ''}`;
-    el.textContent = detail.status === 'saving' ? 'Saving…' : detail.status === 'saved' ? 'Saved' : `Not saved: ${detail.error}`;
+    el.textContent = { pending: 'Unsaved changes', saving: 'Saving…', saved: 'Saved' }[detail.status] || `Not saved: ${detail.error}`;
+    $('#saveBtn').classList.toggle('primary', detail.status !== 'saved');
   }
 });
 
@@ -204,6 +205,17 @@ $('#importFile').addEventListener('change', async (e) => {
     toast(`Imported "${a.title}".`);
   } catch (err) { toast(err instanceof SyntaxError ? 'This file is not an agent (not JSON).' : err.message, 'err'); }
 });
+
+// Save: the button, Ctrl+S, Files → Save (app/electron/main.cjs). The edits are also saved a moment after you type:
+// Save writes them now, and says so.
+async function save() {
+  const why = await saveNow();
+  if (why) toast(`Not saved: ${why}`, 'err');
+  else if (state.agentId) toast(`Saved: ${$('#agentSelect').selectedOptions[0]?.textContent || state.agentId} (persona, knowledge, interactions).`);
+}
+$('#saveBtn').addEventListener('click', save);
+window.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') { e.preventDefault(); save(); } });
+window.vikSave = save;
 
 // ———————————————————————————— the server: models loading, engine, decision model ————————————————————————————
 let wasLoading = false;
