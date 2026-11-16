@@ -10,8 +10,6 @@ name: Update test
 
 on:
   workflow_dispatch:
-  push:
-    branches: [auto-update]
 
 jobs:
   update:
