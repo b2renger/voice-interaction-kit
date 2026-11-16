@@ -14,7 +14,7 @@ These models run on Tether's [QVAC](https://github.com/tetherto/qvac) SDK (llama
 
 ## The studio
 
-One window, a few views. Everything is saved as you type, and **Start** / **Stop** stay at the top, so you can talk to the agent while you change it.
+One window, a few views. Edits are saved a moment after you type, **Save** (Ctrl+S, Files → Save) saves them at once, and the top bar says whether all is saved. **Start** / **Stop** stay at the top, so you can talk to the agent while you change it.
 
 | view | what you do there |
 |---|---|

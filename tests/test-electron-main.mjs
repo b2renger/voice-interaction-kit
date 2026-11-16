@@ -101,6 +101,12 @@ check(/Engine/.test(labels) && /Simulated/.test(labels) && /models folder/.test(
   check(item && shown.length === 1 && /source code/.test(shown[0].message) && electron.autoUpdater.feed === null,
     'Files → Check for updates…: run from the source code, it says to use git pull (no updater, no download)', shown);
 }
+{
+  const save = st.menu.find((m) => m.label === 'Files').submenu[0];
+  save.click();
+  check(save.label === 'Save' && save.accelerator === 'CmdOrCtrl+S' && win.scripts.some((js) => /window\.vikSave\(\)/.test(js)),
+    'Files → Save (Ctrl+S): the page saves the agent now (window.vikSave)', { label: save.label, scripts: win.scripts });
+}
 const engineMenu = st.menu.find((m) => m.label === 'Engine');
 engineMenu.submenu.find((i) => /Copy address/.test(i.label || '')).click();
 check(st.clipboard === health.wsUrl, '"Copy address for clients" copies the clients\' WebSocket address', st.clipboard);

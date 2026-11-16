@@ -467,6 +467,17 @@ await browser.close();
   await page.fill('.sheet tbody tr:nth-child(2) td:nth-child(2) input', '900 euros');
   const t1 = await until(async () => { const a = await disk('bike-shop'); const t = a.tables.find((x) => x.id === 'bikes'); return t && t.rows.length === 2 && t.rows[1][1] === '900 euros' && t; }, 4000);
   check(t1 && t1.headers.join() === 'name,price' && t1.rows[0].join() === 'City bike,300 euros', 'studio: the table is saved to knowledge/bikes.csv as you type', t1);
+  // Save: the status says an edit is not on disk yet; Ctrl+S writes it at once (a cell typed a moment ago), and says so
+  check((await page.textContent('#saved')) === 'Saved', 'studio: the top bar says the agent is saved', await page.textContent('#saved'));
+  await page.fill('.sheet tbody tr:nth-child(1) td:nth-child(2) input', '350 euros');
+  const unsaved = await page.textContent('#saved');
+  await page.keyboard.press('Control+s');
+  const cell = await until(async () => (await disk('bike-shop')).tables.find((x) => x.id === 'bikes').rows[0][1] === '350 euros', 3000);
+  check(unsaved === 'Unsaved changes' && cell && await until(async () => (await page.textContent('#saved')) === 'Saved', 2000) && /^Saved: Bike shop/.test(await page.textContent('.toast')),
+    'studio: "Unsaved changes", then Ctrl+S saves the cell just typed and says "Saved"', { unsaved, toast: await page.textContent('.toast') });
+  await page.fill('.sheet tbody tr:nth-child(1) td:nth-child(2) input', '300 euros');
+  await page.click('#saveBtn');
+  check(await until(async () => (await disk('bike-shop')).tables.find((x) => x.id === 'bikes').rows[0][1] === '300 euros', 3000), 'studio: the Save button does the same');
   // a pattern (Interactions → New pattern): when a bike is mentioned, say its price, and signal it
   await page.click('.nav button[data-view="interactions"]');
   await page.click('#newPattern');

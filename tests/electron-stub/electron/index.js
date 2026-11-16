@@ -30,7 +30,8 @@ class BrowserWindow extends EventEmitter {
   constructor(opts) {
     super();
     this.opts = opts; this.url = null; this.progress = []; this.destroyed = false;
-    this.webContents = { setWindowOpenHandler: (f) => { this.openHandler = f; }, getURL: () => this.url };
+    this.scripts = [];
+    this.webContents = { setWindowOpenHandler: (f) => { this.openHandler = f; }, getURL: () => this.url, executeJavaScript: (js) => { this.scripts.push(js); return Promise.resolve(); } };
     state.windows.push(this);
     setTimeout(() => this.emit('ready-to-show'), 10);
   }

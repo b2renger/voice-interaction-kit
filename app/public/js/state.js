@@ -76,13 +76,22 @@ export function setMachine(o) {
   for (const k of Object.keys(o)) emit('setting', k);
 }
 
-// — saving, as you type —
+// — saving: a moment after you type, and at once with Save (Ctrl+S) —
 let saving = 0;
+let failed = '';               // the last save that failed, until one succeeds
 function status(s, error) { emit('saved', { status: s, error }); }
 async function guard(fn) {
   saving++;
   status('saving');
-  try { await fn(); saving--; if (!saving) status('saved'); } catch (e) { saving--; status('error', e.message); }
+  try { await fn(); saving--; failed = ''; if (!busy()) status('saved'); } catch (e) { saving--; failed = e.message; status('error', e.message); }
+}
+/** A save a moment later, that says at once there are edits not on disk yet. */
+function soon(fn, ms) {
+  const d = debounce(fn, ms);
+  const run = (...a) => { status('pending'); d(...a); };
+  run.flush = d.flush;
+  run.pending = d.pending;
+  return run;
 }
 
 /** persona.md: the settings that differ from the defaults (and name, title, language, greeting), and the text. */
@@ -97,7 +106,7 @@ function personaFile() {
   return { settings: out, body: state.agent.body };
 }
 const savePersonaNow = () => { const id = state.agentId; const data = personaFile(); return guard(() => api.savePersona(id, data)); };
-export const savePersonaSoon = debounce(savePersonaNow, 500);
+export const savePersonaSoon = soon(savePersonaNow, 500);
 
 const tableSavers = new Map();
 /** A table changed: saved a moment later. */
@@ -105,12 +114,12 @@ export function saveTableSoon(t) {
   const key = `${state.agentId}/${t.id}`;
   if (!tableSavers.has(key)) {
     const id = state.agentId;
-    tableSavers.set(key, debounce((table) => guard(() => api.saveTable(id, table.id, { headers: table.headers, rows: table.rows })), 600));
+    tableSavers.set(key, soon((table) => guard(() => api.saveTable(id, table.id, { headers: table.headers, rows: table.rows })), 600));
   }
   tableSavers.get(key)(t);
 }
 const saveInteractionsNow = () => { const id = state.agentId; const data = state.agent.interactions; return guard(() => api.saveInteractions(id, data)); };
-export const saveInteractionsSoon = debounce(saveInteractionsNow, 500);
+export const saveInteractionsSoon = soon(saveInteractionsNow, 500);
 
 /** The agent's saved voices, saved now (the whole list). Returns the list as kept, or null if it failed. */
 export async function saveVoices(list) {
@@ -144,6 +153,15 @@ export function flush() {
   savePersonaSoon.flush();
   saveInteractionsSoon.flush();
   for (const s of tableSavers.values()) s.flush();
+}
+
+/** Save (the button, Ctrl+S, Files → Save): every edit on disk now. Resolves '' when all is saved, else why not. */
+export async function saveNow() {
+  flush();
+  for (let i = 0; i < 300 && busy(); i++) await new Promise((r) => setTimeout(r, 50));
+  if (busy()) return 'the server does not answer';
+  if (!failed) status('saved');
+  return failed;
 }
 
 /** Opens an agent: its files from the server. */
