@@ -71,13 +71,20 @@ jobs:
           $env:VIK_UPDATE_FEED = 'http://127.0.0.1:8899'
           Start-Process "$root\app-3.1.90\VIK.exe" -ArgumentList '--mock'
           WaitFor 'VIK 3.1.90 downloads and installs 3.1.91 by itself' { Test-Path "$root\app-3.1.91\VIK.exe" } 420
+          # Squirrel has finished when its own RELEASES lists 3.1.91 and Update.exe has exited: VIK then offers
+          # Restart now / Later. Stopping VIK earlier interrupts the install, which a person never does.
+          WaitFor 'Squirrel has finished installing 3.1.91' { (Select-String -Path "$root\packages\RELEASES" -Pattern 'vik-3.1.91-full' -SimpleMatch -Quiet) -and -not (Get-Process Update -ErrorAction SilentlyContinue) } 180
           Get-Content web.log
 
           # 4. the next launch (the Start menu shortcut runs Update.exe --processStart) starts 3.1.91
           StopVik
           Remove-Item Env:VIK_UPDATE_FEED
           Start-Process "$root\Update.exe" -ArgumentList '--processStart', 'VIK.exe', '--process-start-args', '--mock'
-          WaitFor 'the next launch starts VIK 3.1.91' { Get-Process VIK -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\app-3.1.91\*' } } 60
+          try {
+            WaitFor 'the next launch starts VIK 3.1.91' { Get-Process VIK -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\app-3.1.91\*' } } 60
+          } finally {
+            Get-Process VIK -ErrorAction SilentlyContinue | Select-Object Id, Path | Format-Table -AutoSize | Out-String | Write-Host
+          }
           StopVik
           Stop-Process -Id $web.Id -Force
 
@@ -86,7 +93,8 @@ jobs:
         shell: pwsh
         working-directory: .
         run: |
-          foreach ($f in 'web.log', "$env:LOCALAPPDATA\SquirrelTemp\SquirrelSetup.log", "$env:LOCALAPPDATA\vik\SquirrelSetup.log") {
-            if (Test-Path $f) { Write-Host "--- $f"; Get-Content $f -Tail 80 }
+          $logs = @('web.log', "$env:LOCALAPPDATA\vik\packages\RELEASES") + @(Get-ChildItem "$env:LOCALAPPDATA\vik\Squirrel-*.log" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+          foreach ($f in $logs) {
+            if ($f -and (Test-Path $f)) { Write-Host "--- $f"; Get-Content $f -Tail 60 }
           }
           Get-ChildItem "$env:LOCALAPPDATA\vik" -ErrorAction SilentlyContinue | Format-Table Name, LastWriteTime
