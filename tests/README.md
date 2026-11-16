@@ -22,7 +22,8 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-decide.mjs` | the decision model (`app/src/agent/`): knowledge (links, other names, placeholders), the words matcher, the decider on the example agents (patterns, stages, `otherwise`, free answers, the entry in focus, confidence, ambiguity, signals), the model matcher (prompts, batches, cache), and conversations that follow the decisions (lines filled from rows, signals out and in, `answer` with the entry and its links sent to a fake farm, `start` patterns) | Node 22+ |
 | `node tests/test-guide.mjs` | the studio's built-in guide: its markdown reader (`app/public/js/markdown.js`: headings, lists, tips, code, tables with `\|` in cells, italics that leave `snake_case` alone, HTML kept as text), its pages (each listed in `pages.json`, one title, no link that leads nowhere: pages, sections, views, the tutorial, websites), the views' help links, and the tutorial's steps pointing at elements that exist | Node |
 | `node tests/test-farm.mjs` | language models elsewhere against a fake farm (`mock-farm.mjs`): LLM farms found by their UDP beacon or by their address; replies streamed from a farm or a service; refusals said in words (password or key, full, model gone, off, too many requests); a service's model list; cancelling; `/models`, `/farms`, `/api/llm/models`; a conversation whose replies come from the farm | Node 22+ |
-| `node tests/test-electron-main.mjs` | the Electron app with a fake Electron: Windows installer (shortcuts), built-in server, window, mic permission, menus, personas and their knowledge files, closing | Node 22+ |
+| `node tests/test-electron-main.mjs` | the Electron app with a fake Electron: Windows installer (shortcuts), built-in server, window, mic permission, menus (Check for updates, from the source code), personas and their knowledge files, closing | Node 22+ |
+| `node tests/test-updates.mjs` | new versions (`app/electron/updates.cjs`) with a fake GitHub, a fake updater and fake dialogs: version numbers; which copy updates how (installed on Windows, the portable .zip, a Mac, the source code); the Mac notice (once per version, "up to date", offline, `"updates": false`); the Windows updater (its address on update.electronjs.org, checks, Restart now / Later, no more checks once installed, errors) | Node |
 | `node tests/test-hub.mjs` | the hub (`app/src/hub.mjs`) through the real server: a fake studio publishes, two clients follow; snapshots, events, levels, commands, refused commands, who may connect | Node 22+ |
 | `node tests/test-smart-turn.mjs` | the Smart Turn end-of-turn pipeline (`app/src/turn/`), see below | Node 22+ (optional: Python 3 with numpy and onnxruntime) |
 | `node tests/test-zonos.mjs` | the Zonos voice (`app/src/engines/zonos.mjs`), with a fake Zonos server (`mock-zonos.mjs`) and a fake in-browser engine (`fixtures/zonos-engine/`): the design line and the doses it becomes; Zonos speaking (language, voice, design in each request; audio at 44.1 kHz), and the default voice taking over when Zonos is missing, refuses a request or disappears mid-reply; the engine in the studio's window (the default): its files and its model served by the app, downloaded once and usable offline, a window that answers over the bridge, loads, fails, closes and comes back; and, with Playwright, the studio hosting the engine, its voice picker and its design sliders | Node 22+ (optional: Playwright) |
@@ -44,16 +45,17 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-guide | 26 | 0 |
 | test-models | 48 | 0 |
 | test-farm | 39 | 0 |
-| test-electron-main | 28 | 0 |
+| test-electron-main | 29 | 0 |
+| test-updates | 26 | 0 |
 | test-smart-turn | 41 | 1 |
 | test-zonos | 125 | 0 |
 | test-voices | 42 | 0 |
 | test-gemini | 89 | 0 |
 | test-hub | 22 | 0 |
 | test-local | 128 | 0 |
-| **total** | **820** | **1** |
+| **total** | **847** | **1** |
 
-test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (805 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (832 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
 
 **Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 

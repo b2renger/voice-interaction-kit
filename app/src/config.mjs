@@ -7,6 +7,8 @@ export function loadConfig(file) {
     // where the voices QVAC serves only peer-to-peer (blocked by many school networks) are downloaded over HTTPS:
     // the "models" release (.github/workflows/models.yml), or a folder on the school's own web server; "" = none
     modelMirror: 'https://github.com/b2renger/voice-interaction-kit/releases/download/models/',
+    // the app looks for a new version at launch and every hour (electron/updates.cjs); false = only Files → Check for updates
+    updates: true,
     // the pages that can open a conversation (cables.gl, the studio, offline cables); ["*"] = all
     allowedOrigins: ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*', 'https://editor.p5js.org', 'https://preview.p5js.org'],
     models: {

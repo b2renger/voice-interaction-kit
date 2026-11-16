@@ -1,0 +1,92 @@
+# Tests a real Windows update on a GitHub machine, and publishes nothing:
+#   1. builds VIK twice, as 3.1.90 and 3.1.91 (test versions);
+#   2. installs 3.1.90 with its VIK-Setup.exe, as a person would;
+#   3. serves 3.1.91's RELEASES and .nupkg from a local web server, standing in for update.electronjs.org
+#      (VIK_UPDATE_FEED, app/electron/updates.cjs);
+#   4. checks that 3.1.90 downloads and installs 3.1.91 by itself, and that the next launch starts 3.1.91.
+#
+#   Actions tab → "Update test" → Run workflow
+name: Update test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build VIK 3.1.90, then 3.1.91
+        run: |
+          for v in 3.1.90 3.1.91; do
+            npm version "$v" --no-git-tag-version --allow-same-version
+            rm -rf out
+            npm run make
+            mkdir -p "../v-$v"
+            cp out/make/squirrel.windows/x64/* "../v-$v/"
+          done
+          ls -la ../v-3.1.90 ../v-3.1.91
+          cat ../v-3.1.91/RELEASES
+
+      - name: Install 3.1.90, serve 3.1.91, and let 3.1.90 update itself
+        shell: pwsh
+        working-directory: .
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = "$env:LOCALAPPDATA\vik"
+          function WaitFor($what, $test, $seconds) {
+            $t0 = Get-Date
+            while (-not (& $test)) {
+              if (((Get-Date) - $t0).TotalSeconds -gt $seconds) { throw "timed out: $what" }
+              Start-Sleep 2
+            }
+            Write-Host "ok: $what ($([int]((Get-Date) - $t0).TotalSeconds) s)"
+          }
+          function StopVik { Get-Process VIK, bare -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 3 }
+
+          # 1. install, as a person would (Squirrel installs in %LOCALAPPDATA%\vik and starts VIK)
+          Start-Process -FilePath (Resolve-Path 'v-3.1.90\VIK-Setup.exe') -ArgumentList '--silent' -Wait
+          WaitFor 'VIK 3.1.90 is installed' { Test-Path "$root\app-3.1.90\VIK.exe" } 180
+          WaitFor 'Update.exe is next to it' { Test-Path "$root\Update.exe" } 30
+          StopVik
+
+          # 2. 3.1.91's update files, on a local web server
+          $web = Start-Process python -ArgumentList '-m', 'http.server', '8899', '--bind', '127.0.0.1', '--directory', (Resolve-Path 'v-3.1.91') -PassThru -RedirectStandardError web.log
+          Start-Sleep 2
+
+          # 3. VIK 3.1.90 on the simulated engine (no models), its updater pointed at that server
+          $env:VIK_UPDATE_FEED = 'http://127.0.0.1:8899'
+          Start-Process "$root\app-3.1.90\VIK.exe" -ArgumentList '--mock'
+          WaitFor 'VIK 3.1.90 downloads and installs 3.1.91 by itself' { Test-Path "$root\app-3.1.91\VIK.exe" } 420
+          Get-Content web.log
+
+          # 4. the next launch (the Start menu shortcut runs Update.exe --processStart) starts 3.1.91
+          StopVik
+          Remove-Item Env:VIK_UPDATE_FEED
+          Start-Process "$root\Update.exe" -ArgumentList '--processStart', 'VIK.exe', '--process-start-args', '--mock'
+          WaitFor 'the next launch starts VIK 3.1.91' { Get-Process VIK -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\app-3.1.91\*' } } 60
+          StopVik
+          Stop-Process -Id $web.Id -Force
+
+      - name: Logs
+        if: always()
+        shell: pwsh
+        working-directory: .
+        run: |
+          foreach ($f in 'web.log', "$env:LOCALAPPDATA\SquirrelTemp\SquirrelSetup.log", "$env:LOCALAPPDATA\vik\SquirrelSetup.log") {
+            if (Test-Path $f) { Write-Host "--- $f"; Get-Content $f -Tail 80 }
+          }
+          Get-ChildItem "$env:LOCALAPPDATA\vik" -ErrorAction SilentlyContinue | Format-Table Name, LastWriteTime

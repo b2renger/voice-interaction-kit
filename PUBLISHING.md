@@ -75,6 +75,10 @@ It takes about 15–25 minutes. Students then download from the repository's **R
 
 For a new version: change what you want, commit, push, then tag `v1.0.1` (or `v1.1.0`) and push the tag. The tag sets the app's version number.
 
+**The installed VIKs update themselves on Windows.** The release also carries `RELEASES` and `vik-<version>-full.nupkg`: a VIK installed with `VIK-Setup` finds them within the hour (through update.electronjs.org, a free service that reads public GitHub releases), downloads them and offers to restart. Leave both files in the release, under their names. A Mac VIK says a new version is out, with a link. The version number must go up (`v3.2.0` after `v3.1.0`): updates only go forward.
+
+To check a real Windows update without publishing anything: Actions tab → **Update test** → **Run workflow**. It builds two test versions, installs the first and checks that it updates itself to the second.
+
 To build the installers **without** publishing a release (to try them first): Actions tab → **Release** → **Run workflow**. The files appear under "Artifacts" on the run page.
 
 ## Good to know

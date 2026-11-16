@@ -413,7 +413,7 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 
 **Changing the studio:** `npm start` in `app` to try it; `npm run start:mock` for the simulated engine; `npm run make` to rebuild the installers. The studio picks up `common/voice-core.js` automatically. `npm run server` serves the studio to a browser (`http://localhost:8790`), with the same agents.
 
-**Publishing new installers:** the releases are built by GitHub Actions. Push a version tag: the Release workflow builds the Windows and Mac installers and publishes them on the repository's Releases page. See [`PUBLISHING.md`](../PUBLISHING.md). QVAC is pinned to version 0.21.0: upgrade it between terms only, after `npm run selftest` on a Windows PC and a Mac, and a check of the decision model.
+**Publishing new installers:** the releases are built by GitHub Actions. Push a version tag: the Release workflow builds the Windows and Mac installers and publishes them on the repository's Releases page. The VIKs installed on Windows then update themselves within the hour; on a Mac, VIK says a new version is out. See [`PUBLISHING.md`](../PUBLISHING.md). QVAC is pinned to version 0.21.0: upgrade it between terms only, after `npm run selftest` on a Windows PC and a Mac, and a check of the decision model.
 
 **Changing the local models:** in **Settings** (lighter and bigger models, an LLM farm, a service). The list offered is `choices` in `config.json` (menu **Files → Open settings folder**, then restart the app): see the studio's README, "Choosing the models".
 

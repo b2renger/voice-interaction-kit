@@ -32,7 +32,7 @@ The tests marked ★ make up the **quick run**, to do first: about 2¾ hours for
 | | requirement | tests |
 |---|---|---|
 | R1 | a **cables.gl node** for Gemini Live, added in a code box, **without modifying cables** | A1 to A4, A13 |
-| R2 | a **local QVAC backend** as an **Electron app**, installable on **every computer** (Windows and Mac M1) | A5 to A12, A15 |
+| R2 | a **local QVAC backend** as an **Electron app**, installable on **every computer** (Windows and Mac M1) | A5 to A12, A15, A16 |
 | R3 | **set up the voice** | B1 to B6 |
 | R4 | play with the agent's **personality** | C1 to C7 |
 | R5 | handle the **end of turn** through design | D1 to D6, L1 |
@@ -197,6 +197,17 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 **Expected:** no terminal window opens. Supertonic downloads with the other models at launch, and the banner says "The models are ready". At step 3 the three other voices download (about 2.3 GB), and no "could not be downloaded" dialog appears. **Files → Server log** shows "downloaded from the mirror" for each voice. At step 4 both voices speak.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
+
+### A16 ★ VIK updates itself (R2)
+
+On a Windows PC with VIK installed from a release that has the updates (its release page lists `RELEASES` and a `.nupkg`).
+
+1. Publish the next version (a new tag, see `PUBLISHING.md`), and wait for its release page.
+2. Open VIK, or leave it open: within the hour (or at once with **Files → Check for updates**) it downloads the new version.
+3. Click **Later**, close VIK and open it again from the Start menu.
+4. On a Mac with VIK installed: **Files → Check for updates**.
+
+**Expected:** at step 2, a dialog "A new version of VIK is ready", **Restart now** / **Later**. **Files → Server log** shows "a new version of VIK is downloading", then "is installed". At step 3 the new version opens (its number in the release notes' title; the agents and settings are there). At step 4: "VIK x.y.z is available", and **Open the download page** opens that release. Without a new version: "VIK is up to date".
 
 ## B. The voice (R3)
 
