@@ -10,7 +10,8 @@ const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'vik-userdata-'));
 const appData = fs.mkdtempSync(path.join(os.tmpdir(), 'vik-appdata-'));   // where the earlier "Voice Lab" folder would be
 
 class App extends EventEmitter {
-  constructor() { super(); this.name = 'VIK'; this.commandLine = { appendSwitch() {} }; }
+  constructor() { super(); this.name = 'VIK'; this.isPackaged = false; this.commandLine = { appendSwitch() {} }; }
+  getVersion() { return '3.1.0'; }
   whenReady() { return Promise.resolve(); }
   getPath(n) { return n === 'userData' ? userData : n === 'appData' ? appData : os.tmpdir(); }
   requestSingleInstanceLock() { return true; }
@@ -42,8 +43,17 @@ class BrowserWindow extends EventEmitter {
   focus() {}
 }
 
+// Electron's updater (Squirrel on Windows): records what it is asked
+class AutoUpdater extends EventEmitter {
+  constructor() { super(); this.feed = null; this.checks = 0; this.installs = 0; }
+  setFeedURL(o) { this.feed = o; }
+  checkForUpdates() { this.checks++; }
+  quitAndInstall() { this.installs++; }
+}
+
 module.exports = {
   app,
+  autoUpdater: new AutoUpdater(),
   BrowserWindow,
   Menu: { buildFromTemplate: (t) => t, setApplicationMenu: (m) => { state.menu = m; } },
   shell: { openPath: () => Promise.resolve(''), openExternal: () => Promise.resolve() },

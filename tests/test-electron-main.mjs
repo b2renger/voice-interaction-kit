@@ -89,6 +89,18 @@ check(st.permissionCheck(null, 'media', base) === true && st.permissionCheck(nul
 // the menus
 const labels = JSON.stringify(st.menu || []);
 check(/Engine/.test(labels) && /Simulated/.test(labels) && /models folder/.test(labels) && /agents folder/.test(labels) && /Copy address for clients/.test(labels), 'menus: engine, folders (agents, models), clients address');
+{
+  const shown = [];
+  const electron = require('electron');
+  const box = electron.dialog.showMessageBox;
+  electron.dialog.showMessageBox = (w, o) => { shown.push(o); return Promise.resolve({ response: 0 }); };
+  const item = st.menu.find((m) => m.label === 'Files').submenu.find((i) => i.label === 'Check for updates…');
+  if (item) item.click();
+  await sleep(50);
+  electron.dialog.showMessageBox = box;
+  check(item && shown.length === 1 && /source code/.test(shown[0].message) && electron.autoUpdater.feed === null,
+    'Files → Check for updates…: run from the source code, it says to use git pull (no updater, no download)', shown);
+}
 const engineMenu = st.menu.find((m) => m.label === 'Engine');
 engineMenu.submenu.find((i) => /Copy address/.test(i.label || '')).click();
 check(st.clipboard === health.wsUrl, '"Copy address for clients" copies the clients\' WebSocket address', st.clipboard);

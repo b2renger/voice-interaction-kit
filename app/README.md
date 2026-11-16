@@ -96,6 +96,13 @@ You also need:
 
 On first launch, the banner follows the model download. When it says "The models are ready", click **Start** and talk.
 
+**New versions.** VIK looks for one at launch, then every hour (and when you choose **Files → Check for updates**):
+
+- **On Windows**, installed with `VIK-Setup`: it downloads the new version in the background, installs it next to the current one, then offers **Restart now** or **Later** (the new version starts the next time you open VIK). Your agents, settings and models stay. It does not need administrator rights. The portable `.zip` cannot update itself: it gets the notice below.
+- **On a Mac**: it says "VIK 3.2.0 is available", with a button to the download page. A Mac app updates itself only if it is code-signed, and VIK is not: download the new `.dmg` and drag the app into Applications again.
+
+It only asks GitHub (and, on Windows, update.electronjs.org, which reads the kit's GitHub releases), over HTTPS. To keep a version fixed (an exhibition), set `"updates": false` in your `config.json`: VIK then only looks when you ask.
+
 The menu **Engine → Simulated** restarts the app **without models**: the agent hears a "voice-like noise", replies with a short pre-written script (choices, mood, a long reply you can cut off) and speaks with a hum. The patterns still decide, with the words matcher. Useful to design the interface right away, for a repeatable demo, or on a machine that is too weak.
 
 ## For the teacher: build the installers
@@ -313,3 +320,4 @@ Any number of clients can follow the conversation and drive it, at the same time
 | after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner |
 | the agent stops for a "mm-hm" | "Talk over it this long to interrupt" is at 0: try 600 ms |
 | Files → Server log | the server's latest messages, to understand an error |
+| Files → Check for updates says "Could not check for a new version" | the network blocks GitHub or update.electronjs.org: the new versions are on the Releases page. The reason is in Files → Server log |

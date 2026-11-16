@@ -2,11 +2,12 @@
 // While the app is open, the cables op ("Local" engine) can connect to it.
 'use strict';
 
-const { app, BrowserWindow, Menu, shell, dialog, session, systemPreferences, clipboard } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, session, systemPreferences, clipboard, autoUpdater } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
+const { setupUpdates, updateMode } = require('./updates.cjs');
 
 const APP_DIR = path.join(__dirname, '..');
 const MOCK = process.argv.includes('--mock') || process.env.VOICE_ENGINE === 'mock';
@@ -45,6 +46,7 @@ if (process.platform === 'linux') app.commandLine.appendSwitch('no-sandbox');   
 
 let win = null;
 let srv = null;
+let updates = null;      // new versions of VIK (electron/updates.cjs)
 let quitting = false;
 const logLines = [];
 
@@ -155,6 +157,7 @@ function buildMenu() {
           },
         },
         { label: 'Server log', click: () => showLog() },
+        { label: 'Check for updates…', click: () => { if (updates) updates.check(true); } },
         ...(isMac ? [] : [{ type: 'separator' }, { role: 'quit', label: 'Quit' }]),
       ],
     },
@@ -274,6 +277,12 @@ async function start() {
   win.loadURL(srv.url);
   win.on('closed', () => { win = null; });
   srv.ready.then(() => offerInstall(false));
+  updates = setupUpdates({
+    app, autoUpdater, dialog, shell, log, getWin: () => win,
+    mode: updateMode({ isPackaged: app.isPackaged, platform: process.platform, execPath: process.execPath, exists: fs.existsSync }),
+    enabled: config.updates !== false,
+    feed: process.env.VIK_UPDATE_FEED || '',   // the tests' own update server (.github/workflows/update-test.yml)
+  });
 }
 
 if (SQUIRREL) {

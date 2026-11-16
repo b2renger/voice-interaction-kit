@@ -20,6 +20,7 @@ const SUITES = [
   { name: 'test-models', args: ['tests/test-models.mjs'] },
   { name: 'test-farm', args: ['tests/test-farm.mjs'] },
   { name: 'test-electron-main', args: ['tests/test-electron-main.mjs'] },
+  { name: 'test-updates', args: ['tests/test-updates.mjs'] },
   { name: 'test-smart-turn', args: ['tests/test-smart-turn.mjs'] },
   { name: 'test-zonos', args: ['tests/test-zonos.mjs'] },
   { name: 'test-voices', args: ['tests/test-voices.mjs'] },

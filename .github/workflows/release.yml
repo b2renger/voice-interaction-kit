@@ -7,6 +7,10 @@
 #
 # The installers are not code-signed: Windows SmartScreen and macOS Gatekeeper warn on first launch
 # (see docs/GUIDE.md, "VIK").
+#
+# Windows updates: the release also carries RELEASES and vik-<version>-full.nupkg, under the names Squirrel gave
+# them. The installed VIK finds them through update.electronjs.org and updates itself (app/electron/updates.cjs).
+# .github/workflows/update-test.yml checks a real update on a GitHub machine.
 name: Release
 
 on:
@@ -52,6 +56,7 @@ jobs:
         run: |
           node tests/test-text.mjs
           node tests/test-electron-main.mjs
+          node tests/test-updates.mjs
 
       # The voice engine "Zonos": Zyphra's in-browser engine, built from their sources at a pinned commit, travels
       # in the installers (app/zonos-engine/). Its model does not: the app downloads it on first use.
@@ -73,6 +78,9 @@ jobs:
           if [ "${{ matrix.label }}" = "windows-x64" ]; then
             cp out/make/squirrel.windows/x64/*.exe "../dist/VIK-Setup-${VERSION}-windows-x64.exe"
             for z in out/make/zip/win32/x64/*.zip; do cp "$z" "../dist/VIK-${VERSION}-windows-x64.zip"; done
+            # the update (names unchanged: RELEASES names the .nupkg), for the VIKs already installed
+            cp out/make/squirrel.windows/x64/RELEASES out/make/squirrel.windows/x64/*-full.nupkg ../dist/
+            grep -q "vik-${VERSION}-full.nupkg" ../dist/RELEASES || { echo "RELEASES does not name vik-${VERSION}-full.nupkg"; cat ../dist/RELEASES; exit 1; }
           else
             for d in out/make/*.dmg; do cp "$d" "../dist/VIK-${VERSION}-mac-arm64.dmg"; done
             for z in out/make/zip/darwin/arm64/*.zip; do cp "$z" "../dist/VIK-${VERSION}-mac-arm64.zip"; done
@@ -107,6 +115,9 @@ jobs:
             |---|---|
             | Windows (x64) | `VIK-Setup-…-windows-x64.exe` |
             | Mac (Apple Silicon, M1 and later) | `VIK-…-mac-arm64.dmg` |
+
+            `RELEASES` and the `.nupkg` are what an installed VIK on Windows updates itself from: no need to download them.
+            On a Mac, VIK says when a new version is out (Files → Check for updates).
 
             The installers are not code-signed. On Windows: **More info → Run anyway**.
             On a Mac: open it once, then **System Settings → Privacy & Security → Open Anyway**
