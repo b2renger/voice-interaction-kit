@@ -2,13 +2,15 @@
 
 Say "show me the forest" and ArtLux switches to its **Grove** scene. The VIK agent decides which scene was asked for, and its pattern sends ArtLux an OSC message. Nothing else to run.
 
+**The full tutorial, with the ArtLux project, is in ArtLux's repository: [examples/vik-voice](https://github.com/urbandronedesign/artlux/tree/main/examples/vik-voice)** (scenes by voice, then the show machine by voice, with one OSC address per state: `/vik/{scene}`).
+
 `artlux-scenes.vik.json` is the agent **ArtLux scenes**: a **Scenes** table (one row per ArtLux scene, with the other words for it) and one pattern:
 
 > **When** the person mentions an entry of **Scenes** → **Send OSC** `/artlux/scene/recall` with the value `{scene}`, then **Say** "Here is {scene}."
 
 ## Run it
 
-**1. ArtLux.** Open **Preferences ▸ OSC / Tracking**. Turn **OSC receive** on, with **Listen port** `10000`. Then **File ▸ Open…** the project `examples/state-machine/03-interactive-installation.artlux` from the ArtLux folder. Its scenes are **Attract**, **Ember**, **Tide**, **Grove** and **Blackout**.
+**1. ArtLux.** Open **Preferences ▸ OSC / Tracking**. Turn **OSC receive** on, with **Listen port** `10000`. Then **File ▸ Open…** the project `examples/vik-voice/vik-voice.artlux` from the ArtLux folder. Its scenes are **Attract**, **Ember**, **Tide**, **Grove** and **Blackout**.
 
 **2. VIK** (3.3 or later). Choose **Manage ▸ Import a file…** and pick `artlux-scenes.vik.json`. In **Settings ▸ OSC**, **Send to** is `127.0.0.1:10000` (ArtLux on this computer).
 
