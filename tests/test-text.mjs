@@ -79,4 +79,26 @@ check(ctx.VC._.parseExtraTools(JSON.stringify(decl)).list.length === 1, 'tools: 
 const fromArray = ctx.VC._.parseExtraTools(decl);
 check(fromArray.list.length === 1 && fromArray.error === null, 'tools: as an array, from a persona file', fromArray);
 
+// the mic's gain and gate (settings micGain, micGate): what the agent hears, block by block (2048 samples at 48 kHz)
+{
+  const sine = (amp) => Float32Array.from({ length: 2048 }, (_, i) => amp * Math.sin(2 * Math.PI * 200 * i / 48000));
+  const dt = 2048 / 48000 * 1000;
+  const rmsOf = (b) => Math.sqrt(b.reduce((a, x) => a + x * x, 0) / b.length);
+  const off = ctx.VC._.makeMicGate();
+  off.process(sine(0.1), dt, 0, -80);                      // the gate starts closed: its first block fades in
+  const a = off.process(sine(0.1), dt, 0, -80); const b = off.process(sine(0.1), dt, 6, -80);
+  check(Math.abs(a.db - -23) < 0.5 && Math.abs(b.db - a.db - 6) < 0.1 && a.open && Math.abs(rmsOf(b.out) / rmsOf(a.out) - 2) < 0.01,
+    'mic: the gain multiplies the signal (+6 dB = ×2), the level is in dBFS (a 0.1 sine ≈ -23), no gate at -80', [a.db, b.db]);
+  const g = ctx.VC._.makeMicGate();
+  const loud = g.process(sine(0.1), dt, 0, -40);
+  let quiet = []; for (let i = 0; i < 12; i++) quiet.push(g.process(sine(0.001), dt, 0, -40));
+  const openFor = quiet.findIndex((r) => !r.open) * dt;
+  const last = quiet[quiet.length - 1];
+  check(loud.open && openFor > 300 - dt && openFor <= 300 && rmsOf(last.out) === 0 && last.db < -60,
+    'mic: above the gate it passes; under it, it stays open 300 ms (word endings), then the agent hears silence', { openFor, db: last.db });
+  const back = g.process(sine(0.1), dt, 0, -40);
+  check(back.open && back.out[0] === 0 && Math.abs(back.out[2047]) > 0 && rmsOf(back.out) > 0.03, 'mic: it opens at once, with a fade in over the block (no click)');
+  check(Math.abs(off.process(sine(0.1), dt, 99, -80).db - (a.db + 24)) < 0.1, 'mic: the gain is limited to +24 dB');
+}
+
 process.exit(summary() ? 1 : 0);

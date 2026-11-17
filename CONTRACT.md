@@ -65,7 +65,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 
 **Turn timing** (`turn.ms`): `speech` is how long the person's sentence lasted. `decide` is how long the decision model took. `firstSound` runs from the end of their sentence to the agent's first sound: it is the wait you feel. `total` runs from the end of their sentence to the end of the reply. The local engine adds `asr` (waiting for the transcript), `firstToken` (the model's first word), `firstAudio` (first voice frame), `reply`, `filler` (from the end of the person's turn to the start of the filler, when there is one) and `smartTurn` (how long the Smart Turn model took). A filler does not count as the reply: `firstSound` and `Wait (ms)` still measure the wait for the real reply.
 
-**The levels** are not events: the studio reads them on every frame (`agent.levels()` → `{user, bot}`, from 0 to 1), and the clients get them in `levels` messages, about 30 times a second (`Mic level` and `Voice level` ports). For debugging, `agent.debug()` also gives `duck` (1, or 0.3 while the voice is lowered because someone talks over it) and `gain`.
+**The levels** are not events: the studio reads them on every frame (`agent.levels()` → `{user, bot}`, from 0 to 1), and the clients get them in `levels` messages, about 30 times a second (`Mic level` and `Voice level` ports). `agent.mic()` → `{db, open}` is the mic after the gain (dBFS) and the gate's state, for a meter (Settings → Microphone). For debugging, `agent.debug()` also gives `duck` (1, or 0.3 while the voice is lowered because someone talks over it) and `gain`.
 
 **The moods**: `neutral`, `happy`, `curious`, `focused`, `sorry`, `surprised`, `excited`.
 
@@ -102,6 +102,9 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `interruptAfterMs` | 0 | 0 = any speech over the agent stops it at once. Above 0 (up to 2,000 ms), its voice dips first, and it only stops if the person keeps talking this long. A backchannel ("mm-hm") or a noise lets it carry on; a stop phrase ("stop") makes it stop and listen | — | server |
 | `listenWhileSpeaking` (this computer) | yes | the mic stays open while it speaks (untick with speakers) | browser | browser |
 | `micMuted` (this computer) | no | mic muted | browser | browser |
+| `micGain` (this computer) | 0 | the mic's gain in dB (-12 to +24), before anything listens to it | browser | browser |
+| `micGate` (this computer) | -80 (off) | the gate's threshold in dBFS (-80 = off, to -10): quieter than this, after the gain, the agent hears silence; it closes 300 ms after the last loud sound | browser | browser |
+| `micAutoGain` (this computer) | yes | the browser's automatic level (`autoGainControl`); untick it to set the gain yourself in a noisy room. At the next Start | browser | browser |
 | `awayAfterMs` | 0 (never) | silence while listening before `user.away` (up to 3,600,000 ms) | browser | browser |
 | `repromptLine` | empty | what the agent says **once** when the person stays silent (at the first `user.away`) | asked of the model, in its own words | said as written |
 | `replyDelayMs` | 0 | delay added before the voice | browser | server |

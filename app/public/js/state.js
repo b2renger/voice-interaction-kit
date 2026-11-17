@@ -9,7 +9,7 @@ import { debounce } from './ui.js';
 const D = VoiceCore.DEFAULTS;
 /** This computer's settings: they never travel with an agent (an export, a persona file shared by a student). */
 export const MACHINE = ['engine', 'apiKey', 'tokenUrl', 'geminiEndpoint', 'geminiModel', 'serverUrl', 'localAsr', 'localLlm',
-  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted'];
+  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'micGain', 'micGate', 'micAutoGain'];
 /** Written in persona.md even when they have their default value. */
 const ALWAYS = ['name', 'title', 'language', 'greeting'];
 const MACHINE_STORE = 'vik.machine';

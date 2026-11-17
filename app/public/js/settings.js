@@ -116,6 +116,29 @@ export function initSettings() {
   $('#copyAddr').addEventListener('click', () => { navigator.clipboard.writeText($('#clientsAddr').textContent).then(() => toast('Copied.'), () => toast('Copy it by hand.', 'err')); });
 }
 
+/**
+ * The mic meter (Settings, Microphone): the level after the gain, the gate's threshold as a line, the bar coloured
+ * while the gate is open. Drawn only while Settings is shown.
+ */
+export function initMicMeter(agent) {
+  const meter = $('#micMeter'); const lvl = meter.querySelector('.lvl'); const thr = meter.querySelector('.thr'); const text = $('#micMeterText');
+  const pos = (db) => `${Math.max(0, Math.min(100, ((db + 80) / 70) * 100))}%`;   // the Gate slider's scale, -80 to -10 dB
+  let shown = -120;
+  const frame = () => {
+    requestAnimationFrame(frame);
+    if ($('#view-settings').hidden) return;
+    const m = agent.mic(); const s = settings();
+    shown = m.db > shown ? m.db : shown - 1.2;                 // fast up, slow down: readable
+    const off = Number(s.micGate) <= -80;
+    lvl.style.width = pos(shown);
+    thr.style.left = pos(Number(s.micGate)); thr.hidden = off;
+    meter.classList.toggle('open', m.open);
+    text.textContent = m.db <= -120 && !['listening', 'hearing', 'thinking', 'speaking'].includes(agent.state) ? 'Click Start to see the microphone.'
+      : `${Math.round(Math.max(shown, -120))} dB${off ? '' : m.open ? ': the gate is open, the agent hears' : ': the gate is closed, the agent hears silence'}`;
+  };
+  requestAnimationFrame(frame);
+}
+
 /** What the server says about itself (polled while models load). */
 export function showHealth(hl) {
   $('#clientsAddr').textContent = hl.wsUrl || `ws://${location.host}/events`;

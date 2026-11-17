@@ -271,6 +271,50 @@ await browser.close();
   await browser2.close();
 }
 
+// =========================== 3b. the microphone: gain and gate (Settings, Microphone) ==================
+// The fake mic loops: 1 s of room noise, 1.5 s of speech, 6 s of noise. With the browser's automatic level (on by
+// default), the speech peaks around -7 dBFS: at -12 dB of gain, around -19, under a gate at -10.
+{
+  const browserMic = await launch(makeFakeMicWav(join(tmpdir(), 'voice-fake-mic-local.wav')));
+  const page = await browserMic.newPage();
+  page.on('pageerror', (e) => errors.push('lab (mic): ' + e));
+  await openPlain(page);
+  await page.evaluate(() => { window.__ev = []; window.agent.on('*', (e) => window.__ev.push(e.type)); });
+  /** The mic over `ms`: the loudest level after the gain, and whether the gate opened / stayed closed. */
+  const watch = (ms) => page.evaluate((ms) => new Promise((res) => {
+    let max = -120; let opened = false; let closed = false;
+    const t = setInterval(() => { const m = window.agent.mic(); max = Math.max(max, m.db); if (m.open) opened = true; else closed = true; }, 20);
+    setTimeout(() => { clearInterval(t); res({ max, opened, closed }); }, ms);
+  }), ms);
+  await page.click('.nav button[data-view="settings"]');
+  check(/Click Start/.test(await page.textContent('#micMeterText')), 'mic: the meter asks for Start while the mic is closed');
+  await setField(page, 'micGain', -12);
+  await setField(page, 'micGate', -10);                    // above the voice: the agent hears nothing
+  await page.click('#start');
+  await until(() => page.evaluate(() => window.agent.state === 'listening'), 8000);
+  const shut = await watch(9000);
+  const heard = await page.evaluate(() => window.__ev.filter((t) => t === 'user.start' || t === 'user.text').length);
+  check(shut.max > -35 && !shut.opened && heard === 0 && /gate is closed/.test(await page.textContent('#micMeterText')),
+    'mic: a gate above the voice → the agent hears nothing (the meter still shows the level)', { shut, heard });
+  await setField(page, 'micGain', 0);                      // the simulated recognizer needs a voice above 0.03 RMS
+  await setField(page, 'micGate', -45);                    // between the room and the voice: the voice passes
+  check(await until(() => page.evaluate(() => window.__ev.includes('user.text')), 12000), 'mic: a gate between the room and the voice → the voice is heard', await page.evaluate(() => ({ ev: window.__ev.slice(-12), state: window.agent.state, mic: window.agent.mic(), debug: window.agent.debug().noise })));
+  const both = await watch(9000);
+  check(both.opened && both.closed, 'mic: the gate opens on the voice and closes on the room', both);
+  await setField(page, 'micGate', -80);                    // off
+  await setField(page, 'micGain', 0);
+  const g0 = await watch(9000);
+  await setField(page, 'micGain', 12);
+  const g12 = await watch(9000);
+  check(Math.abs(g12.max - g0.max - 12) < 3, 'mic: +12 dB of gain → the level 12 dB higher', { g0: g0.max, g12: g12.max });
+  check(/^[+]12 dB$/.test(await page.textContent('[data-out="micGain"]')) && /^off$/.test(await page.textContent('[data-out="micGate"]')), 'mic: the sliders say their value ("+12 dB", "off")');
+  await page.click('#stop');
+  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('vik.machine') || '{}'));
+  check(kept.micGain === 12 && kept.micGate === -80, 'mic: gain and gate are this computer\'s settings (kept in the window, not in the agent)', kept);
+  await page.close();
+  await browserMic.close();
+}
+
 // =========================== 4. the lab window: a slow model (fillers), a silent person (away) ==========
 // A 2nd simulated server whose model takes 1.5 s more to answer (MOCK_LLM_DELAY_MS), and a mic with no speech.
 {

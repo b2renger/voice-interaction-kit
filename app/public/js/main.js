@@ -6,7 +6,7 @@ import { state, settings, valueOf, set, onChange, openAgent, lastAgent, flush, r
 import { initTalk, banner } from './talk.js';
 import { initKnowledge, renderKnowledge } from './knowledge.js';
 import { initInteractions, renderInteractions } from './interactions.js';
-import { initSettings, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
+import { initSettings, initMicMeter, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
 import { initGuide, renderGuide, openGuide, refreshGuideTour } from './guide.js';
 import { initTour, startTour, tourCard } from './tour.js';
 import { initZonos } from './zonos.js';
@@ -21,6 +21,7 @@ const { hub } = initTalk(agent);
 initKnowledge();
 initInteractions();
 initSettings();
+initMicMeter(agent);
 initZonos((ms) => pushSettings(ms));
 initVoices((ms) => pushSettings(ms));
 
@@ -95,6 +96,7 @@ const FMT = {
   interruptAfterMs: (v) => (Number(v) === 0 ? 'at once' : `${v} ms`),
   fillerAfterMs: (v) => (Number(v) === 0 ? 'never' : `${v} ms`),
   awayAfterMs: (v) => (Number(v) === 0 ? 'never' : seconds(Number(v))),
+  micGain: (v) => `${Number(v) > 0 ? '+' : ''}${v} dB`, micGate: (v) => (Number(v) <= -80 ? 'off' : `${v} dB`),
 };
 function paintFields() {
   const s = settings();

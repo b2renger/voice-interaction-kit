@@ -14,7 +14,7 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 
 | command | what it checks | you need |
 |---|---|---|
-| `node tests/test-text.mjs` | sentence splitting, cleanup for the voice, the `[[choices: …]]` tags, the same prompt on the browser side and the server side, and the Gemini tools as text or as an array | Node |
+| `node tests/test-text.mjs` | sentence splitting, cleanup for the voice, the `[[choices: …]]` tags, the same prompt on the browser side and the server side, and the Gemini tools as text or as an array, and the mic's gain and gate (block by block) | Node |
 | `node tests/test-protocol.mjs` | the local server protocol (simulated engine): turns, audio, typed text, interruption, voice change, Smart Turn (with a fake verdict), the voice dipping for a backchannel, stop phrases, spoken fillers | Node 22+ |
 | `node tests/test-protocol.mjs fake-qvac` | the same, with the QVAC adapter connected to a fake SDK that checks the options passed to QVAC, including the Parler and Chatterbox voices | Node 22+ |
 | `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final; the models offered in the window (`choices`), and that nothing else loads; an LLM farm frees the local model; on Windows, QVAC's worker starts without a console window; the voices from the mirror over HTTPS (size and SHA-256 checked; a wrong or silent mirror falls back to peer to peer), and a file put in the models folder by hand; Parler and Chatterbox on the CPU on Windows | Node 22+ |
@@ -29,7 +29,7 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-zonos.mjs` | the Zonos voice (`app/src/engines/zonos.mjs`), with a fake Zonos server (`mock-zonos.mjs`) and a fake in-browser engine (`fixtures/zonos-engine/`): the design line and the doses it becomes; Zonos speaking (language, voice, design in each request; audio at 44.1 kHz), and the default voice taking over when Zonos is missing, refuses a request or disappears mid-reply; the engine in the studio's window (the default): its files and its model served by the app, downloaded once and usable offline, a window that answers over the bridge, loads, fails, closes and comes back; and, with Playwright, the studio hosting the engine, its voice picker and its design sliders | Node 22+ (optional: Playwright) |
 | `node tests/test-voices.mjs` | the saved voices (`app/src/agent/voices.mjs`) and the pattern action "Change voice": what a saved voice holds, where an agent keeps them (duplicate, export, import); a conversation where patterns change the voice (at once within an engine, after a reload across engines), the change lasting, ending, and never leaking into a new conversation; and, with Playwright, saving, using and deleting a voice in the studio, and the action in a pattern | Node 22+ (optional: Playwright) |
 | `node tests/test-gemini.mjs` | voice-core's Gemini Live engine (run by the studio) in Chromium, with a fake mic, against a fake Gemini Live server, including away and the reprompt | Node + Playwright |
-| `node tests/test-local.mjs` | the studio in Chromium, with the simulated engine and a fake mic: a conversation (the voice dipping, fillers, away, the voice fields); Settings (the models, an LLM farm added by its address, a service, an imported agent that cannot change them); an agent built entirely in the studio (persona, a table, Save and Ctrl+S, a pattern with a signal and an OSC message, a try, a conversation that follows it, its signal and its OSC message, an export, a table changed outside); the Guide (every page, its links to pages, views and websites, the views' help links) and the tutorial done as a newcomer would (by hand and with "Do it for me", left and picked up after a reload, down to a conversation with the café it built, the examples untouched); and its clients through the hub: the cables op (signals, stage, decisions), the HTML and p5.js examples (p5.js comes from its CDN) | Node + Playwright |
+| `node tests/test-local.mjs` | the studio in Chromium, with the simulated engine and a fake mic: a conversation (the voice dipping, fillers, away, the voice fields); the microphone's gain and gate (a gate above the voice, between the room and the voice, +12 dB); Settings (the models, an LLM farm added by its address, a service, an imported agent that cannot change them); an agent built entirely in the studio (persona, a table, Save and Ctrl+S, a pattern with a signal and an OSC message, a try, a conversation that follows it, its signal and its OSC message, an export, a table changed outside); the Guide (every page, its links to pages, views and websites, the views' help links) and the tutorial done as a newcomer would (by hand and with "Do it for me", left and picked up after a reload, down to a conversation with the café it built, the examples untouched); and its clients through the hub: the cables op (signals, stage, decisions), the HTML and p5.js examples (p5.js comes from its CDN) | Node + Playwright |
 
 Playwright: `npm install` at the root of the kit (it is a development dependency there), then `npx playwright install chromium`.
 
@@ -37,7 +37,7 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 
 | suite | passed | skipped |
 |---|---|---|
-| test-text | 36 | 0 |
+| test-text | 40 | 0 |
 | test-protocol (simulated engine) | 49 | 0 |
 | test-protocol fake-qvac | 46 | 0 |
 | test-agents | 51 | 0 |
@@ -52,10 +52,10 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-voices | 42 | 0 |
 | test-gemini | 89 | 0 |
 | test-hub | 22 | 0 |
-| test-local | 135 | 0 |
-| **total** | **864** | **1** |
+| test-local | 142 | 0 |
+| **total** | **875** | **1** |
 
-test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (849 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (860 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
 
 **Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 

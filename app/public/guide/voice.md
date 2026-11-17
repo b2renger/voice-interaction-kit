@@ -42,6 +42,7 @@ The agent has to guess when you have finished speaking. Too early, and it cuts o
 - **End-of-turn silence**: the silence that ends a turn. 300 ms makes an impatient agent; 2,000 ms a patient but slow one.
 - **End of turn**: silence only, or **silence and the Smart Turn model**, which also listens to how your sentence ends (its intonation). With Smart Turn, set the silence to 2,000 ms: the agent replies quickly to a finished sentence, and still waits during an "um…".
 - **Start-of-speech** and **end-of-speech sensitivity**: how easily it hears that you started, and how quickly it decides you stopped.
+- **The microphone itself** (a quiet mic, a noisy room): its **gain** and its **gate** are in [Settings](view:settings), under **Microphone**, with a level meter.
 
 ## Interruptions
 
