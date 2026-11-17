@@ -272,6 +272,15 @@
           </div>
         </div>
       </div>
+      <div class="group">
+        <header><h2>Microphone</h2><p>How loud the microphone is, and how loud a sound must be for the agent to hear it.</p></header>
+        <div class="grid2">
+          <label class="field" style="align-content:start"><span>Gain <output data-out="micGain"></output></span><input type="range" min="-12" max="24" step="1" data-k="micGain"></label>
+          <label class="field"><span>Gate <output data-out="micGate"></output></span><input type="range" min="-80" max="-10" step="1" data-k="micGate"><span class="mic-meter" id="micMeter" aria-hidden="true"><span class="lvl"></span><span class="thr"></span></span><span class="hint" id="micMeterText">Click Start to see the microphone.</span></label>
+        </div>
+        <label class="check" style="margin-top:8px"><input type="checkbox" data-k="micAutoGain"> Automatic level (the browser's)</label>
+        <p class="hint">Quieter than the gate, the agent hears silence: raise it until the room's noise stays under the line, and a voice goes over it. In a noisy room, untick the automatic level, which raises the noise when nobody speaks, and set the gain yourself (it applies at the next Start).</p>
+      </div>
       <div class="group" data-show="gemini">
         <header><h2>Gemini Live</h2><p>The key stays in this window, on this computer.</p></header>
         <div class="grid2">

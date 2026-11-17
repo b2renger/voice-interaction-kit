@@ -104,6 +104,12 @@ const VoiceCore = (function () {
                                       // ("mm-hm" → it carries on, "stop" → it stops and listens)
     listenWhileSpeaking: true,        // false = the mic is cut while the agent speaks (half-duplex)
     micMuted: false,
+    // — the microphone (this computer) —
+    micGain: 0,                       // dB, -12 to +24: applied to the mic before anything listens to it
+    micGate: -80,                     // dBFS, -80 (off) to -10: quieter than this (after the gain), the agent hears
+                                      // silence; the gate stays open MIC_GATE_HOLD_MS after the last loud block
+    micAutoGain: true,                // the browser's automatic level; off for a manual gain and a gate in a noisy
+                                      // room (it raises the room's noise in silences). Applies at the next Start.
     awayAfterMs: 0,                   // both: silence while listening before "user.away" (0 = never); it fires again
                                       // after each further silence of this length (count 1, 2, …)
     repromptLine: '',                 // both: what the agent says ONCE when the person stays silent (count 1)
@@ -286,6 +292,35 @@ const VoiceCore = (function () {
     let sum = 0;
     for (let i = 0; i < block.length; i++) sum += block[i] * block[i];
     return block.length ? Math.sqrt(sum / block.length) : 0;
+  }
+
+  const MIC_GATE_OFF = -80;           // dBFS: at or below, the gate is off
+  const MIC_GATE_HOLD_MS = 300;       // the gate stays open this long after the last block above the threshold
+  /**
+   * The mic's gain and gate (settings micGain, micGate). process() returns the block as the agent hears it, the
+   * level after the gain in dBFS (what the gate compares, and the meter shows), and whether the gate is open.
+   * Opening is at once; closing waits MIC_GATE_HOLD_MS (the ends of words), then fades over one block (no click).
+   */
+  function makeMicGate() {
+    let open = false; let quietMs = 0; let g = 0;       // closed until a sound goes over the threshold
+    return {
+      process(input, dtMs, gainDb, gateDb) {
+        const k = Math.pow(10, clamp(num(gainDb, 0), -12, 24) / 20);
+        const out = new Float32Array(input.length);
+        for (let i = 0; i < input.length; i++) out[i] = input[i] * k;
+        const level = rms(out);
+        const db = level > 0 ? Math.max(-120, 20 * Math.log10(level)) : -120;
+        const threshold = num(gateDb, MIC_GATE_OFF);
+        if (threshold <= MIC_GATE_OFF || db >= threshold) { open = true; quietMs = 0; }
+        else if (open && (quietMs += dtMs) >= MIC_GATE_HOLD_MS) open = false;
+        const target = open ? 1 : 0;
+        if (g !== 1 || target !== 1) {
+          for (let i = 0; i < out.length; i++) out[i] *= g + (target - g) * (i / out.length);
+          g = target;
+        }
+        return { out: out, db: db, open: open };
+      },
+    };
   }
 
   /** Stateful resampler (window average = low-pass): browser rate → 16 kHz. */
@@ -772,6 +807,7 @@ const VoiceCore = (function () {
     let engine = null; let engineName = settings.engine; let active = false; let starting = null; let startGen = 0;
     let down = null; let sendBuf = new Int16Array(SEND_EVERY_SAMPLES); let sendLen = 0;
     const vad = makeClientVad();
+    const gate = makeMicGate(); let micDb = -120; let micOpen = false;
     let userLevel = 0; let botLevelSmooth = 0;
     // the bot's voice
     let sources = new Set(); let nextTime = 0; let botStarted = false; let botDoneFlag = false;
@@ -900,8 +936,11 @@ const VoiceCore = (function () {
 
     // — microphone —
     function onAudioBlock(e) {
-      const input = e.inputBuffer.getChannelData(0);
-      const dtMs = (input.length / ctx.sampleRate) * 1000;
+      const dtMs = (e.inputBuffer.length / ctx.sampleRate) * 1000;
+      // the gain and the gate first: the level, the detector and the engine all get what the agent hears
+      const g = gate.process(e.inputBuffer.getChannelData(0), dtMs, settings.micGain, settings.micGate);
+      const input = g.out;
+      micDb = settings.micMuted ? -120 : g.db; micOpen = !settings.micMuted && g.open;
       const level = settings.micMuted ? 0 : rms(input);
       userLevel = Math.max(level * 4 > userLevel ? clamp(level * 4, 0, 1) : userLevel * 0.85, 0);
       const playing = botIsPlaying();
@@ -1235,7 +1274,7 @@ const VoiceCore = (function () {
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw fail('mic', 'This browser gives no access to the microphone (the page must be https or localhost).');
           let s;
           try {
-            s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+            s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: settings.micAutoGain !== false, channelCount: 1 } });
           } catch (e) {
             if (!alive()) return false;
             throw fail('mic', e && e.name === 'NotAllowedError'
@@ -1392,6 +1431,8 @@ const VoiceCore = (function () {
         if (!active) userLevel = 0;
         return { user: userLevel, bot: botLevelSmooth < 0.002 ? 0 : botLevelSmooth };
       },
+      /** The mic for a meter: its level after the gain (dBFS, -120 when silent or closed) and the gate's state. */
+      mic: function () { return active ? { db: micDb, open: micOpen } : { db: -120, open: false }; },
       conversation: function () { return turns.slice(); },
       debug: function () {
         return {
@@ -1422,6 +1463,6 @@ const VoiceCore = (function () {
     /** The system prompt for these settings: what the language model reads (engine 'local' or 'gemini'). */
     systemPrompt: systemPrompt,
     // exposed for tests
-    _: { systemPrompt: systemPrompt, geminiSetup: geminiSetup, parseExtraTools: parseExtraTools, bytesToB64: bytesToB64, b64ToInt16: b64ToInt16, floatToInt16: floatToInt16, makeDownsampler: makeDownsampler, makeClientVad: makeClientVad },
+    _: { systemPrompt: systemPrompt, geminiSetup: geminiSetup, parseExtraTools: parseExtraTools, bytesToB64: bytesToB64, b64ToInt16: b64ToInt16, floatToInt16: floatToInt16, makeDownsampler: makeDownsampler, makeClientVad: makeClientVad, makeMicGate: makeMicGate },
   };
 })();
