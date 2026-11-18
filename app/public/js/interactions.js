@@ -190,7 +190,7 @@ function renderEditor() {
         h('input', { type: 'text', value: a.value, placeholder: 'value, like {name}', 'aria-label': 'Signal value', oninput: edit((e) => { a.value = e.target.value; }) }))];
     } else if (a.do === 'osc') {
       body = [h('div', { class: 'row', style: 'flex-wrap:nowrap' },
-        h('input', { type: 'text', value: a.address, placeholder: 'address, like /artlux/scene/recall', 'aria-label': 'OSC address', oninput: edit((e) => { a.address = e.target.value; }) }),
+        h('input', { type: 'text', value: a.address, placeholder: 'address, like /vik/{name}', 'aria-label': 'OSC address', oninput: edit((e) => { a.address = e.target.value; }) }),
         h('input', { type: 'text', value: a.value, placeholder: 'value, like {name} or 1', 'aria-label': 'OSC value', oninput: edit((e) => { a.value = e.target.value; }) })),
         h('p', { class: 'hint' }, `A number is sent as a number, anything else as text; empty: no value.${headers.length ? ` Fill the address or the value from ${source}: ${headers.map((x) => `{${x}}`).join(' ')}.` : ''} It goes to ${settings().oscTo || 'nowhere yet'} (Settings).`)];
     } else if (a.do === 'go') {
