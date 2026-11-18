@@ -53,6 +53,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `ui.choices` | the agent offers choices | `question`, `options` | `On choices` |
 | `ui.mood` | the agent changes mood | `mood` | `On mood` |
 | `voice` | a pattern changed the agent's voice to one of its saved voices (VIK, the local engine), or back to its own | `voice` (the saved voice's id, `''` = its own), `name` | — |
+| `osc.in` | an OSC message arrived on the port `oscIn` (a sensor, a button; local engine). A stream comes thinned out: at most 5 per second per address, always the latest | `address`, `args` | — |
 | `language` | the conversation's language: once at the start (the agent's), then at each change (the Talk view, a pattern's "Change language", a client's `language` command; local engine) | `language` (`en`, `fr`, `es`, `de`, `it`, `pt`), `own` (it is the agent's own) | — |
 | `tool.call` | the agent calls a tool declared in the settings (`extraTools`, Gemini). A client sends the result back (`tool.result`) | `id`, `name`, `args` | `On tool call` |
 | `tool.cancel` | Gemini cancels tool calls | `ids` | — |
@@ -94,6 +95,7 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `llm` (this computer) | `local` | who writes the replies: `local` (`localLlm`), `farm` (an [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm on the network) or `service` (any OpenAI-compatible address: Ollama, LM Studio, OpenAI, Gemini, Mistral, OpenRouter) | — | switching loads or frees the local model |
 | `llmUrl`, `llmModel`, `llmKey` (this computer) | empty | the farm's or the service's OpenAI address (`http://<host>:4000/v1`), the model there, its key or password | — | sent with each reply |
 | `oscTo` (this computer) | `127.0.0.1:10000` | where the patterns' "Send OSC" messages go: one or more `host:port`, separated by commas (an agent never sets it) | — | applies to the next message |
+| `oscIn` (this computer) | empty | the UDP port sensors and buttons send OSC to, on every network interface, during a conversation. Empty: not listening (an agent never sets it). A port already taken gives the error `osc` | — | listens again at once |
 | `endSilenceMs` | 800 | silence that ends a turn | `silenceDurationMs` | Whisper end of turn (with Smart Turn: the longest wait) |
 | `turnDetection` | `silence` | how the end of turn is decided: `silence` (the end silence alone) or `smart` (silence + the Smart Turn model: a sentence that sounds finished ends the turn at once) | — | Smart Turn model |
 | `startSensitivity` | `high` | how easily the start of speech is detected | `startOfSpeechSensitivity` | Silero VAD threshold |
@@ -190,6 +192,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
   - `{type:'ui.choices', question, options}`;
   - `{type:'ui.mood', mood}`;
   - `{type:'voice', voice, name}`: a pattern's "Change voice" took effect (`voice` `''`: the agent's own again);
+  - `{type:'osc.in', address, args}`: an OSC message on the port `oscIn` (at most 5 per second per address, the latest). Its value is in what the language model reads; a pattern "when an OSC message arrives" that fires is a `decision` whose `text` is the message (`/arduino/temp 29`), said at the next pause (the agent silent, nobody talking, for 1.5 s);
   - `{type:'language', language, own}`: the conversation's language, right after `ready`, then at each change. A change reloads speech recognition and the voice (`status` "Changing language…"); a pattern's reply waits for it. While it is not the agent's own, its fixed lines (a pattern's "Say", the repair line) are translated by the language model and there are no spoken fillers;
   - `{type:'timing', turnId, ms}`: `ms` includes `smartTurn` when the model was used, and `decide` (the decision model);
   - `{type:'decision', …}`, `{type:'stage', stage, from}`, `{type:'signal', name, value}`: as the events of the same names. A decision comes after `thinking`; a pattern's choices, mood, signals and stage come right after it, before the reply's sentences;

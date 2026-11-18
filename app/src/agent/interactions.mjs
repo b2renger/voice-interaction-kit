@@ -9,6 +9,7 @@ export const WHEN = {
   mentions: 'the person mentions an entry of a table',
   start: 'the conversation starts',
   signal: 'a client sends this signal',
+  osc: 'an OSC message arrives (a sensor, a button)',
   otherwise: 'nothing else fired, in this stage',
 };
 /** What a pattern can do, in order. */
@@ -65,6 +66,12 @@ export function normalizeInteractions(raw) {
     if (kind === 'says') when.examples = list(w.examples);
     if (kind === 'mentions') when.table = slug(w.table, '');
     if (kind === 'signal') when.name = text(w.name, 80);
+    if (kind === 'osc') {
+      // any message, or the value crossing a threshold (app/src/osc.mjs, oscFires)
+      when.address = oscAddress(w.address);
+      when.test = w.test === 'above' || w.test === 'below' ? w.test : 'any';
+      when.threshold = Number.isFinite(Number(w.threshold)) && String(w.threshold).trim() !== '' ? Number(w.threshold) : 0;
+    }
     return {
       id: uniqueId(p.id, name, patternIds, 'pattern'),
       name,

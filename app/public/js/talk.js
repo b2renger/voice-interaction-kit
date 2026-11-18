@@ -95,7 +95,8 @@ export function initTalk(agent) {
       : ['A free answer'];
     const others = d.candidates.filter((c) => !d.pattern || c.id !== d.pattern.id || (c.entry && d.entry && c.entry.key !== d.entry.key)).slice(0, 3);
     lastDecision = add(h('li', {},
-      d.text ? h('p', { class: 'said' }, `“${d.text}”`) : h('p', { class: 'said' }, d.pattern && d.pattern.kind === 'signal' ? 'A signal' : 'The conversation starts'),
+      d.pattern && d.pattern.kind === 'osc' ? h('p', { class: 'said' }, `OSC ${d.text}`)
+        : d.text ? h('p', { class: 'said' }, `“${d.text}”`) : h('p', { class: 'said' }, d.pattern && d.pattern.kind === 'signal' ? 'A signal' : 'The conversation starts'),
       h('p', { class: 'took' }, took),
       d.kind === 'free' ? h('p', { class: 'note' }, 'No pattern was close enough: the language model answers, with what it knows.') : '',
       others.length ? h('p', { class: 'others' }, `Next: ${others.map((c) => `${c.name}${c.entry ? ` (${c.entry.key})` : ''} ${pct(c.score)}`).join(', ')}`) : '',
@@ -111,7 +112,7 @@ export function initTalk(agent) {
 
   // — every event, for the curious —
   agent.on('*', (ev) => {
-    if (ev.type === 'state') return;
+    if (ev.type === 'state' || ev.type === 'osc.in') return;     // a sensor's stream would hide the rest (Settings → OSC shows it)
     const detail = ev.text || ev.message || (ev.options ? ev.options.join(' | ') : '') || ev.mood || ev.stage || ev.name
       || (ev.type === 'turn.prediction' ? `p ${Number(ev.probability).toFixed(2)}, ${ev.complete ? 'complete' : 'not finished'}` : '')
       || (ev.type === 'user.away' ? `silent ${seconds(ev.afterMs)}, ${ev.count} times` : '') || '';

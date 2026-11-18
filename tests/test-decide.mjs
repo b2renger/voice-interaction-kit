@@ -70,6 +70,30 @@ function decodeOsc(b) {
   const want = Buffer.concat([Buffer.from('/a\0\0,si\0'), Buffer.from('Gröve\0\0', 'utf8'), Buffer.from([0, 0, 0, 7])]);
   check(encodeOsc('/a', [{ type: 's', value: 'Gröve' }, { type: 'i', value: 7 }]).equals(want) && json(decodeOsc(encodeOsc('/f', oscArgs('0.25')))) === json({ address: '/f', args: [0.25] }),
     'osc: the bytes follow OSC 1.0 (padding, UTF-8, big-endian numbers)');
+
+  // OSC in: what an Arduino sends, read; the patterns' conditions; the live data the language model reads
+  const m = await import(src('osc.mjs'));
+  const d = Buffer.alloc(8); d.writeDoubleBE(2.5);
+  const typed = Buffer.concat([Buffer.from('/x\0\0,ifsdTFN\0\0\0\0'), Buffer.from([0, 0, 0, 42]), encodeOsc('/', [{ type: 'f', value: 0.5 }]).subarray(8), Buffer.from('hi\0\0'), d]);
+  const one = encodeOsc('/arduino/temp', [{ type: 'f', value: 31.5 }]);
+  const size = Buffer.alloc(4); size.writeInt32BE(one.length);
+  const bundle = Buffer.concat([Buffer.from('#bundle\0'), Buffer.alloc(8), size, one, size, encodeOsc('/arduino/temp', [{ type: 'f', value: 31.75 }])]);
+  check(json(m.decodeOsc(typed)) === json([{ address: '/x', args: [42, 0.5, 'hi', 2.5, true, false, null] }]) && json(m.decodeOsc(bundle)) === json([{ address: '/arduino/temp', args: [31.5] }, { address: '/arduino/temp', args: [31.75] }])
+    && json(m.decodeOsc(Buffer.from('garbage'))) === '[]' && json(m.decodeOsc(Buffer.from('/no-tags\0\0\0\0'))) === json([{ address: '/no-tags', args: [] }]),
+  'osc in: numbers, text, true/false/null, a bundle of messages; garbage is ignored', m.decodeOsc(typed));
+  const run = (when, values) => { const edge = {}; return values.map((v) => (m.oscFires(when, String(v), edge) ? 'F' : '.')).join(''); };
+  check(run({ test: 'above', threshold: 28 }, [25, 29, 29.5, 28.1, 27.9, 29, 27.3, 28.5, 'x']) === '.F.....F.',
+    'osc in: "goes above 28" fires on the crossing, not while it stays above, and again once back under 27.44 (2 %)', run({ test: 'above', threshold: 28 }, [25, 29, 29.5, 28.1, 27.9, 29, 27.3, 28.5, 'x']));
+  check(run({ test: 'below', threshold: 0.5 }, [1, 0, 0, 1, 0]) === '.F..F', 'osc in: "goes below 0.5" for a button sending 1, then 0 while pressed: once per press', run({ test: 'below', threshold: 0.5 }, [1, 0, 0, 1, 0]));
+  check(run({ test: 'any' }, ['a', 'a', 'b']) === 'FFF' && run({ test: 'above', threshold: 1 }, ['5 tag', 'tag 5']) === 'F.', 'osc in: "any message" fires on each one; a condition reads the first argument as a number');
+  check(json(['9000', ' 9000 ', '', '0', '70000', 'abc', 9000, null].map(m.oscPort)) === json([9000, 9000, 0, 0, 0, 0, 9000, 0]), 'osc in: the port setting (empty or not a port: not listening)');
+  check(json([m.oscValue([31.5]), m.oscValue(['tag', 7]), m.oscValue([true, false, null]), m.oscValue([])]) === json(['31.5', 'tag 7', '1 0', '']), 'osc in: a message\'s value as the agent reads it');
+  const live = m.liveDataPrompt(new Map([['/arduino/temp', { value: '29.5', at: 1000000 }], ['/door', { value: '', at: 1000000 - 5 * 60000 }]]), 1000000);
+  check(live === 'Live data, right now (the latest OSC messages from sensors and buttons; they replace any value said earlier in the conversation): /arduino/temp = 29.5; /door = (no value) (5 min ago).' && m.liveDataPrompt(new Map()) === '',
+    'osc in: the live data the language model reads (an old value says its age)', live);
+  const w = normalizeInteractions({ patterns: [{ name: 'A', when: { kind: 'osc', address: ' arduino/temp ', test: 'above', threshold: '28.5' } }, { name: 'B', when: { kind: 'osc', test: 'between', threshold: 'hot' } }] }).patterns.map((p) => p.when);
+  check(json(w) === json([{ kind: 'osc', address: '/arduino/temp', test: 'above', threshold: 28.5 }, { kind: 'osc', address: '', test: 'any', threshold: 0 }]),
+    'osc in: the pattern keeps an address, a condition (any, above, below) and a number', w);
 }
 
 // — 2. the words matcher —
@@ -330,6 +354,71 @@ const decider = createDecider({ store, matcher: () => words });
   check(json(artlux.got[1]) === json({ address: '/vik/Ember', args: [] }), 'osc: the address filled from the entry (/vik/{scene} → /vik/Ember), no value', artlux.got);
   show.ws.close();
   artlux.close(); arduino.close();
+
+  // OSC in: the example "Room climate", a socket standing in for the Arduino (its sensor, its fan)
+  process.env.VIK_OSC_IN_HOST = '127.0.0.1';          // the tests listen on this computer only
+  const { encodeOsc: enc } = await import(src('osc.mjs'));
+  const fan = await listener();
+  const probe = createSocket('udp4');
+  await new Promise((r) => probe.bind(0, '127.0.0.1', r));
+  const inPort = probe.address().port;                // a free port, given back for VIK to listen on
+  probe.close();
+  const sensor = createSocket('udp4');
+  const temp = (v) => new Promise((r) => sensor.send(enc('/arduino/temp', [{ type: 'f', value: v }]), inPort, '127.0.0.1', r));
+  const roomAgent = await api('/agents', { bundle: JSON.parse(readFileSync(join(ROOT, 'examples', 'arduino-osc', 'room-climate.vik.json'), 'utf8')) });
+  const room = await open({ agent: roomAgent.id, name: 'Sol', persona: 'A room.', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant', oscIn: String(inPort), oscTo: `127.0.0.1:${fan.port}` });
+  const played = (m) => room.ws.send(JSON.stringify({ type: 'playback', state: 'ended', turnId: m.turnId }));   // the browser's news
+  n = room.msgs.length;
+  await temp(25);
+  const seen = await room.after(n, 'osc.in');
+  check(seen && seen.address === '/arduino/temp' && json(seen.args) === json([25]), 'osc in: a message on the port oscIn → an "osc.in" event (Settings, the clients)', seen);
+  asked = farm.requests.length;
+  room.ws.send(JSON.stringify({ type: 'text', text: 'Is it warm in here?' }));
+  played(await room.after(n, 'bot.done'));
+  const sysLive = farm.requests[asked] ? farm.requests[asked].body.messages[0].content : '';
+  const lastTurn = farm.requests[asked] ? farm.requests[asked].body.messages.slice(-1)[0] : {};
+  check(lastTurn.role === 'user' && /^Is it warm in here\?\n\n\(Live data, right now .*\/arduino\/temp = 25\.\)$/s.test(lastTurn.content)
+    && !JSON.stringify(farm.requests[asked].body.messages.slice(1, -1)).includes('Live data'),
+  'osc in: and again after the last thing said, for this request only (a small model trusts it more)', lastTurn.content);
+  check(/Live data, right now \(the latest OSC messages from sensors and buttons; [^)]*\): \/arduino\/temp = 25\./.test(sysLive), 'osc in: the language model reads the latest value ("is it warm?")', sysLive.slice(-200));
+  // 29 °C: "Too warm" fires, at a pause, with {value} in its instruction, then the fan stage
+  n = room.msgs.length;
+  asked = farm.requests.length;
+  await temp(29);
+  const warm = await room.after(n, 'decision');
+  const warmDone = await room.after(n, 'bot.done');
+  const instr = farm.requests[asked] ? farm.requests[asked].body.messages[0].content : '';
+  check(warm && warm.pattern && warm.pattern.kind === 'osc' && warm.pattern.id === 'too-warm' && warm.text === '/arduino/temp 29' && /For this reply: The room has just reached 29 degrees\./.test(instr)
+    && room.msgs.slice(n).some((m) => m.type === 'stage' && m.stage === 'fan'), 'osc in: "goes above 28" fires: the agent speaks, {value} filled, then the fan stage', { warm, instr: instr.slice(-200) });
+  const cue = farm.requests[asked] ? farm.requests[asked].body.messages.slice(-1)[0].content : '';
+  check(cue.startsWith('(OSC message: /arduino/temp 29)'), 'osc in: the model answers the message (a user turn), not its own last words', cue);
+  played(warmDone);
+  n = room.msgs.length;
+  await temp(29.5); await temp(28.2); await temp(30);
+  await sleep(2200);                                  // longer than the pause it would wait for
+  check(!room.msgs.slice(n).some((m) => m.type === 'decision'), 'osc in: staying above 28 does not fire again');
+  // "yes, please" in the fan stage: the fan's OSC message goes to the board
+  n = room.msgs.length;
+  room.ws.send(JSON.stringify({ type: 'text', text: 'yes, please' }));
+  const on = await room.after(n, 'bot.done');
+  played(on);
+  await until(() => fan.got.length, 2000);
+  check(on && on.text === 'The fan is on.' && json(fan.got) === json([{ address: '/arduino/fan', args: [1] }]), 'osc in: "yes, please" → /arduino/fan 1 to the board', { said: on && on.text, fan: fan.got });
+  // back under 27.44, then over 28 while the agent is speaking: it waits for the pause, never talks over
+  await temp(27);
+  n = room.msgs.length;
+  room.ws.send(JSON.stringify({ type: 'text', text: 'Tell me something nice' }));
+  const busy = await room.after(n, 'bot.done');
+  await temp(28.6);
+  await sleep(600);
+  const early = room.msgs.slice(n).some((m) => m.type === 'decision' && m.pattern && m.pattern.kind === 'osc');
+  const endedAt = Date.now();
+  played(busy);
+  const again = await room.after(n, 'bot.done') && await until(() => room.msgs.slice(n).find((m) => m.type === 'decision' && m.pattern && m.pattern.kind === 'osc'), 6000);
+  const waited = Date.now() - endedAt;
+  check(!early && again && again.text === '/arduino/temp 28.6' && waited >= 1400, 'osc in: it fires again after going back, and waits until the agent has finished, plus a pause', { early, waited });
+  room.ws.close();
+  sensor.close(); fan.close();
   await srv.close();
   await farm.close();
 }

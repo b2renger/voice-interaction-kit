@@ -2,7 +2,7 @@
 // about itself (the decision model, the clients' address, the agents' folder).
 import { $, $$, h, toast } from './ui.js';
 import { api } from './api.js';
-import { state, settings, setMachine } from './state.js';
+import { state, settings, setMachine, onChange } from './state.js';
 
 /** Ready-made addresses (the same list as app/src/llm.mjs): [name, url, needs a key]. */
 const SERVICES = [
@@ -137,6 +137,25 @@ export function initMicMeter(agent) {
       : `${Math.round(Math.max(shown, -120))} dB${off ? '' : m.open ? ': the gate is open, the agent hears' : ': the gate is closed, the agent hears silence'}`;
   };
   requestAnimationFrame(frame);
+}
+
+/** Settings → OSC: what arrives on the port oscIn, during a conversation (the events "osc.in"). */
+export function initOscIn(agent) {
+  const list = $('#oscInList'); const text = $('#oscInText');
+  const seen = new Map();          // address → its latest value, in the order they first came
+  let failed = '';
+  const render = () => {
+    const port = String(settings().oscIn || '').trim();
+    text.textContent = !port ? 'Empty: VIK does not listen. Sensors and buttons send to this computer\'s address, on this port.'
+      : failed || (!agent.active ? `VIK listens on port ${port} during a conversation: click Start.`
+        : seen.size ? `Listening on port ${port}. The agent knows these values:` : `Listening on port ${port}. Nothing has arrived yet.`);
+    list.replaceChildren(...[...seen].map(([address, value]) => h('li', {}, h('code', {}, address), h('span', {}, value || '(no value)'))));
+  };
+  agent.on('osc.in', (ev) => { if (seen.size < 30 || seen.has(ev.address)) seen.set(ev.address, ev.args.map(String).join(' ')); render(); });
+  agent.on('error', (ev) => { if (ev.code === 'osc') { failed = ev.message; render(); } });
+  agent.on('state', (ev) => { if (ev.state === 'connecting') { seen.clear(); failed = ''; } render(); });
+  onChange(() => { failed = ''; render(); });
+  render();
 }
 
 /** What the server says about itself (polled while models load). */

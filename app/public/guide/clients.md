@@ -37,6 +37,16 @@ A pattern's **Send OSC** action sends a message to the software and devices that
 
 In [Talk](view:talk), "Why it answered" shows each message sent, and where it went. Type a sentence there to try a pattern without speaking.
 
+## Sensors and buttons (OSC in)
+
+An Arduino, a phone app or a show controller can send OSC to VIK: a temperature, a distance, a button, a tag. The agent then knows the values, and its patterns react to them.
+
+- **Where they arrive:** in [Settings](view:settings), under **OSC**, **Listen on port** (for example `9000`). VIK listens during a conversation, and the list below the port shows the latest value of each address. The first time, Windows asks whether VIK may use the network: allow it, or the messages of another computer or an Arduino never arrive.
+- **The agent knows the values.** The language model reads the latest value of each address before every reply: "is it warm in here?" gets the temperature. Say in the persona what each address means: "/arduino/temp is the room's temperature in degrees Celsius".
+- **A pattern reacts.** Its **When** is **an OSC message arrives at** an address: any message (a button), or the value going above or below a number (a sensor). It fires when the value crosses the line, and again only once it has gone back a little, so a temperature hovering around 28 does not repeat itself. The agent speaks at the next pause, when it has finished and nobody is talking. `{value}` is the message's value and `{address}` its address, in a line to say, an instruction, or an OSC message sent back.
+
+Together, they make a conversation with the room: the temperature passes 28, the agent says so and asks whether to turn on the fan, "yes please" sends `/arduino/fan 1`. This example, with its Arduino sketch and a script that plays the Arduino when you have none, is in the [examples](https://github.com/b2renger/voice-interaction-kit/tree/main/examples/arduino-osc).
+
 **ArtLux.** In ArtLux, turn **OSC receive** on (Preferences ▸ OSC / Tracking, port 10000). `/artlux/scene/recall` with a scene's name changes the scene; `/artlux/cue/fire` fires a cue; `/artlux/state/trigger` fires a state machine transition. A ready-made agent is in the [examples](https://github.com/b2renger/voice-interaction-kit/tree/main/examples/artlux).
 
 ## cables.gl

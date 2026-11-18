@@ -19,7 +19,7 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 | `node tests/test-protocol.mjs fake-qvac` | the same, with the QVAC adapter connected to a fake SDK that checks the options passed to QVAC, including the Parler and Chatterbox voices | Node 22+ |
 | `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final; the models offered in the window (`choices`), and that nothing else loads; an LLM farm frees the local model; on Windows, QVAC's worker starts without a console window; the voices from the mirror over HTTPS (size and SHA-256 checked; a wrong or silent mirror falls back to peer to peer), and a file put in the models folder by hand; Parler and Chatterbox on the CPU on Windows | Node 22+ |
 | `node tests/test-agents.mjs` | the agents on disk (`app/src/agent/`): `persona.md` (front matter + markdown), CSV tables (separators, quotes, Excel's UTF-8 mark), `interactions.json` (normalized), the store (examples on first launch, old personas imported, trash, copy, export/import, hand edits seen, names that cannot leave the folder), and the studio's API through the server | Node 22+ |
-| `node tests/test-decide.mjs` | the decision model (`app/src/agent/`): knowledge (links, other names, placeholders), the words matcher, the decider on the example agents (patterns, stages, `otherwise`, free answers, the entry in focus, confidence, ambiguity, signals), the model matcher (prompts, batches, cache), and conversations that follow the decisions (lines filled from rows, signals out and in, `answer` with the entry and its links sent to a fake farm, `start` patterns), and OSC out (the action, its value typed by its look, the destinations of this computer, the bytes, a conversation that sends it to two listeners) | Node 22+ |
+| `node tests/test-decide.mjs` | the decision model (`app/src/agent/`): knowledge (links, other names, placeholders), the words matcher, the decider on the example agents (patterns, stages, `otherwise`, free answers, the entry in focus, confidence, ambiguity, signals), the model matcher (prompts, batches, cache), and conversations that follow the decisions (lines filled from rows, signals out and in, `answer` with the entry and its links sent to a fake farm, `start` patterns), and OSC out (the action, its value typed by its look, the destinations of this computer, the bytes, a conversation that sends it to two listeners), the conversation's language (a pattern, a client, translated lines), and OSC in (the bytes and bundles, thresholds with their margin, the live data the model reads, a conversation with a fake Arduino that waits for a pause) | Node 22+ |
 | `node tests/test-guide.mjs` | the studio's built-in guide: its markdown reader (`app/public/js/markdown.js`: headings, lists, tips, code, tables with `\|` in cells, italics that leave `snake_case` alone, HTML kept as text), its pages (each listed in `pages.json`, one title, no link that leads nowhere: pages, sections, views, the tutorial, websites), the views' help links, and the tutorial's steps pointing at elements that exist | Node |
 | `node tests/test-farm.mjs` | language models elsewhere against a fake farm (`mock-farm.mjs`): LLM farms found by their UDP beacon or by their address; replies streamed from a farm or a service; refusals said in words (password or key, full, model gone, off, too many requests); a service's model list; cancelling; `/models`, `/farms`, `/api/llm/models`; a conversation whose replies come from the farm | Node 22+ |
 | `node tests/test-electron-main.mjs` | the Electron app with a fake Electron: Windows installer (shortcuts), built-in server, window, mic permission, menus (Check for updates, from the source code), personas and their knowledge files, closing | Node 22+ |
@@ -41,7 +41,7 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-protocol (simulated engine) | 49 | 0 |
 | test-protocol fake-qvac | 46 | 0 |
 | test-agents | 52 | 0 |
-| test-decide | 65 | 0 |
+| test-decide | 81 | 0 |
 | test-guide | 26 | 0 |
 | test-models | 49 | 0 |
 | test-farm | 39 | 0 |
@@ -52,10 +52,10 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-voices | 42 | 0 |
 | test-gemini | 89 | 0 |
 | test-hub | 23 | 0 |
-| test-local | 148 | 0 |
-| **total** | **890** | **1** |
+| test-local | 151 | 0 |
+| **total** | **909** | **1** |
 
-test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (875 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (894 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
 
 **Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 

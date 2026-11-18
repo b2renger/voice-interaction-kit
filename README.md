@@ -66,8 +66,9 @@ Four example agents come with the app: a museum guide, a station kiosk, a chef w
 | **Who is the agent?** | Persona: name, text, greeting, short answers, creativity | — |
 | **What does it know?** | Knowledge: tables, links between them, other names (`Water Lilies \| Nymphéas`) | — |
 | **How does it decide?** | Interactions: patterns, stages, confidence, a field to try a sentence | Decision, Stage, Entry, On decision, On stage |
-| **What does it make happen?** | patterns that show choices, set a mood, move to a stage, send a signal | Choices, Mood, Agent signal, On agent signal |
-| **What makes it react?** | patterns "when a client sends this signal": a sensor, a button, a moment of a scene | Send signal (from cables, p5.js, a page) |
+| **What does it make happen?** | patterns that show choices, set a mood, move to a stage, send a signal, send OSC (ArtLux, an Arduino) | Choices, Mood, Agent signal, On agent signal |
+| **What makes it react?** | patterns "when a client sends this signal", or "when an OSC message arrives" (an Arduino's sensor going above a value): the agent knows the live values, and speaks at the next pause | Send signal (from cables, p5.js, a page) |
+| **Which language?** | Persona: the agent's language; Talk: a switch for the conversation's; a pattern "Change language" (its lines are then translated) | — |
 | **Which voice?** | Voice & timing: 10 Supertonic voices, a voice described in words (Parler), Chatterbox, a voice designed with sliders (Zonos, on the graphics card: [docs/ZONOS.md](docs/ZONOS.md)); 30 Gemini voices | Voice level |
 | **When have you finished speaking?** | end-of-turn silence, sensitivities, the Smart Turn model | Hearing, On user end, Mic level, Turn probability |
 | **Can you interrupt it?** | interruptible, listen while speaking, talk over it this long (a "mm-hm" lets it carry on) | On interruption, On interruption pending / cancelled |

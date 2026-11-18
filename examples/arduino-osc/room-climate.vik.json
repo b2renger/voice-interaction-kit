@@ -1,0 +1,64 @@
+{
+  "vik": "agent",
+  "id": "room-climate",
+  "persona": "---\nname: Sol\ntitle: Room climate\nlanguage: en\ngreeting: Hello, I'm Sol. I keep an eye on the room's temperature.\n---\n\nYou are Sol, the voice of a room. A sensor tells you the room's temperature, and you can switch a fan.\nIn the live data, /arduino/temp is the room's temperature in degrees Celsius, and /arduino/fan/state is 1 while the fan is on, 0 while it is off.\nYou answer in one or two short sentences, and you round temperatures to the degree.\n",
+  "knowledge": {},
+  "interactions": {
+    "version": 1,
+    "start": "main",
+    "stages": [{ "id": "main", "name": "Main" }, { "id": "fan", "name": "Fan offered" }],
+    "confidence": 0.5,
+    "patterns": [
+      {
+        "id": "too-warm", "name": "Too warm", "stage": "", "on": true,
+        "when": { "kind": "osc", "address": "/arduino/temp", "test": "above", "threshold": 28 },
+        "then": [
+          { "do": "answer", "instruction": "The room has just reached {value} degrees. Say it simply, then ask if you should turn on the fan." },
+          { "do": "go", "stage": "fan" }
+        ]
+      },
+      {
+        "id": "fan-yes", "name": "Yes, the fan", "stage": "fan", "on": true,
+        "when": { "kind": "says", "examples": ["yes, please", "yes, turn it on", "go ahead, do it", "oui, vas-y"] },
+        "then": [
+          { "do": "osc", "address": "/arduino/fan", "value": "1" },
+          { "do": "say", "text": "The fan is on." },
+          { "do": "go", "stage": "main" }
+        ]
+      },
+      {
+        "id": "fan-no", "name": "No fan", "stage": "fan", "on": true,
+        "when": { "kind": "says", "examples": ["no, thanks", "no, leave it off", "not now"] },
+        "then": [
+          { "do": "say", "text": "All right, I'll leave it off." },
+          { "do": "go", "stage": "main" }
+        ]
+      },
+      {
+        "id": "fan-state", "name": "Fan state?", "stage": "", "on": true,
+        "when": { "kind": "says", "examples": ["is the fan on?", "is the fan running?", "is the fan still on?", "is the fan off?"] },
+        "then": [
+          { "do": "answer", "instruction": "Say whether the fan is on or off, from /arduino/fan/state in the live data, and the temperature." }
+        ]
+      },
+      {
+        "id": "fan-on", "name": "Fan on", "stage": "", "on": true,
+        "when": { "kind": "says", "examples": ["turn on the fan", "switch the fan on", "I'm too hot"] },
+        "then": [
+          { "do": "osc", "address": "/arduino/fan", "value": "1" },
+          { "do": "say", "text": "The fan is on." },
+          { "do": "go", "stage": "main" }
+        ]
+      },
+      {
+        "id": "fan-off", "name": "Fan off", "stage": "", "on": true,
+        "when": { "kind": "says", "examples": ["turn off the fan", "switch the fan off", "I'm cold now"] },
+        "then": [
+          { "do": "osc", "address": "/arduino/fan", "value": "0" },
+          { "do": "say", "text": "The fan is off." },
+          { "do": "go", "stage": "main" }
+        ]
+      }
+    ]
+  }
+}
