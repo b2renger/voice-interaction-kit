@@ -6,7 +6,7 @@ The VIK studio is the brain: it listens, decides and speaks, with its agent (per
 |---|---|
 | [`html-css-js/`](html-css-js/) | a plain web page: an orb coloured by the state and sized by the levels (CSS only), the subtitles, the choices as buttons, the stage and the agent's signals, Start / Stop / Interrupt, a "someone comes near" signal, and a field that sends context |
 | [`p5js/`](p5js/) | a p5.js sketch: an orb drawn every frame from the state and the levels, the subtitles, the stage and the agent's last signal. Click: start / stop. Keys 1, 2, 3: tell the agent which room the visitor is in. Key S: the signal `visitor-near` |
-| [`artlux/`](artlux/) | not a page: an agent whose pattern sends OSC. Say "show me the forest", and ArtLux switches scene (`/artlux/scene/recall`) |
+| [`artlux/`](artlux/) | not a page: an agent whose pattern sends OSC. Say "show me the forest", and ArtLux's show machine goes to that state (`/vik/Grove`) |
 | [`arduino-osc/`](arduino-osc/) | not a page: an Arduino sends the room's temperature to VIK (OSC in); past 28 °C the agent says so and offers the fan, "yes please" sends `/arduino/fan 1`. With the sketch, and a script that plays the Arduino when you have none |
 
 ## Run one

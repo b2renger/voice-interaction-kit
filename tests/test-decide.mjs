@@ -323,6 +323,9 @@ const decider = createDecider({ store, matcher: () => words });
   const artlux = await listener();
   const arduino = await listener();
   const bundle = JSON.parse(readFileSync(join(ROOT, 'examples', 'artlux', 'artlux-scenes.vik.json'), 'utf8'));
+  // the example ships the per-state address (/vik/{scene}, tested below); start from a value-carrying message
+  check(json(bundle.interactions.patterns[0].then[0]) === json({ do: 'osc', address: '/vik/{scene}', value: '' }), 'osc: the ArtLux example sends one address per state');
+  bundle.interactions.patterns[0].then[0] = { do: 'osc', address: '/artlux/scene/recall', value: '{scene}' };
   const lux = await api('/agents', { bundle });
   const show = await open({ agent: lux.id, name: 'Lux', persona: 'Lights.', oscTo: `127.0.0.1:${artlux.port}, 127.0.0.1:${arduino.port}` });
   n = show.msgs.length;
