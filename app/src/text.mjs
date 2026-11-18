@@ -39,6 +39,13 @@ export function systemPrompt(s, engine = 'local') {
   return lines.filter((l, i) => l !== '' || i > 1).join('\n').trim();
 }
 
+/** What the language model reads to say a fixed line in the conversation's language (session.mjs, translated()). */
+export function translatePrompt(language) {
+  const name = LANGUAGES[language] || language || 'English';
+  return `Translate the user's message into ${name}. Write only the translation, without quotes or comments. `
+    + `If it is already in ${name}, write it as it is. Keep proper names as they are.`;
+}
+
 /** A sentence longer than this is cut at its last comma, so the voice starts quickly. */
 export const SENTENCE_SOFT_MAX = 160;
 // Abbreviations whose final period does not end a sentence (French and English).

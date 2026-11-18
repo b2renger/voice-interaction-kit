@@ -65,6 +65,7 @@
             <span><b id="mTurns">0</b>turns</span>
           </div>
           <div class="row">
+            <select id="talkLang" aria-label="Language of the conversation" title="The language of this conversation. It starts in the agent's language (Persona)." disabled></select>
             <button class="btn quiet" id="signalBtn" type="button">Send a signal…</button>
             <button class="btn" id="interrupt" type="button" disabled>Interrupt</button>
           </div>
@@ -92,8 +93,9 @@
             <label class="field"><span>Title in the list</span><input type="text" data-k="title"></label>
             <label class="field"><span>Language</span>
               <select data-k="language"><option value="en">English</option><option value="fr">French</option><option value="es">Spanish</option><option value="de">German</option><option value="it">Italian</option><option value="pt">Portuguese</option></select>
+              <span class="hint">Write the persona, the knowledge and the lines in it. Conversations start in it; in another one (Talk, a pattern), the lines are translated.</span>
             </label>
-            <label class="field"><span>Greeting</span><input type="text" data-k="greeting" placeholder="Empty: it waits to be spoken to"></label>
+            <label class="field" style="align-content:start"><span>Greeting</span><input type="text" data-k="greeting" placeholder="Empty: it waits to be spoken to"></label>
           </div>
           <label class="field"><span>Persona</span><textarea id="personaBody" data-k="persona" spellcheck="true"></textarea></label>
         </div>

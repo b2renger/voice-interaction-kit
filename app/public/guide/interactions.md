@@ -29,6 +29,7 @@ A pattern does one or more things, in order:
 | **Show choices** | buttons on the screen, with an optional question |
 | **Set the mood** | a mood for the interface: happy, curious, sorry… |
 | **Change voice** | from this reply on, the agent speaks with one of its saved voices (Voice & timing), or with its own again |
+| **Change language** | from this reply on, the conversation is in another language: hearing, voice and answers switch to it, after a pause of a few seconds. Its lines to say are then translated by the language model |
 | **Send a signal** | a signal to cables, p5.js and pages: `show-artwork` with the value `{name}` |
 | **Send OSC** | an OSC message to ArtLux, an Arduino, a show controller: `/artlux/scene/recall` with the value `{name}`. See [OSC](clients.md#osc) |
 | **Go to** | moves the conversation to another stage |

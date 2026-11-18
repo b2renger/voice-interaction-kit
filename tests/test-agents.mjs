@@ -62,6 +62,8 @@ const fails = (fn) => { try { fn(); return null; } catch (e) { return e; } };
   check(n.patterns[0].then.length === 1 && n.patterns[1].stage === '' && n.patterns[1].when.kind === 'says' && n.patterns[1].then[0].options.join() === 'A,B' && n.patterns[1].then[1].mood === 'neutral',
     'interactions: unknown actions dropped, unknown stage → every stage, unknown kind → says, unknown mood → neutral', n.patterns[1]);
   check(slug('Opening hours — Été!') === 'opening-hours-ete', 'slug: "Opening hours — Été!" → opening-hours-ete');
+  const lang = normalizeInteractions({ patterns: [{ name: 'L', then: ['fr', 'xx', 'toString', undefined].map((language) => ({ do: 'language', language })) }] }).patterns[0].then;
+  check(lang.map((a) => a.language).join('|') === 'fr|||', 'interactions: "Change language" keeps a known language, anything else is the agent\'s own (\'\')', lang);
 }
 
 // — the store —

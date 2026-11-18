@@ -2,7 +2,7 @@
 // (the decision model's events). Also the hub: this window is the brain, the clients (cables, p5.js, pages)
 // follow it and drive it (CONTRACT.md, "The clients protocol").
 import { $, h, seconds, pct } from './ui.js';
-import { settings } from './state.js';
+import { settings, onChange } from './state.js';
 
 const STATE_WORDS = { idle: 'ready', connecting: 'connecting', listening: 'listening', hearing: 'hearing you', thinking: 'thinking', speaking: 'speaking', ended: 'ended', error: 'something went wrong' };
 const LIVE_WORDS = { idle: 'Ready', connecting: 'Connecting', listening: 'Listening', hearing: 'Hearing you', thinking: 'Thinking', speaking: 'Speaking', ended: 'Ended', error: 'Error' };
@@ -36,6 +36,8 @@ export function initTalk(agent) {
     $('#start').disabled = st === 'connecting';
     $('#interrupt').disabled = !(st === 'thinking' || st === 'speaking');
     if (!live) $('#liveCaption').textContent = '';
+    langPick.disabled = !(live && agent.engine === 'local');
+    if (!live) showLanguage('');
   });
   agent.on('start', () => { banner('', ''); });
   agent.on('status', (ev) => { if (ev.text) banner('', ev.text, ev.progress); else banner('', ''); });
@@ -59,6 +61,20 @@ export function initTalk(agent) {
       lastDecision.append(h('p', { class: 'note' }, `Felt wait ${seconds(ev.ms.firstSound)}, whole reply ${seconds(ev.ms.total)}${ev.interrupted ? ', cut off' : ''}.`));
       lastDecision = null;
     }
+  });
+
+  // — the conversation's language: the agent's at the start; this switch, a pattern or a client changes it —
+  const LANGUAGES = VoiceCore.LANGUAGES;
+  const langPick = $('#talkLang');
+  langPick.replaceChildren(...Object.entries(LANGUAGES).map(([code, name]) => h('option', { value: code }, name)));
+  let language = '';              // the conversation's, as the server last said ('' outside a conversation)
+  function showLanguage(code) { language = code; langPick.value = code || settings().language || 'en'; }
+  showLanguage('');
+  onChange(() => { if (!language) showLanguage(''); });                    // the agent's language, until a conversation
+  langPick.addEventListener('change', () => { if (!agent.setLanguage(langPick.value)) showLanguage(language); });
+  agent.on('language', (ev) => {
+    if (language && ev.language !== language) note(ev.own ? `Back to its own language: ${LANGUAGES[ev.language] || ev.language}.` : `Now speaking ${LANGUAGES[ev.language] || ev.language}.`);
+    showLanguage(ev.language);
   });
 
   function clearChoices() { $('#choices').replaceChildren(); }
@@ -184,6 +200,7 @@ function connectHub(agent) {
     else if (c.type === 'choose') { $('#choices').replaceChildren(); agent.choose(c.option); }
     else if (c.type === 'tool.result') agent.sendToolResult(c.id, c.result);
     else if (c.type === 'signal') agent.sendSignal(c.name, c.value);
+    else if (c.type === 'language') agent.setLanguage(c.language);
   };
   (function open() {
     ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/brain`);

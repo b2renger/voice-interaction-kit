@@ -16,7 +16,7 @@ Clients connect to the address shown in **Settings → Clients** (`ws://localhos
 
 ## What clients send
 
-Start, Stop, Interrupt, a typed message, a choice, context ("the visitor is in room 2"), and **signals** of their own.
+Start, Stop, Interrupt, a typed message, a choice, context ("the visitor is in room 2"), the conversation's language (a language button: `{type:'language', language:'fr'}`), and **signals** of their own.
 
 ## Signals
 

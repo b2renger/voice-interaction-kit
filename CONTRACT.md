@@ -53,6 +53,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `ui.choices` | the agent offers choices | `question`, `options` | `On choices` |
 | `ui.mood` | the agent changes mood | `mood` | `On mood` |
 | `voice` | a pattern changed the agent's voice to one of its saved voices (VIK, the local engine), or back to its own | `voice` (the saved voice's id, `''` = its own), `name` | — |
+| `language` | the conversation's language: once at the start (the agent's), then at each change (the Talk view, a pattern's "Change language", a client's `language` command; local engine) | `language` (`en`, `fr`, `es`, `de`, `it`, `pt`), `own` (it is the agent's own) | — |
 | `tool.call` | the agent calls a tool declared in the settings (`extraTools`, Gemini). A client sends the result back (`tool.result`) | `id`, `name`, `args` | `On tool call` |
 | `tool.cancel` | Gemini cancels tool calls | `ids` | — |
 | `timing` | measurements from the local server | `turnId`, `ms` | — |
@@ -78,7 +79,7 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `engine` (this computer) | `local` in the studio | the engine: `local` (VIK hears, decides, speaks) or `gemini` (Gemini Live does it all) | | |
 | `agent` | empty | the agent (its folder name): its knowledge and its patterns decide | — | the decision model |
 | `name`, `persona` | Ada, a museum guide | who the agent is | system prompt | system prompt |
-| `language` | `en` | the language | in the prompt (Gemini picks on its own) | Whisper + voice + prompt |
+| `language` | `en` | the agent's language: the one its persona, knowledge and lines are written in, and the one each conversation starts in. In another conversation language (local engine), its fixed lines are translated by the language model | in the prompt (Gemini picks on its own) | Whisper + voice + prompt |
 | `greeting` | empty | what it says first (empty = it waits) | asked of the model | said as written |
 | `shortAnswers` | yes | short spoken answers | prompt | prompt |
 | `creativity` | 1 | 0 calm → 2 unpredictable | `temperature` | `temp` × 0.7 |
@@ -130,7 +131,7 @@ Allowed pages: those served from this computer (`http://localhost:*`, `http://12
 
 **The app sends** (JSON):
 
-- `{type:'hello', app, name, engine, state, stage, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the studio opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when no studio is connected (the server runs on its own, `npm run server`, with no lab page open): nothing happens until one opens;
+- `{type:'hello', app, name, engine, state, stage, language, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the studio opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when no studio is connected (the server runs on its own, `npm run server`, with no lab page open): nothing happens until one opens;
 - every event of the table above, as it is: `{type, state, t, …data}`;
 - `{type:'levels', user, bot}`: the mic and the voice, from 0 to 1, about 30 times a second while they move;
 - `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the studio is closed) or `bad-command`.
@@ -147,6 +148,7 @@ Allowed pages: those served from this computer (`http://localhost:*`, `http://12
 | `{type:'choose', option}` | picks one of the choices the agent offered |
 | `{type:'tool.result', id, result}` | the result of a `tool.call` (Gemini) |
 | `{type:'signal', name, value}` | a signal (a sensor, a button, a moment of a scene): the agent's pattern "when a client sends this signal" answers it, if there is one; otherwise the agent knows it as context (Gemini: as context) |
+| `{type:'language', language}` | the conversation's language, like the switch of the Talk view (a language button in an installation): `en`, `fr`, `es`, `de`, `it`, `pt`, or `''` for the agent's own. Hearing and the voice reload (a few seconds); the conversation after goes back to the agent's language. Local engine only |
 
 Every client sees the same conversation, and any of them can drive it. The mic and the speakers are the app's: clients only show and command.
 
@@ -165,6 +167,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
   - `{type:'interrupt'}`: cut the reply;
   - `{type:'say', text}`: the agent says this line as written, with no thinking state, and it goes into the history as the agent's message (used for the reprompt line);
   - `{type:'signal', name, value}`: a client's signal, for the agent's patterns "when a client sends this signal";
+  - `{type:'language', language}`: the conversation's language (`''`: the agent's own). An unknown one is ignored;
   - `{type:'playback', state:'ended', turnId}`: the voice has finished playing;
   - `{type:'stop'}`: stop.
 
@@ -187,6 +190,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
   - `{type:'ui.choices', question, options}`;
   - `{type:'ui.mood', mood}`;
   - `{type:'voice', voice, name}`: a pattern's "Change voice" took effect (`voice` `''`: the agent's own again);
+  - `{type:'language', language, own}`: the conversation's language, right after `ready`, then at each change. A change reloads speech recognition and the voice (`status` "Changing language…"); a pattern's reply waits for it. While it is not the agent's own, its fixed lines (a pattern's "Say", the repair line) are translated by the language model and there are no spoken fillers;
   - `{type:'timing', turnId, ms}`: `ms` includes `smartTurn` when the model was used, and `decide` (the decision model);
   - `{type:'decision', …}`, `{type:'stage', stage, from}`, `{type:'signal', name, value}`: as the events of the same names. A decision comes after `thinking`; a pattern's choices, mood, signals and stage come right after it, before the reply's sentences;
   - `{type:'error', code, message, fatal}`.

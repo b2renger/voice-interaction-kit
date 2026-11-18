@@ -1,6 +1,7 @@
 // interactions.json: an agent's stages and patterns ("When … → Then …"), the rules its decision model follows.
 // normalizeInteractions() turns any JSON (hand-written, old, broken) into a valid structure, so the rest of the
 // code never has to check. PURE module (docs/DESIGN.md, 2.3).
+import { LANGUAGES } from '../text.mjs';
 
 /** What can start a pattern. */
 export const WHEN = {
@@ -17,6 +18,7 @@ export const THEN = {
   choices: 'show choice buttons',
   mood: 'set the mood',
   voice: 'change voice',
+  language: 'change the language of the conversation',
   signal: 'send a signal to the clients',
   osc: 'send an OSC message (ArtLux, Arduino…)',
   go: 'go to another stage',
@@ -83,6 +85,8 @@ function action(a) {
     case 'mood': return { do: 'mood', mood: MOODS.includes(a.mood) ? a.mood : 'neutral' };
     // one of the agent's saved voices (voices.mjs), by its id; '' = back to the agent's own voice
     case 'voice': return { do: 'voice', voice: slug(a.voice, '') };
+    // one of the languages (text.mjs); '' = back to the agent's own
+    case 'language': return { do: 'language', language: Object.hasOwn(LANGUAGES, String(a.language)) ? String(a.language) : '' };
     case 'signal': return { do: 'signal', name: text(a.name, 80), value: text(a.value, 500) };
     // where it goes is this computer's setting (oscTo), never the agent's: app/src/osc.mjs
     case 'osc': return { do: 'osc', address: oscAddress(a.address), value: text(a.value, 500) };

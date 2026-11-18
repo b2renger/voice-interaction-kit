@@ -8,9 +8,19 @@ The persona is who the agent is: its name, its language, what it says first, and
 |---|---|
 | **Name** | the name the agent gives itself: "Your name is Lou." |
 | **Title in the list** | how the agent appears in the list at the top. It can differ from the name: the title "Café", the name "Lou" |
-| **Language** | the language it speaks and hears |
+| **Language** | the language it speaks and hears, and the one you write it in: persona, knowledge, lines to say. Each conversation starts in it (see [Another language](#another-language)) |
 | **Greeting** | what it says first, when you click **Start**. Empty: it waits to be spoken to. A pattern "when the conversation starts" replaces it |
 | **Persona** | the character sheet, in markdown |
+
+## Another language
+
+A conversation stays in one language. It changes only when someone asks:
+
+- in [Talk](view:talk), the language switch next to **Send a signal…**, during a conversation;
+- a pattern's action **Change language**, so that a sentence switches it ("can we speak English?"), see [Interactions](interactions.md);
+- a client's `language` command (a language button in an installation, see [Clients](clients.md)).
+
+Hearing and the voice reload, which takes a few seconds. The language model then answers in the new language, and the lines you wrote are translated by it: write them in the agent's **Language**, never in another one, or they are said as written. The next conversation starts again in the agent's language.
 
 ## Writing the persona
 

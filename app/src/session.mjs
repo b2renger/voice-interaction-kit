@@ -1,7 +1,7 @@
 // A conversation: what happens between a browser (the studio) and the local engine.
 // Protocol: see CONTRACT.md ("Local engine"). Incoming audio: 16-bit PCM, mono, 16 kHz, in binary frames.
 // Outgoing audio: binary frames [u32 sample rate][u32 turn id][16-bit mono PCM].
-import { ReplyParser, systemPrompt, heardNothing, speakable, trimHistory, classifyInterjection } from './text.mjs';
+import { ReplyParser, systemPrompt, translatePrompt, LANGUAGES, heardNothing, speakable, trimHistory, classifyInterjection } from './text.mjs';
 import { delay, clamp, num, progressText } from './util.mjs';
 import { fill } from './agent/knowledge.mjs';
 import { knowledgePrompt } from './agent/decide.mjs';
@@ -60,6 +60,7 @@ export class Session {
     this.ws = ws; this.engine = engine; this.lock = prepareLock; this.log = log;
     this.s = { ...DEFAULTS };
     this.voice = null;            // the saved voice a pattern switched to ({id, name, settings}); null: the agent's own
+    this.lang = '';               // the conversation's language when it is not the agent's (Talk, a pattern, a client)
     this.history = [];
     this.context = [];
     this.stage = '';              // the agent's current stage
@@ -111,6 +112,7 @@ export class Session {
       case 'say': this.onSay(String(m.text || '')); break;
       case 'context': this.addContext(String(m.text || '')); break;
       case 'signal': this.onSignal(String(m.name || '').slice(0, 80), m.value == null ? '' : String(m.value).slice(0, 2000)); break;
+      case 'language': this.setLanguage(String(m.language || '')).catch((e) => this.error('language', e.message)); break;
       case 'interrupt': this.interrupt('client'); break;
       case 'playback': if (m.state === 'ended') this.onPlaybackEnded(Number(m.turnId) || 0); break;
       case 'tool.result': this.log(`(tool result ignored by the local engine: ${m.id})`); break;
@@ -123,6 +125,7 @@ export class Session {
   async start(settings) {
     this.s = { ...DEFAULTS, ...settings };
     this.voice = null;                                // a new conversation starts in the agent's own voice
+    this.lang = '';                                   // and in its own language
     this.status('Preparing the models…', 0);
     await this.lock(() => this.engine.prepare(this.s, (p) => this.status(progressText(p), p.progress)));
     if (this.closed) return;                          // the page left during loading
@@ -131,6 +134,7 @@ export class Session {
     this.started = true;
     this.status('', null);
     this.send({ type: 'ready', ...this.engine.info() });
+    this.send({ type: 'language', language: this.language, own: true });
     this.log(`▸ conversation opened (${this.s.name || 'agent'}, voice ${voiceEngine(this.s)}${voiceEngine(this.s) === 'supertonic' ? ' ' + this.s.localVoice : ''}, ${this.s.language}${remoteOf(this.s) ? `, ${this.s.llm === 'farm' ? 'LLM farm' : 'service'} ${this.s.llmUrl} ${this.s.llmModel}` : ''})`);
     if (parlerNotEnglish(this.s)) this.status(PARLER_ENGLISH_ONLY, null);
     this.voiceFallbackNote();
@@ -183,8 +187,11 @@ export class Session {
       this.voice = null;
       if (this.started) this.send({ type: 'voice', voice: '', name: '' });
     }
+    // so does the agent's language (or another agent): the conversation goes back to it
+    if (this.lang && ['agent', 'language'].some((k) => k in patch && patch[k] !== own[k])) this.lang = '';
     if (!this.started) return;
     const changed = (keys) => keys.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(this.vs[k]));
+    if (changed(['language'])) this.send({ type: 'language', language: this.language, own: !this.lang });
     const asrChanged = changed(ASR_KEYS);
     const ttsChanged = changed(TTS_KEYS[voiceEngine(this.vs)]);
     if (asrChanged && this.asr) { this.asr.close(); this.asr = null; }   // close BEFORE reloading the model
@@ -408,7 +415,7 @@ export class Session {
     if (heardNothing(text)) {
       this.send({ type: 'not.understood', text });
       const repair = String(this.s.repairLine || '').trim();
-      if (repair && !this.bot) this.sayFixed(repair, false);
+      if (repair && !this.bot) this.translated(repair).then((t) => { if (!this.bot && !this.closed) this.sayFixed(t, false); });
       return;
     }
     if (this.bot) {                                   // the agent is speaking and can't be interrupted: keep it for later
@@ -504,7 +511,9 @@ export class Session {
     const plan = d && d.kind !== 'free' ? actions.filter((a) => a.do === 'say' || a.do === 'answer') : [{ do: 'answer', instruction: '' }];
     if (d && d.entry) this.focus = d.entry;
     for (const a of actions) this.act(a, d, userText);
-    // a change of voice: this very reply is said in the new one (the last change wins)
+    // a change of language, then of voice: this very reply is said in the new ones (the last change wins)
+    const language = actions.filter((a) => a.do === 'language').pop();
+    if (language) { await this.setLanguage(language.language); if (abort.signal.aborted || this.closed) return; }
     const voice = actions.filter((a) => a.do === 'voice').pop();
     if (voice) { await this.switchVoice(voice.voice); if (abort.signal.aborted || this.closed) return; }
 
@@ -535,7 +544,7 @@ export class Session {
       if (abort.signal.aborted) return;
       if (step.do === 'say') {
         const line = fill(pickLine(step.text), d && d.entryCells, { said: userText });
-        if (line) onDelta(`${line} `);
+        if (line) onDelta(`${await this.translated(line, bot)} `);
         continue;
       }
       let result = null;
@@ -601,7 +610,7 @@ export class Session {
 
   /** The system prompt of an answer: the persona, the interface's context, the knowledge, the pattern's instruction. */
   systemFor(d, instruction, saidSoFar) {
-    const parts = [systemPrompt(this.s, 'local')];
+    const parts = [systemPrompt({ ...this.s, language: this.language }, 'local')];
     if (this.context.length) parts.push(`What the interface knows right now: ${this.context.join('; ')}`);
     const k = knowledgePrompt(d ? d.knowledge : []);
     if (k) parts.push(k);
@@ -661,7 +670,63 @@ export class Session {
    * The settings the voice speaks with: the agent's, or, after a pattern's "Change voice", those of the saved
    * voice it switched to (this.voice), for the rest of the conversation or until the next change.
    */
-  get vs() { return this.voice ? { ...this.s, ...this.voice.settings } : this.s; }
+  get vs() {
+    const s = this.voice ? { ...this.s, ...this.voice.settings } : this.s;
+    return this.lang ? { ...s, language: this.lang } : s;
+  }
+
+  /** The conversation's language: the agent's, until the Talk view, a pattern or a client changes it. */
+  get language() { return this.lang || this.s.language || 'en'; }
+
+  /** Another language (a code of LANGUAGES), or '' for the agent's own. Queued with the changes of settings. */
+  setLanguage(code) {
+    const run = (this.settingsDone || Promise.resolve()).then(() => this.switchLanguage(code));
+    this.settingsDone = run.catch(() => {});
+    return run;
+  }
+
+  /**
+   * Speech recognition and the voice are loaded for a language: they reload (the reply waits for them).
+   * The language model answers in it, and the fixed lines are translated into it (translated()).
+   * The clients are told: {type:'language', language, own}.
+   */
+  async switchLanguage(code) {
+    if (!this.started || this.closed) return;
+    if (code && !Object.hasOwn(LANGUAGES, code)) { this.log(`(no language "${code}": the language stays)`); return; }
+    const lang = code === (this.s.language || 'en') ? '' : code;
+    if (lang === this.lang) return;
+    const before = this.vs;
+    this.lang = lang;
+    const after = this.vs;
+    this.send({ type: 'language', language: this.language, own: !lang });
+    this.log(`▸ language: ${LANGUAGES[this.language] || this.language}${lang ? '' : " (the agent's own)"}`);
+    const changed = (keys) => keys.some((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+    const asrChanged = changed(ASR_KEYS);
+    if (!asrChanged && !changed(TTS_KEYS[voiceEngine(after)])) return;
+    if (asrChanged && this.asr) { this.asr.close(); this.asr = null; }   // close BEFORE reloading the model
+    this.status('Changing language…', null);
+    await this.lock(() => this.engine.prepare(after, (p) => this.status(progressText(p), p.progress)));
+    if (this.closed) return;
+    this.status('', null);
+    if (parlerNotEnglish(after)) this.status(PARLER_ENGLISH_ONLY, null);
+    if (asrChanged && !this.asr) this.openAsr();
+  }
+
+  /**
+   * A fixed line (a pattern's "say", the repair line) in the conversation's language: as written in the
+   * agent's own language, translated by the language model in another one (as written if that fails).
+   */
+  async translated(text, bot = null) {
+    if (!this.lang || !text) return text;
+    let out = '';
+    try {
+      const gen = this.engine.generate({ system: translatePrompt(this.language), history: [{ role: 'user', content: text }],
+        temperature: 0.2, onDelta: (x) => { out += x; }, remote: remoteOf(this.s) });
+      if (bot) bot.gen = gen;
+      await gen.done;
+    } catch (e) { this.log(`(translation: ${e.message})`); }
+    return out.trim() || text;
+  }
 
   /** The voice settings of a synthesis. */
   voiceParams() {
@@ -711,7 +776,7 @@ export class Session {
   scheduleFiller(bot) {
     const lines = fillerPhrases(this.s.fillerLines);
     const after = Math.round(clamp(num(this.s.fillerAfterMs, 1200), 0, 30000));
-    if (!lines.length || !after) return;
+    if (!lines.length || !after || this.lang) return;     // written in the agent's language: not in another one
     bot.fillerTimer = setTimeout(() => { this.sayFiller(bot, lines).catch((e) => this.log(`(filler: ${e.message})`)); }, after);
   }
 
@@ -766,7 +831,7 @@ export class Session {
    * during a model reload (the preparation lock).
    */
   warmFillers() {
-    if (this.warming || this.closed || !this.started || !fillerPhrases(this.s.fillerLines).length) return;
+    if (this.warming || this.closed || !this.started || this.lang || !fillerPhrases(this.s.fillerLines).length) return;
     const failed = new Set();
     this.warming = (async () => {
       for (;;) {

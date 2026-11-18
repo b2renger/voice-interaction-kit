@@ -240,6 +240,53 @@ const decider = createDecider({ store, matcher: () => words });
   check(!plain.msgs.some((m) => m.type === 'decision' || m.type === 'stage'), 'conversation: no agent → no decision, no stage (a persona alone)');
   plain.ws.close();
 
+  // the conversation's language: a pattern changes it, then a client; the lines translated, the model told
+  await api('/agents', { name: 'Polyglot' });
+  await fetch(`http://127.0.0.1:${srv.port}/api/agents/polyglot/interactions`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ stages: [{ name: 'Main' }], patterns: [
+    { name: 'French', when: { kind: 'says', examples: ['can we speak French please'] }, then: [{ do: 'language', language: 'fr' }, { do: 'say', text: 'Of course.' }] },
+    { name: 'Hours', when: { kind: 'says', examples: ['what time do you open'] }, then: [{ do: 'say', text: 'We open at nine.' }] },
+  ] }) });
+  const poly = await open({ agent: 'polyglot', name: 'Poly', persona: 'A desk.', language: 'en', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant' });
+  const firstLang = poly.msgs.find((m) => m.type === 'language');
+  check(firstLang && firstLang.language === 'en' && firstLang.own === true, 'language: a conversation starts in the agent\'s language (event "language")', firstLang);
+  n = poly.msgs.length;
+  let asked = farm.requests.length;
+  poly.ws.send(JSON.stringify({ type: 'text', text: 'can we speak French please' }));
+  const fr = await poly.after(n, 'bot.done');
+  const toFr = poly.msgs.slice(n).find((m) => m.type === 'language');
+  const tr = farm.requests[asked] ? farm.requests[asked].body.messages : [];
+  check(toFr && toFr.language === 'fr' && toFr.own === false && poly.msgs.indexOf(toFr) < poly.msgs.indexOf(fr)
+    && poly.msgs.slice(n).some((m) => m.type === 'status' && m.text === 'Changing language…'),
+  'language: a pattern\'s "Change language" → the event, then hearing and voice reload, before the reply', poly.msgs.slice(n).filter((m) => ['language', 'status'].includes(m.type)));
+  check(/Translate the user's message into French/.test(tr[0] && tr[0].content) && tr[1] && tr[1].content === 'Of course.' && fr.text === 'It is a pond.',
+    'language: in another language than the agent\'s, its line is translated by the language model', { messages: tr, said: fr.text });
+  n = poly.msgs.length;
+  asked = farm.requests.length;
+  poly.ws.send(JSON.stringify({ type: 'text', text: 'Tell me something nice' }));
+  await poly.after(n, 'bot.done');
+  const sysFr = farm.requests[asked] ? farm.requests[asked].body.messages[0].content : '';
+  check(/- Always answer in French\./.test(sysFr), 'language: the language model is told to answer in the conversation\'s language', sysFr.slice(0, 300));
+  // a client's command: back to the agent's own language, the lines as written; an unknown language changes nothing
+  n = poly.msgs.length;
+  poly.ws.send(JSON.stringify({ type: 'language', language: 'xx' }));
+  poly.ws.send(JSON.stringify({ type: 'language', language: 'en' }));
+  const back = await poly.after(n, 'language');
+  check(back && back.language === 'en' && back.own === true && poly.msgs.slice(n).filter((m) => m.type === 'language').length === 1,
+    'language: a client\'s command goes back to the agent\'s own ("xx" is ignored)', poly.msgs.slice(n).filter((m) => m.type === 'language'));
+  n = poly.msgs.length;
+  asked = farm.requests.length;
+  poly.ws.send(JSON.stringify({ type: 'text', text: 'what time do you open' }));
+  const nine = await poly.after(n, 'bot.done');
+  check(nine && nine.text === 'We open at nine.' && farm.requests.length === asked, 'language: in the agent\'s own language, the line is said as written (no model)', nine && nine.text);
+  // the agent's language edited during the conversation: the conversation follows it
+  poly.ws.send(JSON.stringify({ type: 'language', language: 'de' }));
+  await until(() => poly.msgs.some((m) => m.type === 'language' && m.language === 'de'), 3000);
+  n = poly.msgs.length;
+  poly.ws.send(JSON.stringify({ type: 'settings', settings: { language: 'it' } }));
+  const it2 = await poly.after(n, 'language');
+  check(it2 && it2.language === 'it' && it2.own === true, 'language: the agent\'s language edited in the studio → the conversation goes back to it', it2);
+  poly.ws.close();
+
   // "Send OSC": the ArtLux example agent, two listeners standing in for ArtLux and an Arduino
   const { createSocket } = await import('node:dgram');
   const listener = async () => {

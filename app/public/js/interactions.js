@@ -17,11 +17,14 @@ const THEN = {
   choices: ['Show choices', 'buttons to tap'],
   mood: ['Set the mood', 'for the interface'],
   voice: ['Change voice', 'from this reply on'],
+  language: ['Change language', 'from this reply on'],
   signal: ['Send a signal', 'to cables, p5.js, pages'],
   osc: ['Send OSC', 'to ArtLux, an Arduino…'],
   go: ['Go to', 'another stage'],
 };
 const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
+const LANGUAGES = VoiceCore.LANGUAGES;
+const languageName = (code) => (code ? LANGUAGES[code] || code : 'its own language');
 let selected = '';            // the pattern being edited
 let filter = '*';             // the stage whose patterns are listed ('*': all)
 
@@ -163,6 +166,11 @@ function renderEditor() {
         ...optionsOf([['', 'The agent’s own voice'], ...voices.map((v) => [v.id, v.name]), ...(gone ? [[a.voice, `${a.voice} (deleted)`]] : [])], a.voice)),
         h('p', { class: 'hint' }, voices.length ? 'The agent answers in this voice from this reply on, until another pattern changes it. Voices are saved in Voice & timing.'
           : 'No saved voice yet: set a voice in Voice & timing and save it under a name. It will appear here.')];
+    } else if (a.do === 'language') {
+      const own = settings().language || 'en';
+      body = [h('select', { 'aria-label': 'Language', onchange: edit((e) => { a.language = e.target.value; }) },
+        ...optionsOf([['', `The agent’s own language (${LANGUAGES[own] || own})`], ...Object.entries(LANGUAGES)], a.language)),
+        h('p', { class: 'hint' }, `Hearing, voice and answers switch to it, after a short pause, until the conversation ends or another pattern changes it. In another language than ${LANGUAGES[own] || own}, the lines to say are translated by the language model.`)];
     } else if (a.do === 'signal') {
       body = [h('div', { class: 'row', style: 'flex-wrap:nowrap' },
         h('input', { type: 'text', value: a.name, placeholder: 'name, like show-artwork', 'aria-label': 'Signal name', oninput: edit((e) => { a.name = e.target.value; }) }),
@@ -183,7 +191,7 @@ function renderEditor() {
         i < p.then.length - 1 ? h('button', { type: 'button', title: 'Move down', 'aria-label': 'Move down', onclick: move(i, 1) }, '↓') : '',
         h('button', { type: 'button', title: 'Remove', 'aria-label': 'Remove this action', onclick: redraw(() => p.then.splice(i, 1)) }, '×')));
   };
-  const blank = { say: { text: '' }, answer: { instruction: '' }, choices: { question: '', options: [] }, mood: { mood: 'happy' }, voice: { voice: '' }, signal: { name: '', value: '' }, osc: { address: '', value: '' }, go: { stage: (it.stages[0] || {}).id || '' } };
+  const blank = { say: { text: '' }, answer: { instruction: '' }, choices: { question: '', options: [] }, mood: { mood: 'happy' }, voice: { voice: '' }, language: { language: Object.keys(LANGUAGES).find((k) => k !== (settings().language || 'en')) }, signal: { name: '', value: '' }, osc: { address: '', value: '' }, go: { stage: (it.stages[0] || {}).id || '' } };
 
   box.replaceChildren(h('div', { class: 'peditor' },
     h('div', { class: 'head' },
@@ -259,7 +267,7 @@ const tryIt = debounce(async () => {
   flush();
   try {
     const d = await api.decide({ agent: state.agentId, text, stage: $('#tryStage').value });
-    const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'osc' ? `OSC ${a.address} ${a.value}`.trim() :a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : `mood ${a.mood}`));
+    const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'osc' ? `OSC ${a.address} ${a.value}`.trim() :a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : a.do === 'language' ? `language ${languageName(a.language)}` : `mood ${a.mood}`));
     out.replaceChildren(
       h('p', { class: 'took' }, d.pattern ? `${d.kind === 'otherwise' ? 'Otherwise: ' : ''}${d.pattern.name}${d.entry ? `, ${d.entry.key}` : ''}${d.score != null ? `  ${pct(d.score)}` : ''}` : 'A free answer'),
       h('p', { class: 'hint' }, d.pattern ? (then.length ? `Then: ${then.join(', then ')}.` : 'This pattern does nothing yet.') : `No pattern reaches the confidence (${pct(I().confidence)}): the language model answers, with what it knows.`),
