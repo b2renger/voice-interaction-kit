@@ -33,7 +33,7 @@ const VoiceCore = (function () {
     'thinking', 'bot.start', 'bot.text', 'bot.sentence', 'bot.end', 'interrupted', 'turn',
     'ui.choices', 'ui.mood', 'tool.call', 'tool.cancel', 'timing', 'error', 'ended',
     'turn.prediction', 'interruption.pending', 'interruption.cancelled', 'bot.filler', 'user.away',
-    'decision', 'stage', 'signal', 'voice', 'osc',
+    'decision', 'stage', 'signal', 'voice', 'osc', 'language', 'osc.in',
   ];
   const EVENT_SET = new Set(EVENTS);
 
@@ -90,6 +90,7 @@ const VoiceCore = (function () {
     llmModel: '',                     // the model there
     llmKey: '',                       // its key or password, if it needs one
     oscTo: '127.0.0.1:10000',         // local: where the patterns' OSC messages go, "host:port, host:port" (this computer)
+    oscIn: '',                        // local: the UDP port sensors and buttons send OSC to ('' = not listening; this computer)
     agent: '',                        // local: the agent (its folder name): its knowledge and its patterns decide (docs/DESIGN.md)
     // — turn-taking —
     endSilenceMs: 800,                // silence that ends a turn (patient ↔ impatient)
@@ -147,7 +148,7 @@ const VoiceCore = (function () {
   const LOCAL_KEYS = ['name', 'persona', 'language', 'greeting', 'shortAnswers', 'creativity', 'localVoice',
     'localSpeed', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'interruptible', 'repairLine',
     'replyDelayMs', 'uiTools', 'turnDetection', 'interruptAfterMs', 'fillerLines', 'fillerAfterMs',
-    'localVoiceEngine', 'voiceDescription', 'zonosVoice', 'voiceDesign', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'agent'];
+    'localVoiceEngine', 'voiceDescription', 'zonosVoice', 'voiceDesign', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'agent'];
 
   const GEMINI_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService';
   const IN_RATE = 16000;              // what both engines listen to
@@ -757,6 +758,8 @@ const VoiceCore = (function () {
       case 'voice': h.voice(String(m.voice || ''), String(m.name || '')); break;
       case 'signal': h.signal(String(m.name || ''), m.value == null ? '' : String(m.value)); break;
       case 'osc': h.osc(m); break;
+      case 'language': h.language(String(m.language || ''), m.own !== false); break;
+      case 'osc.in': h.oscIn(m); break;
       case 'error':
         // Another page took over the conversation: this one is over, and THIS message must stay on screen
         // (the close that follows must not replace it with a generic "connection closed").
@@ -775,6 +778,8 @@ const VoiceCore = (function () {
   LocalEngine.prototype.sendContext = function (text) { return this.send({ type: 'context', text: String(text) }); };
   /** A client's signal (a sensor, a button): the agent's patterns "when a client sends this signal" decide. */
   LocalEngine.prototype.sendSignal = function (name, value) { return this.send({ type: 'signal', name: String(name), value: value == null ? '' : String(value) }); };
+  /** The conversation's language: a code ('fr'…), or '' for the agent's own. Speech recognition and the voice reload. */
+  LocalEngine.prototype.setLanguage = function (code) { return this.send({ type: 'language', language: String(code || '') }); };
   LocalEngine.prototype.interrupt = function () { this.send({ type: 'interrupt' }); };
   /** The person stays silent (awayAfterMs): the local server says the line as written, as an agent turn. */
   LocalEngine.prototype.reprompt = function (line) { return this.send({ type: 'say', text: String(line).trim() }); };
@@ -1200,6 +1205,10 @@ const VoiceCore = (function () {
       signal: function (name, value) { emit('signal', { name: name, value: value }); },
       // a pattern sent an OSC message (to ArtLux, an Arduino…): to: the addresses it went to (none: Settings is empty)
       osc: function (m) { emit('osc', { address: String(m.address || ''), args: Array.isArray(m.args) ? m.args : [], to: Array.isArray(m.to) ? m.to : [] }); },
+      // the conversation's language (at the start, then each change); own: it is the agent's own
+      language: function (language, own) { emit('language', { language: language, own: own }); },
+      // an OSC message arrived (a sensor, a button: the setting oscIn); a stream comes thinned out
+      oscIn: function (m) { emit('osc.in', { address: String(m.address || ''), args: Array.isArray(m.args) ? m.args : [] }); },
       toolCancel: function (ids) { emit('tool.cancel', { ids: ids }); },
       timing: function (turnId, ms) { Object.assign(turn.ms, ms || {}); emit('timing', { turnId: turnId, ms: ms || {} }); },
       /** The local server lowers the agent's voice (someone talks over it), or brings it back (it was "mm-hm"). */
@@ -1413,6 +1422,8 @@ const VoiceCore = (function () {
         return engine.sendContext('Signal "' + String(name) + '"' + (value != null && value !== '' ? ': ' + String(value) : ''));
       },
       choose: function (option) { return sendText('(The user chose: "' + String(option) + '")'); },
+      /** The conversation's language ('' = the agent's own): local engine only (Gemini takes it at the start). */
+      setLanguage: function (code) { return !!(engine && active && engine.setLanguage && engine.setLanguage(String(code || ''))); },
       sendToolResult: function (id, result) { return !!(engine && engine.sendToolResult(id, result)); },
       get state() { return state; },
       get active() { return active; },

@@ -9,6 +9,7 @@ const WHEN = {
   mentions: 'the person mentions an entry of',
   start: 'the conversation starts',
   signal: 'a client sends the signal',
+  osc: 'an OSC message arrives at',
   otherwise: 'nothing else fits, in this stage',
 };
 const THEN = {
@@ -17,11 +18,14 @@ const THEN = {
   choices: ['Show choices', 'buttons to tap'],
   mood: ['Set the mood', 'for the interface'],
   voice: ['Change voice', 'from this reply on'],
+  language: ['Change language', 'from this reply on'],
   signal: ['Send a signal', 'to cables, p5.js, pages'],
   osc: ['Send OSC', 'to ArtLux, an Arduino…'],
   go: ['Go to', 'another stage'],
 };
 const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
+const LANGUAGES = VoiceCore.LANGUAGES;
+const languageName = (code) => (code ? LANGUAGES[code] || code : 'its own language');
 let selected = '';            // the pattern being edited
 let filter = '*';             // the stage whose patterns are listed ('*': all)
 
@@ -37,6 +41,7 @@ function summary(p) {
   if (w.kind === 'says') return w.examples.length ? `“${w.examples[0]}”${w.examples.length > 1 ? ` and ${w.examples.length - 1} more` : ''}` : 'no example yet';
   if (w.kind === 'mentions') return `mentions ${tableName(w.table)}`;
   if (w.kind === 'signal') return `signal ${w.name || '(no name)'}`;
+  if (w.kind === 'osc') return `OSC ${w.address || '(no address)'}${w.test === 'any' ? '' : ` ${w.test} ${w.threshold}`}`;
   return WHEN[w.kind];
 }
 
@@ -109,7 +114,9 @@ function renderEditor() {
   if (!p) { box.replaceChildren(h('div', { class: 'empty' }, h('p', {}, 'A pattern says what the agent does when something happens: "When the visitor asks when we open, say our opening hours."'), h('button', { class: 'btn primary', onclick: newPattern }, 'New pattern'))); return; }
   const edit = (fn) => (e) => { fn(e); changed(); renderList(); };
   const redraw = (fn) => (e) => { fn(e); changed(); renderList(); renderEditor(); };
-  const headers = p.when.kind === 'mentions' ? ((state.agent.tables.find((t) => t.id === p.when.table) || {}).headers || []) : [];
+  const osc = p.when.kind === 'osc';
+  const headers = p.when.kind === 'mentions' ? ((state.agent.tables.find((t) => t.id === p.when.table) || {}).headers || []) : osc ? ['value', 'address'] : [];
+  const source = osc ? 'the message' : 'the entry';
 
   // — When —
   const w = p.when;
@@ -134,6 +141,15 @@ function renderEditor() {
       : h('p', { class: 'hint' }, 'This agent has no table yet: add one in Knowledge.');
   } else if (w.kind === 'signal') {
     whenBody = h('input', { type: 'text', value: w.name || '', placeholder: 'visitor-near', style: 'max-width:280px', 'aria-label': 'Signal name', oninput: edit((e) => { w.name = e.target.value; }) });
+  } else if (w.kind === 'osc') {
+    const port = String(settings().oscIn || '').trim();
+    whenBody = h('div', { class: 'stack' },
+      h('div', { class: 'row', style: 'flex-wrap:nowrap' },
+        h('input', { type: 'text', value: w.address || '', placeholder: '/arduino/temp', style: 'max-width:220px', 'aria-label': 'OSC address', oninput: edit((e) => { w.address = e.target.value; }) }),
+        h('select', { style: 'max-width:220px', 'aria-label': 'OSC condition', onchange: redraw((e) => { w.test = e.target.value; }) },
+          ...optionsOf([['any', 'any message'], ['above', 'the value goes above'], ['below', 'the value goes below']], w.test || 'any')),
+        w.test === 'above' || w.test === 'below' ? h('input', { type: 'number', step: 'any', value: w.threshold ?? 0, style: 'max-width:110px', 'aria-label': 'OSC threshold', oninput: edit((e) => { w.threshold = e.target.value === '' ? 0 : Number(e.target.value); }) }) : ''),
+      h('p', { class: 'hint' }, `${w.test === 'above' || w.test === 'below' ? 'It fires when the value crosses the line, and again only once it has gone back a little. ' : 'Every message fires it: right for a button, not for a sensor that streams. '}The agent speaks at the next pause, never over someone. {value} is the message's value, {address} its address. ${port ? `VIK listens on port ${port} (Settings).` : 'VIK does not listen yet: set a port in Settings → OSC.'}`));
   } else whenBody = h('p', { class: 'hint' }, w.kind === 'start' ? 'Replaces the greeting.' : 'When no other pattern of this stage is close enough. Without one, the language model answers freely.');
 
   // — Then —
@@ -145,12 +161,12 @@ function renderEditor() {
       const warn = h('p', { class: 'warn-line', 'aria-live': 'polite' });
       const check = () => { const u = unknownPlaceholders(a.text, headers); warn.textContent = u.length ? `No column fills ${u.map((x) => `{${x}}`).join(', ')}.` : ''; warn.hidden = !u.length; };
       body = [h('textarea', { rows: 2, value: a.text, 'aria-label': 'The line', oninput: edit((e) => { a.text = e.target.value; check(); }) }),
-        h('p', { class: 'hint' }, headers.length ? `Fill it from the entry: ${headers.map((x) => `{${x}}`).join(' ')}. Several lines separated by | : one at random.` : 'Several lines separated by | : one is picked at random. {said} is what the person said.'),
+        h('p', { class: 'hint' }, headers.length ? `Fill it from ${source}: ${headers.map((x) => `{${x}}`).join(' ')}. Several lines separated by | : one at random.` : 'Several lines separated by | : one is picked at random. {said} is what the person said.'),
         warn];
       check();
     } else if (a.do === 'answer') {
       body = [h('input', { type: 'text', value: a.instruction, placeholder: 'How to answer, for example: in two sentences, then ask a question', 'aria-label': 'Instruction', oninput: edit((e) => { a.instruction = e.target.value; }) }),
-        h('p', { class: 'hint' }, 'The language model gets the persona, the entry found and its links, and this instruction.')];
+        h('p', { class: 'hint' }, osc ? 'The language model gets the persona, the live data and this instruction: {value} is the message\'s value.' : 'The language model gets the persona, the entry found and its links, and this instruction.')];
     } else if (a.do === 'choices') {
       body = [h('input', { type: 'text', value: a.question, placeholder: 'The question, optional', 'aria-label': 'Question', oninput: edit((e) => { a.question = e.target.value; }) }),
         h('input', { type: 'text', value: a.options.join(' | '), placeholder: 'Option A | Option B', 'aria-label': 'Options', oninput: edit((e) => { a.options = e.target.value.split('|').map((x) => x.trim()).filter(Boolean).slice(0, 6); }) })];
@@ -163,15 +179,20 @@ function renderEditor() {
         ...optionsOf([['', 'The agent’s own voice'], ...voices.map((v) => [v.id, v.name]), ...(gone ? [[a.voice, `${a.voice} (deleted)`]] : [])], a.voice)),
         h('p', { class: 'hint' }, voices.length ? 'The agent answers in this voice from this reply on, until another pattern changes it. Voices are saved in Voice & timing.'
           : 'No saved voice yet: set a voice in Voice & timing and save it under a name. It will appear here.')];
+    } else if (a.do === 'language') {
+      const own = settings().language || 'en';
+      body = [h('select', { 'aria-label': 'Language', onchange: edit((e) => { a.language = e.target.value; }) },
+        ...optionsOf([['', `The agent’s own language (${LANGUAGES[own] || own})`], ...Object.entries(LANGUAGES)], a.language)),
+        h('p', { class: 'hint' }, `Hearing, voice and answers switch to it, after a short pause, until the conversation ends or another pattern changes it. In another language than ${LANGUAGES[own] || own}, the lines to say are translated by the language model.`)];
     } else if (a.do === 'signal') {
       body = [h('div', { class: 'row', style: 'flex-wrap:nowrap' },
         h('input', { type: 'text', value: a.name, placeholder: 'name, like show-artwork', 'aria-label': 'Signal name', oninput: edit((e) => { a.name = e.target.value; }) }),
         h('input', { type: 'text', value: a.value, placeholder: 'value, like {name}', 'aria-label': 'Signal value', oninput: edit((e) => { a.value = e.target.value; }) }))];
     } else if (a.do === 'osc') {
       body = [h('div', { class: 'row', style: 'flex-wrap:nowrap' },
-        h('input', { type: 'text', value: a.address, placeholder: 'address, like /artlux/scene/recall', 'aria-label': 'OSC address', oninput: edit((e) => { a.address = e.target.value; }) }),
+        h('input', { type: 'text', value: a.address, placeholder: 'address, like /vik/{name}', 'aria-label': 'OSC address', oninput: edit((e) => { a.address = e.target.value; }) }),
         h('input', { type: 'text', value: a.value, placeholder: 'value, like {name} or 1', 'aria-label': 'OSC value', oninput: edit((e) => { a.value = e.target.value; }) })),
-        h('p', { class: 'hint' }, `A number is sent as a number, anything else as text; empty: no value.${headers.length ? ` Fill the address or the value from the entry: ${headers.map((x) => `{${x}}`).join(' ')}.` : ''} It goes to ${settings().oscTo || 'nowhere yet'} (Settings).`)];
+        h('p', { class: 'hint' }, `A number is sent as a number, anything else as text; empty: no value.${headers.length ? ` Fill the address or the value from ${source}: ${headers.map((x) => `{${x}}`).join(' ')}.` : ''} It goes to ${settings().oscTo || 'nowhere yet'} (Settings).`)];
     } else if (a.do === 'go') {
       body = [h('select', { 'aria-label': 'Stage', onchange: edit((e) => { a.stage = e.target.value; }) }, ...optionsOf(it.stages.map((s) => [s.id, s.name]), a.stage))];
     }
@@ -183,7 +204,7 @@ function renderEditor() {
         i < p.then.length - 1 ? h('button', { type: 'button', title: 'Move down', 'aria-label': 'Move down', onclick: move(i, 1) }, '↓') : '',
         h('button', { type: 'button', title: 'Remove', 'aria-label': 'Remove this action', onclick: redraw(() => p.then.splice(i, 1)) }, '×')));
   };
-  const blank = { say: { text: '' }, answer: { instruction: '' }, choices: { question: '', options: [] }, mood: { mood: 'happy' }, voice: { voice: '' }, signal: { name: '', value: '' }, osc: { address: '', value: '' }, go: { stage: (it.stages[0] || {}).id || '' } };
+  const blank = { say: { text: '' }, answer: { instruction: '' }, choices: { question: '', options: [] }, mood: { mood: 'happy' }, voice: { voice: '' }, language: { language: Object.keys(LANGUAGES).find((k) => k !== (settings().language || 'en')) }, signal: { name: '', value: '' }, osc: { address: '', value: '' }, go: { stage: (it.stages[0] || {}).id || '' } };
 
   box.replaceChildren(h('div', { class: 'peditor' },
     h('div', { class: 'head' },
@@ -198,7 +219,7 @@ function renderEditor() {
     h('div', { class: 'clause' }, h('span', { class: 'kw' }, 'When'),
       h('div', { class: 'stack' },
         h('div', { class: 'row', style: 'flex-wrap:nowrap' },
-          h('select', { style: 'max-width:320px', 'aria-label': 'When', onchange: redraw((e) => { p.when = { kind: e.target.value, examples: [], table: (state.agent.tables[0] || {}).id || '', name: '' }; }) },
+          h('select', { style: 'max-width:320px', 'aria-label': 'When', onchange: redraw((e) => { p.when = { kind: e.target.value, examples: [], table: (state.agent.tables[0] || {}).id || '', name: '', address: '', test: 'above', threshold: 0 }; }) },
             ...optionsOf(Object.entries(WHEN), w.kind)),
           w.kind === 'mentions' || w.kind === 'signal' ? whenBody : ''),
         w.kind === 'mentions' || w.kind === 'signal' ? '' : whenBody)),
@@ -259,7 +280,7 @@ const tryIt = debounce(async () => {
   flush();
   try {
     const d = await api.decide({ agent: state.agentId, text, stage: $('#tryStage').value });
-    const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'osc' ? `OSC ${a.address} ${a.value}`.trim() :a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : `mood ${a.mood}`));
+    const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'osc' ? `OSC ${a.address} ${a.value}`.trim() :a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : a.do === 'language' ? `language ${languageName(a.language)}` : `mood ${a.mood}`));
     out.replaceChildren(
       h('p', { class: 'took' }, d.pattern ? `${d.kind === 'otherwise' ? 'Otherwise: ' : ''}${d.pattern.name}${d.entry ? `, ${d.entry.key}` : ''}${d.score != null ? `  ${pct(d.score)}` : ''}` : 'A free answer'),
       h('p', { class: 'hint' }, d.pattern ? (then.length ? `Then: ${then.join(', then ')}.` : 'This pattern does nothing yet.') : `No pattern reaches the confidence (${pct(I().confidence)}): the language model answers, with what it knows.`),

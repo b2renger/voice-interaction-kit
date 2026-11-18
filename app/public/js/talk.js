@@ -2,7 +2,7 @@
 // (the decision model's events). Also the hub: this window is the brain, the clients (cables, p5.js, pages)
 // follow it and drive it (CONTRACT.md, "The clients protocol").
 import { $, h, seconds, pct } from './ui.js';
-import { settings } from './state.js';
+import { settings, onChange } from './state.js';
 
 const STATE_WORDS = { idle: 'ready', connecting: 'connecting', listening: 'listening', hearing: 'hearing you', thinking: 'thinking', speaking: 'speaking', ended: 'ended', error: 'something went wrong' };
 const LIVE_WORDS = { idle: 'Ready', connecting: 'Connecting', listening: 'Listening', hearing: 'Hearing you', thinking: 'Thinking', speaking: 'Speaking', ended: 'Ended', error: 'Error' };
@@ -36,6 +36,8 @@ export function initTalk(agent) {
     $('#start').disabled = st === 'connecting';
     $('#interrupt').disabled = !(st === 'thinking' || st === 'speaking');
     if (!live) $('#liveCaption').textContent = '';
+    langPick.disabled = !(live && agent.engine === 'local');
+    if (!live) showLanguage('');
   });
   agent.on('start', () => { banner('', ''); });
   agent.on('status', (ev) => { if (ev.text) banner('', ev.text, ev.progress); else banner('', ''); });
@@ -61,6 +63,20 @@ export function initTalk(agent) {
     }
   });
 
+  // — the conversation's language: the agent's at the start; this switch, a pattern or a client changes it —
+  const LANGUAGES = VoiceCore.LANGUAGES;
+  const langPick = $('#talkLang');
+  langPick.replaceChildren(...Object.entries(LANGUAGES).map(([code, name]) => h('option', { value: code }, name)));
+  let language = '';              // the conversation's, as the server last said ('' outside a conversation)
+  function showLanguage(code) { language = code; langPick.value = code || settings().language || 'en'; }
+  showLanguage('');
+  onChange(() => { if (!language) showLanguage(''); });                    // the agent's language, until a conversation
+  langPick.addEventListener('change', () => { if (!agent.setLanguage(langPick.value)) showLanguage(language); });
+  agent.on('language', (ev) => {
+    if (language && ev.language !== language) note(ev.own ? `Back to its own language: ${LANGUAGES[ev.language] || ev.language}.` : `Now speaking ${LANGUAGES[ev.language] || ev.language}.`);
+    showLanguage(ev.language);
+  });
+
   function clearChoices() { $('#choices').replaceChildren(); }
   function showChoices(question, options) {
     $('#choices').replaceChildren(
@@ -79,7 +95,8 @@ export function initTalk(agent) {
       : ['A free answer'];
     const others = d.candidates.filter((c) => !d.pattern || c.id !== d.pattern.id || (c.entry && d.entry && c.entry.key !== d.entry.key)).slice(0, 3);
     lastDecision = add(h('li', {},
-      d.text ? h('p', { class: 'said' }, `“${d.text}”`) : h('p', { class: 'said' }, d.pattern && d.pattern.kind === 'signal' ? 'A signal' : 'The conversation starts'),
+      d.pattern && d.pattern.kind === 'osc' ? h('p', { class: 'said' }, `OSC ${d.text}`)
+        : d.text ? h('p', { class: 'said' }, `“${d.text}”`) : h('p', { class: 'said' }, d.pattern && d.pattern.kind === 'signal' ? 'A signal' : 'The conversation starts'),
       h('p', { class: 'took' }, took),
       d.kind === 'free' ? h('p', { class: 'note' }, 'No pattern was close enough: the language model answers, with what it knows.') : '',
       others.length ? h('p', { class: 'others' }, `Next: ${others.map((c) => `${c.name}${c.entry ? ` (${c.entry.key})` : ''} ${pct(c.score)}`).join(', ')}`) : '',
@@ -95,7 +112,7 @@ export function initTalk(agent) {
 
   // — every event, for the curious —
   agent.on('*', (ev) => {
-    if (ev.type === 'state') return;
+    if (ev.type === 'state' || ev.type === 'osc.in') return;     // a sensor's stream would hide the rest (Settings → OSC shows it)
     const detail = ev.text || ev.message || (ev.options ? ev.options.join(' | ') : '') || ev.mood || ev.stage || ev.name
       || (ev.type === 'turn.prediction' ? `p ${Number(ev.probability).toFixed(2)}, ${ev.complete ? 'complete' : 'not finished'}` : '')
       || (ev.type === 'user.away' ? `silent ${seconds(ev.afterMs)}, ${ev.count} times` : '') || '';
@@ -184,6 +201,7 @@ function connectHub(agent) {
     else if (c.type === 'choose') { $('#choices').replaceChildren(); agent.choose(c.option); }
     else if (c.type === 'tool.result') agent.sendToolResult(c.id, c.result);
     else if (c.type === 'signal') agent.sendSignal(c.name, c.value);
+    else if (c.type === 'language') agent.setLanguage(c.language);
   };
   (function open() {
     ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/brain`);

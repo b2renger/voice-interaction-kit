@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { ROOT, startStatic, makeFakeMicWav, launch, check, summary, sleep, until } from './helpers.mjs';
 
 const PORT = 18790 + Math.floor(Math.random() * 500);
-const agentsEnv = () => ({ ...process.env, VIK_AGENTS: mkdtempSync(join(tmpdir(), 'vik-agents-local-')) });
+const agentsEnv = () => ({ ...process.env, VIK_AGENTS: mkdtempSync(join(tmpdir(), 'vik-agents-local-')), VIK_OSC_IN_HOST: '127.0.0.1' });
 const srv = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT)], { env: agentsEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
 const serverLog = [];
 srv.stdout.on('data', (d) => serverLog.push(String(d)));
@@ -570,7 +570,50 @@ await browser.close();
   check(oscGot.length === 1 && oscGot[0].startsWith('/bike/show\0\0,s\0\0Racing bike\0'), 'studio: the pattern\'s OSC message goes out, filled from the entry', oscGot);
   check(new RegExp(`OSC to 127\\.0\\.0\\.1:${oscIn.address().port}: /bike/show Racing bike\\.`).test(await page.textContent('#trace')), 'studio: "Why it answered" says which OSC message went where', (await page.textContent('#trace')).slice(0, 400));
   oscIn.close();
+  // the conversation's language: the Talk switch shows it (the agent's at the start) and changes it
+  const lang = () => page.evaluate(() => { const s = document.querySelector('#talkLang'); return { value: s.value, disabled: s.disabled }; });
+  check(JSON.stringify(await lang()) === JSON.stringify({ value: 'en', disabled: false }), 'studio: the Talk switch shows the conversation\'s language, the agent\'s at the start', await lang());
+  await page.selectOption('#talkLang', 'fr');
+  check(await until(async () => /Now speaking French\./.test(await page.textContent('#trace')), 4000) && (await lang()).value === 'fr', 'studio: the Talk switch changes it, and "Why it answered" says so');
+  await page.selectOption('#talkLang', 'en');
+  check(await until(async () => /Back to its own language: English\./.test(await page.textContent('#trace')), 4000), 'studio: back to the agent\'s own language');
+  // OSC in: Settings → OSC → Listen on port; what a sensor sends shows there, during the conversation
+  const dgram = await import('node:dgram');
+  const probe = dgram.createSocket('udp4');
+  await new Promise((r) => probe.bind(0, '127.0.0.1', r));
+  const inPort = probe.address().port;                // a free port, given back for VIK to listen on
+  probe.close();
+  await page.click('.nav button[data-view="settings"]');
+  await page.fill('[data-k="oscIn"]', String(inPort));
+  check(await until(async () => new RegExp(`Listening on port ${inPort}\\. Nothing has arrived yet\\.`).test(await page.textContent('#oscInText')), 3000), 'studio: Settings → OSC says it listens on the port', await page.textContent('#oscInText'));
+  const sensor = dgram.createSocket('udp4');
+  const speed = Buffer.from('/bike/speed\0,f\0\0\0\0\0\0', 'latin1'); speed.writeFloatBE(21.5, 16);
+  const arrived = await until(async () => { sensor.send(speed, inPort, '127.0.0.1'); return /\/bike\/speed\s*21\.5/.test(await page.textContent('#oscInList')); }, 4000, 200);
+  check(arrived && /The agent knows these values/.test(await page.textContent('#oscInText')), 'studio: a sensor\'s message shows in Settings → OSC (the agent knows it)', await page.textContent('#oscInList'));
+  sensor.close();
+  await page.click('.nav button[data-view="talk"]');
   await page.click('#stop');
+  check(await until(async () => JSON.stringify(await lang()) === JSON.stringify({ value: 'en', disabled: true }), 3000), 'studio: outside a conversation, the switch rests on the agent\'s language', await lang());
+  // a pattern's "Change language": a language other than the agent's, saved in the pattern
+  await page.click('.nav button[data-view="interactions"]');
+  await page.click('#patternEditor .add-actions button:has-text("Change language")');
+  await page.selectOption('#patternEditor select[aria-label="Language"]', 'de');
+  const p2 = await until(async () => { const p = (await disk('bike-shop')).interactions.patterns[0]; return p.then.length === 4 && p.then[3].language === 'de' && p; }, 4000);
+  check(p2 && JSON.stringify(p2.then[3]) === JSON.stringify({ do: 'language', language: 'de' }) && /translated by the language model/.test(await page.textContent('#patternEditor')),
+    'studio: "Change language" saves the language in the pattern, and says the lines will be translated', p2 && p2.then);
+  await page.locator('#patternEditor button[aria-label="Remove this action"]').last().click();
+  check(await until(async () => (await disk('bike-shop')).interactions.patterns[0].then.length === 3, 4000), 'studio: and it can be removed');
+  // a pattern "when an OSC message arrives": an address, a condition, a threshold
+  await page.click('#newPattern');
+  await answer('Too fast');
+  await page.waitForFunction(() => (document.querySelector('#patternEditor input.name') || {}).value === 'Too fast');
+  await page.selectOption('#patternEditor select[aria-label="When"]', 'osc');
+  await page.locator('#patternEditor input[aria-label="OSC address"]').first().fill('/bike/speed');
+  await page.fill('#patternEditor input[aria-label="OSC threshold"]', '30');
+  const p3 = await until(async () => { const p = (await disk('bike-shop')).interactions.patterns.find((x) => x.name === 'Too fast'); return p && p.when.address === '/bike/speed' && p.when.threshold === 30 && p; }, 4000);
+  check(p3 && JSON.stringify(p3.when) === JSON.stringify({ kind: 'osc', address: '/bike/speed', test: 'above', threshold: 30 }) && new RegExp(`VIK listens on port ${inPort}`).test(await page.textContent('#patternEditor')),
+    'studio: "an OSC message arrives at" saves the address, "goes above" and the threshold, and says where VIK listens', p3 && p3.when);
+  await page.click('.nav button[data-view="talk"]');
   // export (Manage → Export to a file)
   await page.click('#agentMenuBtn');
   const [download] = await Promise.all([page.waitForEvent('download'), page.click('.menu button:has-text("Export to a file")')]);

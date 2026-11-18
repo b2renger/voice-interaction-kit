@@ -148,11 +148,15 @@ export function createDecider({ store, matcher, log = () => {} }) {
     const p = agent.interactions.patterns.filter((x) => x.when.kind === kind && applies(x, stage)
       && (kind !== 'signal' || normalize(x.when.name) === normalize(name)))
       .sort((a, b) => Number(!!b.stage) - Number(!!a.stage))[0];
-    if (!p) return null;
+    return p ? moment(agent, p, stage, state) : null;
+  }
+
+  /** The decision of a pattern that fires on a moment: no sentence, the entry in focus as the knowledge. */
+  function moment(agent, p, stage, state, text = '') {
     const entries = entriesOf(agent);
     const focus = findEntry(entries, state.focus);
     return {
-      text: '', stage, matcher: '', kind: 'pattern', pattern: { id: p.id, name: p.name, kind }, score: null, example: '', entry: null,
+      text, stage, matcher: '', kind: 'pattern', pattern: { id: p.id, name: p.name, kind: p.when.kind }, score: null, example: '', entry: null,
       candidates: [], ms: 0, then: p.then, entryCells: focus, knowledge: withLinks(entries, focus ? [focus] : []),
     };
   }
@@ -160,6 +164,20 @@ export function createDecider({ store, matcher, log = () => {} }) {
   return {
     decide,
     onMoment,
+    /** The patterns "when an OSC message arrives" at this address that apply in this stage (the stage's own first). */
+    oscPatterns(id, stage, address) {
+      const agent = store.compiled(id);
+      const st = stageOf(agent, stage);
+      return agent.interactions.patterns.filter((x) => x.when.kind === 'osc' && x.when.address === address && applies(x, st))
+        .sort((a, b) => Number(!!b.stage) - Number(!!a.stage));
+    },
+    /** The decision of one of these patterns (by its id), if it still applies; text: the message, for the trace. */
+    oscMoment(id, patternId, state = {}, text = '') {
+      const agent = store.compiled(id);
+      const stage = stageOf(agent, state.stage);
+      const p = agent.interactions.patterns.find((x) => x.id === patternId && x.when.kind === 'osc' && applies(x, stage));
+      return p ? moment(agent, p, stage, state, text) : null;
+    },
     /** The first stage of an agent. */
     startStage: (id) => store.compiled(id).interactions.start,
     hasStage: (id, stage) => store.compiled(id).interactions.stages.some((s) => s.id === stage),

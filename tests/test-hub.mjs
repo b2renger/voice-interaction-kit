@@ -60,28 +60,32 @@ check(h.app && h.name === 'Ada' && h.engine === 'gemini' && h.state === 'listeni
 b.send({ type: 'context', text: 'the visitor is in room 2' });
 b.send({ type: 'choose', option: 'Room 2' });
 b.send({ type: 'signal', name: 'visitor-near', value: '1' });
-await until(() => brain.count('command') >= 3, 2000);
+b.send({ type: 'language', language: 'fr' });
+await until(() => brain.count('command') >= 4, 2000);
 const cmds = brain.msgs.filter((m) => m.type === 'command').map((m) => m.command);
 check(cmds[0] && cmds[0].type === 'context' && cmds[0].text === 'the visitor is in room 2' && cmds[1] && cmds[1].type === 'choose' && cmds[1].option === 'Room 2',
   'the clients\' commands reach the lab window', cmds);
 check(cmds[2] && cmds[2].type === 'signal' && cmds[2].name === 'visitor-near' && cmds[2].value === '1', 'a client\'s signal (a sensor, a button) reaches the lab window', cmds[2]);
+check(cmds[3] && cmds[3].type === 'language' && cmds[3].language === 'fr', 'a client can change the conversation\'s language (a language button)', cmds[3]);
 
 // the agent's decisions, stage and signals reach the clients; the stage is in the snapshot
 brain.send({ type: 'event', event: { type: 'stage', stage: 'tour', from: 'welcome', state: 'speaking', t: 7 } });
 brain.send({ type: 'event', event: { type: 'signal', name: 'show-artwork', value: 'Water Lilies', state: 'speaking', t: 8 } });
+brain.send({ type: 'event', event: { type: 'language', language: 'fr', own: false, state: 'speaking', t: 9 } });
 await until(() => b.last('signal'), 2000);
 check(b.last('stage') && b.last('stage').stage === 'tour' && b.last('signal').value === 'Water Lilies', 'the agent\'s stage and signals reach the clients');
 const late = open('/events');
 await late.ready;
 await until(() => late.last('hello'), 2000);
-check(late.last('hello').stage === 'tour', 'a client that arrives late knows the stage', late.last('hello'));
+check(late.last('hello').stage === 'tour' && late.last('hello').language === 'fr', 'a client that arrives late knows the stage and the language', late.last('hello'));
 late.ws.close();
 
 b.send({ type: 'shutdown' });
 b.send({ type: 'text', text: 42 });
 b.send({ type: 'signal', value: 'no name' });
-await until(() => b.count('error') >= 3, 2000);
-check(b.msgs.filter((m) => m.code === 'bad-command').length === 3 && brain.count('command') === 3, 'unknown or malformed commands (a signal without a name) are refused and never forwarded', b.msgs.filter((m) => m.type === 'error'));
+b.send({ type: 'language', language: 7 });
+await until(() => b.count('error') >= 4, 2000);
+check(b.msgs.filter((m) => m.code === 'bad-command').length === 4 && brain.count('command') === 4, 'unknown or malformed commands (a signal without a name) are refused and never forwarded', b.msgs.filter((m) => m.type === 'error'));
 
 const brain2 = open('/brain');
 await brain2.ready;

@@ -15,7 +15,7 @@
         "id": "scene", "name": "A scene", "stage": "", "on": true,
         "when": { "kind": "mentions", "table": "scenes" },
         "then": [
-          { "do": "osc", "address": "/artlux/scene/recall", "value": "{scene}" },
+          { "do": "osc", "address": "/vik/{scene}", "value": "" },
           { "do": "say", "text": "Here is {scene}." }
         ]
       },

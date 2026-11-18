@@ -24,6 +24,8 @@ Most problems show in the banner of [Talk](view:talk), in plain words. The menu 
 | it cuts you off while you hesitate | raise **End-of-turn silence**, or use the Smart Turn model (see [Voice and timing](voice.md#turn-taking-when-have-you-finished)) |
 | it stops for a "mm-hm" | set **Talk over it this long to interrupt** to 600 ms |
 | "Click Start first" | the conversation isn't running: click **Start** at the top |
+| Settings → OSC shows nothing, though a sensor sends | VIK listens only during a conversation: click **Start**. Check that the sensor sends to this computer's address and to the port in **Listen on port**. From another computer or an Arduino: allow VIK in the Windows firewall (Windows Security → Firewall → Allow an app), and give the computer a fixed address on the Arduino's network. Another program already on the port: VIK says so, choose another |
+| it answers in the wrong language | the agent hears and speaks its [Persona](view:persona) **Language**: set it to the language its texts are written in, and change the conversation's language in [Talk](view:talk) or with a pattern (see [Another language](persona.md#another-language)). A line said in the wrong language was written in another language than the agent's |
 
 ## Deciding
 

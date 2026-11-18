@@ -6,7 +6,7 @@ import { state, settings, valueOf, set, onChange, openAgent, lastAgent, flush, r
 import { initTalk, banner } from './talk.js';
 import { initKnowledge, renderKnowledge } from './knowledge.js';
 import { initInteractions, renderInteractions } from './interactions.js';
-import { initSettings, initMicMeter, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
+import { initSettings, initMicMeter, initOscIn, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
 import { initGuide, renderGuide, openGuide, refreshGuideTour } from './guide.js';
 import { initTour, startTour, tourCard } from './tour.js';
 import { initZonos } from './zonos.js';
@@ -22,6 +22,7 @@ initKnowledge();
 initInteractions();
 initSettings();
 initMicMeter(agent);
+initOscIn(agent);
 initZonos((ms) => pushSettings(ms));
 initVoices((ms) => pushSettings(ms));
 

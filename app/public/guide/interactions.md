@@ -14,6 +14,7 @@ A pattern says what the agent does when something happens: "When someone asks wh
 | **the person mentions an entry of** | the sentence names an entry of a table, or describes it | "tell me about the Water Lilies", "the train to Lyon" |
 | **the conversation starts** | you click **Start** (it replaces the greeting) | |
 | **a client sends the signal** | cables, p5.js or a page sends this signal | `visitor-near`, from a sensor |
+| **an OSC message arrives at** | a sensor or a button (an Arduino) sends to this address: any message, or the value going above or below a number. The agent speaks at the next pause, never over someone. See [Sensors and buttons](clients.md#sensors-and-buttons-osc-in) | `/arduino/temp` goes above `28` |
 | **nothing else fits, in this stage** | no other pattern of the stage is close enough | a line that brings people back on topic |
 
 For **says**, write a few examples, each followed by Enter. **Write whole sentences, as people say them**: a single word matches too many things.
@@ -29,8 +30,9 @@ A pattern does one or more things, in order:
 | **Show choices** | buttons on the screen, with an optional question |
 | **Set the mood** | a mood for the interface: happy, curious, sorry… |
 | **Change voice** | from this reply on, the agent speaks with one of its saved voices (Voice & timing), or with its own again |
+| **Change language** | from this reply on, the conversation is in another language: hearing, voice and answers switch to it, after a pause of a few seconds. Its lines to say are then translated by the language model |
 | **Send a signal** | a signal to cables, p5.js and pages: `show-artwork` with the value `{name}` |
-| **Send OSC** | an OSC message to ArtLux, an Arduino, a show controller: `/artlux/scene/recall` with the value `{name}`. See [OSC](clients.md#osc) |
+| **Send OSC** | an OSC message to ArtLux, an Arduino, a show controller: the address `/vik/{name}`, with no value, takes ArtLux's show machine into the state found; `/arduino/fan` with the value `1` switches a fan on. See [OSC](clients.md#osc) |
 | **Go to** | moves the conversation to another stage |
 
 A **Say** line can be filled from the entry found: write the column names in braces. `A {name}? That's {description}, {price}.` If no column fills a placeholder, the editor says so under the line. `{said}` is what the person said. Several lines separated by `|`: one is picked at random.

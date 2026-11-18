@@ -118,6 +118,7 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 | `mentions` | the person mentions an entry of a table | `table` |
 | `start` | the conversation starts (instead of the greeting) | — |
 | `signal` | a client sends this signal (a sensor, a button in cables or p5.js) | `name` |
+| `osc` | an OSC message arrives at this address, on the port `oscIn` (this computer's): `any` message, or its value (the first argument, a number) going `above` or `below` the threshold. It fires on the crossing, and again only once the value has gone back past the threshold by 2 %. Its reply waits for a pause (the agent silent, nobody talking, 1.5 s) | `address`, `test` (`any`, `above`, `below`), `threshold` |
 | `otherwise` | nothing else fired, in this stage | — |
 
 **Then** (a list of actions, run in order):
@@ -130,9 +131,12 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 | `mood` | sets the agent's mood | `mood` |
 | `signal` | sends a signal to the clients (cables, p5.js, pages) | `name`, `value` |
 | `osc` | sends an OSC message (ArtLux, an Arduino, a show controller) to the addresses in **Settings → OSC** (`oscTo`, this computer's, never the agent's) | `address` (`/vik/{name}`: filled, spaces removed), `value` (a number is sent as a number, other text as a string, empty: no argument) |
+| `language` | the conversation's language from this reply on (hearing and voice reload first): one of `en fr es de it pt`, `""` = the agent's own. In another language than the agent's, `say` lines and the repair line are translated by the language model, and there are no fillers | `language` |
 | `go` | moves to another stage | `stage` |
 
-**Placeholders.** In `text`, `question`, `options`, `value` (of `signal` and `osc`) and the `address` of `osc`, `{column}` is replaced by that column of the entry found (or of the entry in focus): `{name}`, `{artist}`, `{year}`. `{said}` is what the person said.
+**Placeholders.** In `text`, `instruction`, `question`, `options`, `value` (of `signal` and `osc`) and the `address` of `osc`, `{column}` is replaced by that column of the entry found (or of the entry in focus): `{name}`, `{artist}`, `{year}`. `{said}` is what the person said. In a pattern fired by an OSC message, `{value}` is its value and `{address}` its address.
+
+**Live data.** The latest value of each OSC address received (at most 30) is part of what the language model reads before every reply, with its age when it is over a minute old: "Live data, right now (…): /arduino/temp = 29.5". The same line follows the last message of the request (not the history): measured with Qwen3 1.7B, a value only in the system prompt lost to the same number said a few turns earlier. A pattern fired by an OSC message adds `(OSC message: /arduino/temp 29.5)` to the history as a user turn, so the model answers the message rather than continuing its own last words.
 
 ## 3. The decision model
 
@@ -205,8 +209,8 @@ The tutorial only edits **its own agent**: the agents that existed when it start
 
 On top of [`CONTRACT.md`](../CONTRACT.md):
 
-- **Events:** `decision` (`text`, `stage`, `pattern`, `score`, `entry`, `candidates`, `matcher`), `stage` (`stage`, `from`), `signal` (`name`, `value`). They reach every client through the hub.
-- **Command (clients → agent):** `signal` (`name`, `value`): fires the patterns `when.kind = "signal"`.
+- **Events:** `decision` (`text`, `stage`, `pattern`, `score`, `entry`, `candidates`, `matcher`), `stage` (`stage`, `from`), `signal` (`name`, `value`), `language` (`language`, `own`). They reach every client through the hub.
+- **Commands (clients → agent):** `signal` (`name`, `value`): fires the patterns `when.kind = "signal"`; `language` (`language`): the conversation's language, like the Talk view's switch.
 - **Settings:** `agent` (the agent's folder name), `llm`, `llmUrl`, `llmModel`, `llmKey`, `localAsr`, `localLlm`.
 
 ## 7. Not in this version
