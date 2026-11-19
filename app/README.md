@@ -96,10 +96,10 @@ You also need:
 
 On first launch, the banner follows the model download. When it says "The models are ready", click **Start** and talk.
 
-**New versions.** VIK looks for one at launch, then every hour (and when you choose **Files → Check for updates**):
+**New versions.** VIK looks for one at launch, then every hour. **Files → Check for updates…** (or **Settings → Version**) opens the **Updates** window: the version you have, and what the last check found, as it happens (looking, the latest version, downloading, ready, could not check and why).
 
-- **On Windows**, installed with `VIK-Setup`: it downloads the new version in the background, installs it next to the current one, then offers **Restart now** or **Later** (the new version starts the next time you open VIK). Your agents, settings and models stay. It does not need administrator rights. The portable `.zip` cannot update itself: it gets the notice below.
-- **On a Mac**: it says "VIK 3.2.0 is available", with a button to the download page. A Mac app updates itself only if it is code-signed, and VIK is not: download the new `.dmg` and drag the app into Applications again.
+- **On Windows**, installed with `VIK-Setup`: it downloads the new version in the background, installs it next to the current one, then the Updates window opens by itself with **Restart now** (or close it: the new version starts the next time you open VIK). Your agents, settings and models stay. It does not need administrator rights. The portable `.zip` cannot update itself: it gets the notice below.
+- **On a Mac**: the Updates window opens by itself: "VIK 3.2.0 is available", with a link to the download page. A Mac app updates itself only if it is code-signed, and VIK is not: download the new `.dmg` and drag the app into Applications again.
 
 It only asks GitHub (and, on Windows, update.electronjs.org, which reads the kit's GitHub releases), over HTTPS. To keep a version fixed (an exhibition), set `"updates": false` in your `config.json`: VIK then only looks when you ask.
 
@@ -321,4 +321,4 @@ Any number of clients can follow the conversation and drive it, at the same time
 | after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner |
 | the agent stops for a "mm-hm" | "Talk over it this long to interrupt" is at 0: try 600 ms |
 | Files → Server log | the server's latest messages, to understand an error |
-| Files → Check for updates says "Could not check for a new version" | the network blocks GitHub or update.electronjs.org: the new versions are on the Releases page. The reason is in Files → Server log |
+| the Updates window says "Could not check for a new version" | the network blocks GitHub or update.electronjs.org: the new versions are on the Releases page (**Open the download page**). The reason follows the message, and is in Files → Server log |

@@ -203,11 +203,11 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 On a Windows PC with VIK installed from a release that has the updates (its release page lists `RELEASES` and a `.nupkg`).
 
 1. Publish the next version (a new tag, see `PUBLISHING.md`), and wait for its release page.
-2. Open VIK, or leave it open: within the hour (or at once with **Files → Check for updates**) it downloads the new version.
-3. Click **Later**, close VIK and open it again from the Start menu.
-4. On a Mac with VIK installed: **Files → Check for updates**.
+2. Open VIK, or leave it open: within the hour (or at once with **Files → Check for updates…**) it downloads the new version.
+3. Click **Close** in the Updates window, close VIK and open it again from the Start menu.
+4. On a Mac with VIK installed: **Files → Check for updates…**.
 
-**Expected:** at step 2, a dialog "A new version of VIK is ready", **Restart now** / **Later**. **Files → Server log** shows "a new version of VIK is downloading", then "is installed". At step 3 the new version opens (its number in the release notes' title; the agents and settings are there). At step 4: "VIK x.y.z is available", and **Open the download page** opens that release. Without a new version: "VIK is up to date".
+**Expected:** with **Files → Check for updates…**, the Updates window shows the version you have ("VIK 3.7.1"), then "VIK x.y.z is downloading.". At step 2 the window opens by itself: "VIK x.y.z is ready.", **Restart now**. **Files → Server log** shows "a new version of VIK is downloading", then "is installed". At step 3 the new version opens: **Settings → Version** shows its number, the agents and settings are there. At step 4: "VIK x.y.z is available.", and **Open the download page** opens that release. Without a new version: "This is the latest version.".
 
 ## B. The voice (R3)
 

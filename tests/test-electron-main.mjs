@@ -90,16 +90,14 @@ check(st.permissionCheck(null, 'media', base) === true && st.permissionCheck(nul
 const labels = JSON.stringify(st.menu || []);
 check(/Engine/.test(labels) && /Simulated/.test(labels) && /models folder/.test(labels) && /agents folder/.test(labels) && /Copy address for clients/.test(labels), 'menus: engine, folders (agents, models), clients address');
 {
-  const shown = [];
   const electron = require('electron');
-  const box = electron.dialog.showMessageBox;
-  electron.dialog.showMessageBox = (w, o) => { shown.push(o); return Promise.resolve({ response: 0 }); };
   const item = st.menu.find((m) => m.label === 'Files').submenu.find((i) => i.label === 'Check for updates…');
   if (item) item.click();
   await sleep(50);
-  electron.dialog.showMessageBox = box;
-  check(item && shown.length === 1 && /source code/.test(shown[0].message) && electron.autoUpdater.feed === null,
-    'Files → Check for updates…: run from the source code, it says to use git pull (no updater, no download)', shown);
+  const upd = await (await fetch(`${base}/api/updates`)).json();
+  check(item && win.scripts.some((js) => /window\.vikUpdates\(true\)/.test(js)) && electron.autoUpdater.feed === null,
+    "Files → Check for updates…: the studio's Updates window opens and checks (window.vikUpdates); from the source code, no updater", win.scripts);
+  check(upd.version === '3.1.0' && upd.status === 'source' && upd.mode === 'none', 'the Updates window gets this version from the server (GET /api/updates): run from the source code', upd);
 }
 {
   const save = st.menu.find((m) => m.label === 'Files').submenu[0];

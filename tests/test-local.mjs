@@ -3,7 +3,7 @@
 // in Chromium, with a fake microphone. Checks the protocol, the states, the choices, the mood, the interruptions.
 //   node tests/test-local.mjs
 import { spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ROOT, startStatic, makeFakeMicWav, launch, check, summary, sleep, until } from './helpers.mjs';
@@ -564,6 +564,33 @@ await browser.close();
   await page.click('.nav button[data-view="persona"]');
   await page.check('[data-k="freeTalk"]');
   await until(async () => (await disk('bike-shop')).settings.freeTalk === true, 4000);
+  // the Updates window: this version (Settings → Version), and what the app's updater says (here: the server alone)
+  {
+    const version = JSON.parse(readFileSync(join(ROOT, 'app', 'package.json'), 'utf8')).version;
+    await page.click('.nav button[data-view="settings"]');
+    check(await until(async () => (await page.textContent('#appVersion')) === `VIK ${version}`, 3000), 'updates: Settings → Version shows this version', await page.textContent('#appVersion'));
+    await page.click('#checkUpdates');
+    check(await until(async () => (await page.textContent('#updTitle')) === `VIK ${version}` && /source code: git pull/.test(await page.textContent('#updHow')), 3000)
+      && await page.isHidden('#updCheck') && await page.isHidden('#updInstall'), 'updates: the window shows the version; from the source code, git pull (nothing to check)');
+    await page.click('#updClose');
+    // what the app's updater would say (app/electron/updates.cjs), through the server
+    const installs = [];
+    let fake = { version, mode: 'squirrel', status: 'ready', latest: '9.9.9', page: 'https://github.com/b2renger/voice-interaction-kit/releases/tag/v9.9.9', error: '', checkedAt: 0 };
+    await page.route('**/api/updates', (r) => r.fulfill({ json: fake }));
+    await page.route('**/api/updates/install', (r) => { installs.push(1); r.fulfill({ json: fake }); });
+    await page.evaluate(() => window.vikUpdates(false));
+    check(await until(async () => (await page.textContent('#updStatus')) === 'VIK 9.9.9 is ready.' && await page.isVisible('#updInstall'), 3000)
+      && (await page.textContent('#appVersion')) === `VIK ${version}, VIK 9.9.9 is ready`, 'updates: a new version ready (Windows): the window opens by itself, "Restart now"', await page.textContent('#updStatus'));
+    await page.click('#updInstall');
+    check(await until(() => installs.length === 1, 2000), 'updates: "Restart now" asks the app to restart into it (POST /api/updates/install)');
+    fake = { ...fake, status: 'failed', latest: '', error: 'GitHub answered 403', page: 'https://github.com/b2renger/voice-interaction-kit/releases/latest' };
+    check(await until(async () => /^Could not check for a new version: GitHub answered 403/.test(await page.textContent('#updStatus'))
+      && (await page.getAttribute('#updPage', 'href')) === fake.page && (await page.textContent('#updPage')) === 'Open the download page', 3000),
+      'updates: the window follows the updater while open (a failed check: why, and the download page)', await page.textContent('#updStatus'));
+    await page.click('#updClose');
+    await page.unroute('**/api/updates/install');
+    await page.unroute('**/api/updates');
+  }
   // talk: the decision is followed, explained, and its signal goes out
   await page.click('.nav button[data-view="talk"]');
   await page.evaluate(() => { window.__ev = []; window.agent.on('*', (e) => window.__ev.push({ type: e.type, text: e.text, name: e.name, value: e.value, pattern: e.pattern })); });

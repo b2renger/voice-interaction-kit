@@ -20,6 +20,8 @@ import { createZonosFiles } from './engines/zonos-files.mjs';
 import { createPeople, voiced, ENROL_SECONDS, MIN_SECONDS } from './speakers/speakers.mjs';
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
+/** This version of VIK (app/package.json). */
+export const VERSION = String(JSON.parse(readFileSync(join(APP_DIR, 'package.json'), 'utf8')).version || '');
 
 /** The pages allowed to open a conversation. An entry ending in * is a prefix. */
 export const DEFAULT_ORIGINS = ['https://cables.gl', 'https://sandbox.cables.gl', 'https://dev.cables.gl', 'http://localhost:*', 'http://127.0.0.1:*', 'cables:*', 'file:*', 'https://editor.p5js.org', 'https://preview.p5js.org'];
@@ -178,6 +180,7 @@ export async function startServer(o) {
       if (zonosFiles.handle(req, res, path)) return;
     }
     if (path.startsWith('/api/people') && handlePeople(req, res, path)) return;
+    if (path.startsWith('/api/updates') && handleUpdates(req, res, path)) return;
     if (handleApi(req, res, path, { store, decide: decideForStudio })) return;
     // The models offered for listening and thinking (config.json "choices"), and whether each is on this computer.
     if (path === '/models') {
@@ -311,6 +314,20 @@ export async function startServer(o) {
     if (v.seconds < least) throw new Error(`Only ${v.seconds.toFixed(1)} s of voice were heard: ${least >= ENROL_SECONDS ? 'read the whole text, close to the microphone' : 'speak a little longer'}.`);
     return { print: await model.embed(v.audio), seconds: v.seconds };
   }
+  /**
+   * The Updates window (app/public/js/updates.js): GET /api/updates (the state of app/electron/updates.cjs),
+   * POST /api/updates/check, POST /api/updates/install (Windows: restart into the new version). Without the app
+   * (the server alone, from the source code): this version, nothing to check.
+   */
+  function handleUpdates(req, res, path) {
+    const u = typeof o.updates === 'function' ? o.updates() : null;
+    const state = () => (u ? u.state() : { version: VERSION, mode: 'none', status: 'source', latest: '', page: '', error: '', checkedAt: 0 });
+    if (path === '/api/updates' && req.method === 'GET') { json(res, 200, state()); return true; }
+    if (path === '/api/updates/check' && req.method === 'POST') { if (u) u.check(); json(res, 200, state()); return true; }
+    if (path === '/api/updates/install' && req.method === 'POST') { if (u) u.install(); json(res, 200, state()); return true; }
+    return false;
+  }
+
   /** GET /api/people, POST /api/people?name= (a recording), POST /api/people/identify (a recording), DELETE /api/people/<id>. */
   function handlePeople(req, res, path) {
     const fail = (e) => json(res, 400, { error: e.message });

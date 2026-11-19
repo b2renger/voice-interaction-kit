@@ -8,6 +8,7 @@ import { initKnowledge, renderKnowledge } from './knowledge.js';
 import { initInteractions, renderInteractions } from './interactions.js';
 import { initSettings, initMicMeter, initOscIn, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
 import { initPeople } from './people.js';
+import { initUpdates } from './updates.js';
 import { initGuide, renderGuide, openGuide, refreshGuideTour } from './guide.js';
 import { initTour, startTour, tourCard } from './tour.js';
 import { initZonos } from './zonos.js';
@@ -25,6 +26,7 @@ initSettings();
 initMicMeter(agent);
 initOscIn(agent);
 initPeople(agent);
+initUpdates();
 initZonos((ms) => pushSettings(ms));
 initVoices((ms) => pushSettings(ms));
 

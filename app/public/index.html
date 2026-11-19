@@ -323,6 +323,10 @@
         <label class="field" style="max-width:420px"><span>Address of the voice server</span><input type="text" data-k="serverUrl"></label>
         <p class="hint" style="margin-top:8px" id="agentsDir"></p>
       </div>
+      <div class="group">
+        <header><h2>Version</h2></header>
+        <div class="row"><span id="appVersion">VIK</span><button type="button" class="btn" id="checkUpdates">Check for updates…</button></div>
+      </div>
     </section>
 
     <!-- ===================== Guide: the built-in documentation, and the tutorial ===================== -->
@@ -351,6 +355,20 @@
     <label class="field"><span>Name</span><input type="text" id="signalName" list="signalNames" autocomplete="off"><datalist id="signalNames"></datalist></label>
     <label class="field"><span>Value</span><input type="text" id="signalValue" autocomplete="off"></label>
     <div class="row"><button class="btn quiet" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Send</button></div>
+  </form>
+</dialog>
+<!-- this version of VIK, and new ones (Files → Check for updates…, Settings → Version): app/public/js/updates.js -->
+<dialog id="updatesDlg" aria-labelledby="updTitle">
+  <form method="dialog">
+    <h2 id="updTitle">VIK</h2>
+    <p id="updStatus" aria-live="polite"></p>
+    <p class="hint" id="updHow"></p>
+    <div class="row">
+      <a class="btn quiet" id="updPage" target="_blank" rel="noopener" hidden>What's new</a>
+      <button type="button" class="btn" id="updCheck">Check again</button>
+      <button type="button" class="btn primary" id="updInstall" hidden>Restart now</button>
+      <button class="btn" value="close" id="updClose">Close</button>
+    </div>
   </form>
 </dialog>
 <input type="file" id="importFile" accept=".json,application/json" class="sr" tabindex="-1">
