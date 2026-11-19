@@ -32,6 +32,8 @@ const museum = {
     'knowledge: a name said as whole words (case, punctuation ignored); never names under 3 letters');
   check(fill('{name} by {Artist}, {year}. You said: {said}. {nope}', lilies, { said: 'hi' }) === 'Water Lilies by Claude Monet, 1916. You said: hi.',
     'knowledge: placeholders filled ({column} in any case, {said}), unknown ones emptied', fill('{name} by {Artist}, {year}. You said: {said}. {nope}', lilies, { said: 'hi' }));
+  check(fill('Voilà un dessin animé, {speaker} !', null, { speaker: '' }) === 'Voilà un dessin animé !' && fill('Here it is, {speaker}.', null, { speaker: '' }) === 'Here it is.'
+    && fill('Here it is, {speaker}.', null, { speaker: 'Léo' }) === 'Here it is, Léo.', 'fill: an empty {speaker} (someone not recognized) takes its comma with it');
   check(unknownPlaceholders('{name} {room} {said}', ['name', 'year']).join() === 'room', 'knowledge: the studio can warn about a placeholder no column fills');
   check(normalize("L'Été, à Paris!") === 'l ete a paris', 'knowledge: normalize (accents, apostrophes, punctuation)');
   check(namedIn('parlez-moi du Penseur', 'Le Penseur') && namedIn('where is Thinker', 'The Thinker') && !namedIn('the', 'The A'), 'knowledge: a leading article need not be said ("du Penseur" names "Le Penseur")');
@@ -62,6 +64,13 @@ function decodeOsc(b) {
   const n = normalizeInteractions({ patterns: [{ name: 'P', then: [{ do: 'osc', address: ' artlux/scene/ recall', value: '{name}' }, { do: 'osc', to: 'evil.example:1' }] }] });
   check(json(n.patterns[0].then) === json([{ do: 'osc', address: '/artlux/scene/recall', value: '{name}' }, { do: 'osc', address: '', value: '' }]),
     'osc: the action keeps an address (spaces out, a leading /) and a value, never a destination', n.patterns[0].then);
+  const whoPats = normalizeInteractions({ patterns: [
+    { name: 'Route', when: { kind: 'says', examples: ['go'] }, who: [' Papa', 'papa', '[Maman]', ''] },
+    { name: 'Start', when: { kind: 'start' }, who: ['Papa'] },
+    { name: 'Anyone', when: { kind: 'says' }, who: [] },
+  ] }).patterns;
+  check(json(whoPats[0].who) === json(['Papa', 'Maman']) && !('who' in whoPats[1]) && !('who' in whoPats[2]),
+    'who: a spoken pattern keeps its people (each once, no brackets); a moment has nobody speaking; none listed: no field', whoPats.map((p) => p.who));
   check(json([oscArgs(''), oscArgs('12'), oscArgs('-0.5'), oscArgs('Story A'), oscArgs('3 apples')]) === json([[], [{ type: 'i', value: 12 }], [{ type: 'f', value: -0.5 }], [{ type: 's', value: 'Story A' }], [{ type: 's', value: '3 apples' }]]),
     'osc: the value is typed by its look: none, an integer, a float, a string');
   check(json(oscTargets('127.0.0.1:10000, 192.168.1.20:8000;arduino.local:9000 nope 1.2.3.4:0 5.6.7.8:70000')) === json([{ host: '127.0.0.1', port: 10000 }, { host: '192.168.1.20', port: 8000 }, { host: 'arduino.local', port: 9000 }]),
@@ -422,6 +431,87 @@ const decider = createDecider({ store, matcher: () => words });
   check(!early && again && again.text === '/arduino/temp 28.6' && waited >= 1400, 'osc in: it fires again after going back, and waits until the agent has finished, plus a pause', { early, waited });
   room.ws.close();
   sensor.close(); fan.close();
+
+  // People recognized by their voice (Settings → People). A fake speaker model: the "voice" is the pitch of a tone.
+  process.env.VIK_SPEAKERS_FAKE = '1';
+  const tone = (hz, sec, amp = 0.3) => { const a = new Int16Array(Math.round(16000 * sec)); for (let i = 0; i < a.length; i++) a[i] = Math.round(amp * 32767 * Math.sin((2 * Math.PI * hz * i) / 16000)); return Buffer.from(a.buffer); };
+  const voice = (p, body) => fetch(`http://127.0.0.1:${srv.port}/api${p}`, { method: 'POST', body }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  const papa = await voice('/people?name=Papa', tone(200, 9));
+  const leo = await voice(`/people?name=${encodeURIComponent('Léo')}`, tone(500, 9));
+  const tooShort = await voice('/people?name=Zoe', tone(800, 3));
+  check(papa.person && papa.person.name === 'Papa' && leo.people && leo.people.map((p) => p.name).join() === 'Papa,Léo', 'people: two people recorded (POST /api/people, their voice as PCM)', leo);
+  check(tooShort.status === 400 && /^Only 3\.0 s of voice/.test(tooShort.error), 'people: a recording with too little voice is refused, and says why', tooShort);
+  const whoIs = await voice('/people/identify', tone(500, 2));
+  check(whoIs.name === 'Léo' && whoIs.score === 1, 'people: who is speaking? (POST /api/people/identify)', whoIs);
+  const cross = await fetch(`http://127.0.0.1:${srv.port}/api/people`, { headers: { origin: 'http://evil.example' } });
+  check(cross.status === 403, 'people: another website cannot read them', cross.status);
+
+  // the car: the parents change the route, the children can't; anyone asks for a cartoon
+  const carOsc = await listener();
+  const car = await api('/agents', { bundle: { vik: 'agent', id: 'car', persona: '---\nname: Nova\n---\nThe voice of a family car.', knowledge: {}, interactions: { version: 1, patterns: [
+    { id: 'route', name: 'Change the route', when: { kind: 'says', examples: ['change the route', 'go to Lyon instead'] }, who: ['Papa', 'Maman'], then: [{ do: 'osc', address: '/car/route', value: '{said}' }, { do: 'say', text: 'Route changed, {speaker}.' }] },
+    { id: 'cartoon', name: 'A cartoon', when: { kind: 'says', examples: ['play a cartoon', 'put on a video'] }, then: [{ do: 'signal', name: 'back-screen', value: 'cartoon' }, { do: 'say', text: 'Here it is, {speaker}.' }] },
+  ] } } });
+  const drive = await open({ agent: car.id, name: 'Nova', persona: 'A car.', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant', oscTo: `127.0.0.1:${carOsc.port}` });
+  const typed = async (text, speaker) => {
+    const k = drive.msgs.length;
+    drive.ws.send(JSON.stringify({ type: 'text', text, ...(speaker !== undefined ? { speaker } : {}) }));
+    const done = await drive.after(k, 'bot.done');
+    return { done, msgs: drive.msgs.slice(k), find: (type) => drive.msgs.slice(k).find((m) => m.type === type) };
+  };
+  asked = farm.requests.length;
+  let t1 = await typed('change the route', 'Léo');
+  check(t1.find('decision').kind === 'denied' && t1.find('decision').speaker === 'Léo' && json(t1.find('decision').who) === json(['Papa', 'Maman']) && !t1.find('osc'),
+    'who: Léo asks to change the route, kept for Papa and Maman → "denied", nothing sent', t1.find('decision'));
+  check(t1.done.text === 'Sorry Léo, only Papa or Maman can ask me that.' && farm.requests.length === asked,
+    'who: the agent says it won\'t, in a fixed line (the small model, asked to refuse, often agreed)', t1.done.text);
+  t1 = await typed('Are we there yet?', 'Léo');
+  const req = farm.requests[farm.requests.length - 1];
+  const sys1 = req ? req.body.messages[0].content : '';
+  const last1 = req ? req.body.messages[req.body.messages.length - 1].content : '';
+  check(/\n\nYou are talking with Léo right now\.(\n|$)/.test(sys1) && !/Papa/.test(sys1) && last1 === 'Are we there yet?',
+    'who: the model knows who is talking (one sentence of the system prompt); the words go as said', { sys: sys1.slice(-200), last1 });
+  t1 = await typed('change the route', 'Papa');
+  await until(() => carOsc.got.length, 2000);
+  check(t1.find('decision').kind === 'pattern' && t1.done.text === 'Route changed, Papa.' && json(carOsc.got) === json([{ address: '/car/route', args: ['change the route'] }]),
+    'who: Papa may: the route is sent, and {speaker} is his name', { said: t1.done.text, osc: carOsc.got });
+  t1 = await typed('play a cartoon', 'Léo');
+  check(t1.find('decision').pattern.id === 'cartoon' && t1.done.text === 'Here it is, Léo.' && t1.find('signal').value === 'cartoon', 'who: a pattern for anyone, Léo too', t1.done.text);
+  t1 = await typed('change the route');
+  check(t1.find('decision').kind === 'denied' && t1.find('decision').speaker === '' && t1.done.text === 'Sorry, I don\'t recognize your voice: only Papa or Maman can ask me that.',
+    'who: typed without a name, people recorded: someone not recognized, denied', t1.done.text);
+  // by voice: the tone of Léo, then silence (the simulated recognizer hears a sentence)
+  let k = drive.msgs.length;
+  const say = async (buf) => { for (let i = 0; i < buf.length; i += 3200) { drive.ws.send(buf.subarray(i, i + 3200)); await sleep(5); } };
+  await say(Buffer.concat([tone(500, 1.5), tone(0, 1.5, 0)]));
+  await drive.after(k, 'bot.done');
+  let heardTurn = drive.msgs.slice(k);
+  const spk = heardTurn.find((m) => m.type === 'speaker');
+  const ut = heardTurn.find((m) => m.type === 'user.text');
+  check(spk && spk.name === 'Léo' && spk.short === false && ut && ut.speaker === 'Léo' && heardTurn.indexOf(spk) < heardTurn.indexOf(ut) && heardTurn.find((m) => m.type === 'decision').speaker === 'Léo',
+    'who: by voice, Léo is recognized: "speaker", then "user.text" with his name, and the decision', { spk, ut });
+  k = drive.msgs.length;
+  await say(Buffer.concat([tone(500, 0.2), tone(0, 1.5, 0)]));
+  await until(() => drive.msgs.slice(k).find((m) => m.type === 'speaker'), 5000);
+  const brief = drive.msgs.slice(k).find((m) => m.type === 'speaker');
+  check(brief && brief.name === '' && brief.short === true, 'who: too short to tell ("oui"): someone not recognized, never the last person recognized', brief);
+  await drive.after(k, 'bot.done');
+  drive.ws.close();
+  // nobody recorded any more: no "speaker", no name, and a pattern kept for some people can't fire
+  for (const p of (await api('/people')).people) await fetch(`http://127.0.0.1:${srv.port}/api/people/${p.id}`, { method: 'DELETE' });
+  const alone = await open({ agent: car.id, name: 'Nova', persona: 'A car.', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant' });
+  k = alone.msgs.length;
+  await (async (buf) => { for (let i = 0; i < buf.length; i += 3200) { alone.ws.send(buf.subarray(i, i + 3200)); await sleep(5); } })(Buffer.concat([tone(500, 1.5), tone(0, 1.5, 0)]));
+  await alone.after(k, 'bot.done');
+  heardTurn = alone.msgs.slice(k);
+  check(!heardTurn.some((m) => m.type === 'speaker') && !('speaker' in heardTurn.find((m) => m.type === 'user.text')) && !('speaker' in heardTurn.find((m) => m.type === 'decision')),
+    'who: nobody recorded → no "speaker" event, no name anywhere', heardTurn.filter((m) => /speaker|user.text|decision/.test(m.type)));
+  k = alone.msgs.length;
+  alone.ws.send(JSON.stringify({ type: 'text', text: 'change the route' }));
+  await alone.after(k, 'bot.done');
+  check(alone.msgs.slice(k).find((m) => m.type === 'decision').kind === 'denied', 'who: nobody recorded → a pattern kept for some people is denied to all');
+  alone.ws.close();
+  carOsc.close();
   await srv.close();
   await farm.close();
 }

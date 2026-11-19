@@ -35,7 +35,11 @@ A pattern does one or more things, in order:
 | **Send OSC** | an OSC message to ArtLux, an Arduino, a show controller: the address `/vik/{name}`, with no value, takes ArtLux's show machine into the state found; `/arduino/fan` with the value `1` switches a fan on. See [OSC](clients.md#osc) |
 | **Go to** | moves the conversation to another stage |
 
-A **Say** line can be filled from the entry found: write the column names in braces. `A {name}? That's {description}, {price}.` If no column fills a placeholder, the editor says so under the line. `{said}` is what the person said. Several lines separated by `|`: one is picked at random.
+A **Say** line can be filled from the entry found: write the column names in braces. `A {name}? That's {description}, {price}.` If no column fills a placeholder, the editor says so under the line. `{said}` is what the person said, `{speaker}` who said it ([recognized by their voice](people.md)). Several lines separated by `|`: one is picked at random.
+
+## Who
+
+A pattern triggered by speech can be kept for some people: **Who → Only…**, then tick them. They are recognized by their voice, recorded in Settings. Someone else who asks for it is told, kindly, that it is not for them. See [Recognizing people](people.md#patterns-for-some-people).
 
 Use **Say** for facts (a price, a time, a platform), and **Answer** for stories and explanations.
 

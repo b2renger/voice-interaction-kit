@@ -7,6 +7,7 @@ import { initTalk, banner } from './talk.js';
 import { initKnowledge, renderKnowledge } from './knowledge.js';
 import { initInteractions, renderInteractions } from './interactions.js';
 import { initSettings, initMicMeter, initOscIn, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
+import { initPeople } from './people.js';
 import { initGuide, renderGuide, openGuide, refreshGuideTour } from './guide.js';
 import { initTour, startTour, tourCard } from './tour.js';
 import { initZonos } from './zonos.js';
@@ -23,6 +24,7 @@ initInteractions();
 initSettings();
 initMicMeter(agent);
 initOscIn(agent);
+initPeople(agent);
 initZonos((ms) => pushSettings(ms));
 initVoices((ms) => pushSettings(ms));
 
@@ -53,7 +55,9 @@ $('#sayForm').addEventListener('submit', (e) => {
   const t = $('#sayText').value.trim();
   if (!t) return;
   if (!agent.active) { banner('warn', 'Click Start first.'); return; }
-  agent.sendText(t);
+  // as one of the people recognized by their voice (Settings → People): to try the patterns kept for them
+  const as = $('#sayAs');
+  agent.sendText(t, as.hidden ? undefined : { speaker: as.value });
   $('#sayText').value = '';
 });
 $('#signalBtn').addEventListener('click', () => {

@@ -8,6 +8,7 @@
 //    worker could not start ("models do not download"). package.json pins @qvac/inference for that reason.
 // 2. The Guide's pages (public/guide/pages.json and each page) are there.
 // 3. Zonos's in-browser engine (zonos-engine/, built by scripts/build-zonos-engine.mjs) is there.
+// 4. The speaker model (Settings → People) and its runtime, onnxruntime-node (an optional dependency) are there.
 // Exits with 1 if anything is missing.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -62,6 +63,8 @@ function check(appDir) {
     for (const addon of addons) if (!resolveFrom(dir, addon, appDir)) problems.push(`${addon} cannot be found from ${from}`);
   }
   for (const f of ['engine.js', 'worker.js', 'codec-worker.js']) if (!existsSync(join(appDir, 'zonos-engine', f))) problems.push(`zonos-engine/${f} is missing (the voice engine "Zonos": npm run zonos:engine before packaging)`);
+  if (!existsSync(join(appDir, 'models', 'campplus-voxceleb.onnx'))) problems.push('models/campplus-voxceleb.onnx is missing (recognizing people)');
+  if (!resolveFrom(appDir, 'onnxruntime-node', appDir)) problems.push('onnxruntime-node is missing (recognizing people, Smart Turn)');
   const pagesFile = join(appDir, 'public', 'guide', 'pages.json');
   if (!existsSync(pagesFile)) problems.push('public/guide/pages.json is missing');
   else for (const p of JSON.parse(readFileSync(pagesFile, 'utf8'))) if (!existsSync(join(appDir, 'public', 'guide', `${p.id}.md`))) problems.push(`the Guide's page ${p.id}.md is missing`);

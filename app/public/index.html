@@ -49,13 +49,14 @@
         <p class="state-word" id="stateWord">ready</p>
         <div class="banner" id="banner" role="status" hidden></div>
         <div class="captions" aria-live="polite">
-          <p class="cap you"><span class="who">You</span><span id="userCap"></span></p>
+          <p class="cap you"><span class="who" id="userWho">You</span><span id="userCap"></span></p>
           <p class="cap agent"><span class="who" id="botName">Agent</span><span id="botCap"></span></p>
         </div>
         <div class="choices" id="choices" aria-live="polite"></div>
         <form class="say" id="sayForm">
           <label class="sr" for="sayText">Type a message</label>
           <input type="text" id="sayText" placeholder="Type instead of speaking" autocomplete="off">
+          <select id="sayAs" aria-label="Typed as" hidden></select>
           <button class="btn" type="submit">Send</button>
         </form>
         <div class="talk-tools">
@@ -282,6 +283,18 @@
         </div>
         <label class="check" style="margin-top:8px"><input type="checkbox" data-k="micAutoGain"> Automatic level (the browser's)</label>
         <p class="hint">Quieter than the gate, the agent hears silence: raise it until the room's noise stays under the line, and a voice goes over it. In a noisy room, untick the automatic level, which raises the noise when nobody speaks, and set the gain yourself (it applies at the next Start).</p>
+      </div>
+      <div class="group" data-show="local">
+        <header><h2>People</h2><p>The people the agent recognizes by their voice. Each one reads a short text once, with this microphone. The agent then knows who is speaking, and patterns can be kept for some of them (Interactions → Who). <a href="#guide/people" class="help" data-guide="people">Recognizing people</a></p></header>
+        <ul class="people" id="peopleList"></ul>
+        <p class="hint" id="peopleEmpty">Nobody yet: the agent doesn't know who is speaking.</p>
+        <div class="grid2" style="margin-top:12px">
+          <label class="field"><span>Name</span><input type="text" id="personName" placeholder="Léa" maxlength="40" autocomplete="off"></label>
+          <label class="field"><span>Text to read</span><select id="personText"><option value="fr">Français</option><option value="en">English</option></select></label>
+        </div>
+        <blockquote class="read-text" id="readText"></blockquote>
+        <div class="row"><button class="btn primary" id="recordPerson" type="button">Record</button><button class="btn" id="testPerson" type="button">Who is speaking?</button><span class="hint" id="recordStatus" aria-live="polite"></span></div>
+        <p class="hint">Ask each person first: their voiceprint is personal data. It stays on this computer (never in an agent), and Delete removes it. Record with the microphone of the conversation, in the room where it takes place.</p>
       </div>
       <div class="group" data-show="gemini">
         <header><h2>Gemini Live</h2><p>The key stays in this window, on this computer.</p></header>

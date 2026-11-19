@@ -110,6 +110,8 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 
 **Stages** make a small state machine: the agent is in one stage at a time (`start` is the first). A pattern with a `stage` only applies in that stage; `""` means every stage. The `go` action moves to another stage.
 
+**Who.** A pattern triggered by speech (`says`, `mentions`, `otherwise`) can be kept for some people: `"who": ["Papa", "Maman"]`, their names as recorded on the computer that runs it (Settings → People, §5.2). No `who`: anyone. A moment (`start`, `signal`, `osc`) has nobody speaking, so it has no `who`.
+
 **When** (one per pattern):
 
 | `kind` | fires when | fields |
@@ -134,7 +136,7 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 | `language` | the conversation's language from this reply on (hearing and voice reload first): one of `en fr es de it pt`, `""` = the agent's own. In another language than the agent's, `say` lines and the repair line are translated by the language model, and there are no fillers | `language` |
 | `go` | moves to another stage | `stage` |
 
-**Placeholders.** In `text`, `instruction`, `question`, `options`, `value` (of `signal` and `osc`) and the `address` of `osc`, `{column}` is replaced by that column of the entry found (or of the entry in focus): `{name}`, `{artist}`, `{year}`. `{said}` is what the person said. In a pattern fired by an OSC message, `{value}` is its value and `{address}` its address.
+**Placeholders.** In `text`, `instruction`, `question`, `options`, `value` (of `signal` and `osc`) and the `address` of `osc`, `{column}` is replaced by that column of the entry found (or of the entry in focus): `{name}`, `{artist}`, `{year}`. `{said}` is what the person said, `{speaker}` who said it (§5.2; empty for someone not recognized). In a pattern fired by an OSC message, `{value}` is its value and `{address}` its address.
 
 **Live data.** The latest value of each OSC address received (at most 30) is part of what the language model reads before every reply, with its age when it is over a minute old: "Live data, right now (…): /arduino/temp = 29.5". The same line follows the last message of the request (not the history): measured with Qwen3 1.7B, a value only in the system prompt lost to the same number said a few turns earlier. A pattern fired by an OSC message adds `(OSC message: /arduino/temp 29.5)` to the history as a user turn, so the model answers the message rather than continuing its own last words.
 
@@ -143,7 +145,7 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 Every time the person finishes speaking (or types, or picks a choice), the agent decides **before** any language model runs:
 
 1. **Score the patterns of the current stage.** A `says` pattern scores the similarity between the sentence and its closest example (an example said exactly scores 1). A `mentions` pattern scores the best entry of its table: the sentence against the entry's names, and against its whole row. A name said word for word scores at least 0.95. Without a name said, an entry that hardly beats the next one in its table ("who painted it?" fits every painting) is doubtful: its score shrinks with its lead (less than 0.15 ahead: proportionally less).
-2. **The best score at or above the confidence wins** (`confidence`, 0 to 1: how sure the agent must be; 0.5 by default), and its actions run. Otherwise the stage's `otherwise` pattern runs, if there is one.
+2. **The best score at or above the confidence wins** (`confidence`, 0 to 1: how sure the agent must be; 0.5 by default), and its actions run. Otherwise the stage's `otherwise` pattern runs, if there is one. A pattern kept for some people (`who`) only competes when one of them is speaking; if it is the best one, someone else is speaking and no other pattern reaches the confidence, the decision is **denied**: none of its actions run, and the agent says a fixed line in the conversation's language ("Pardon Léo, c'est à Papa ou Maman de me le demander."). Measured with Qwen3 1.7B, a language model asked to refuse often agreed instead.
 3. **Otherwise, a free answer:** the language model replies with the persona, and the knowledge entries closest to the sentence (at most three, plus the entry in focus, plus their links).
 
 **The entry in focus.** The last entry found stays in focus, so that "who painted it?" after "tell me about the Water Lilies" is answered from the right row.
@@ -182,7 +184,7 @@ One window, a few views, saved as you type:
 | **Knowledge** | the tables: a spreadsheet, CSV import and export, and a search field to see what the agent finds |
 | **Interactions** | the stages and the patterns (When → Then), and the test field |
 | **Voice & timing** | the voice, turn-taking, feedback |
-| **Settings** | the engine, the models, the language model, the clients' address |
+| **Settings** | the engine, the models, the language model, the microphone, the people recognized by their voice (5.2), the clients' address, OSC |
 | **Guide** | nothing: the built-in documentation, and the tutorial (5.1) |
 
 The top bar holds the agent (and **Manage**: new, duplicate, export, import, delete, the examples), "Saved", the live state with the last words said, and **Start** / **Stop**: an agent can be tested from any view while it is being edited.
@@ -194,6 +196,12 @@ The top bar holds the agent (and **Manage**: new, duplicate, export, import, del
 **This computer's settings** (the engine, the language model and its address and key, the models, the speakers) are kept in the window, never in an agent: the server drops them from any `persona.md` it reads, writes or imports, and the page ignores them in an agent. An agent from someone else cannot send the conversation elsewhere.
 
 The server behind the window (`app/src/app-server.mjs`) serves the page and a small API (`app/src/api.mjs`): `GET/PUT/POST/DELETE /api/agents/…` (the files), `POST /api/decide` (the test field), `POST /api/llm/models` (a service's models), `GET /models` and `GET /farms`. The API only answers the studio's own page (`sec-fetch-site`, `origin`).
+
+### 5.2 People recognized by their voice
+
+**Settings → People** records someone: a name, and a text read aloud (French or English, about 20 s; at least 8 s of voice). The server (`app/src/speakers/`) keeps a **voiceprint**, never the recording: 512 numbers from a speaker model, CAM++ by WeSpeaker trained on VoxCeleb 2 (29 MB, Apache-2.0, in `app/models/`, run by onnxruntime-node like Smart Turn; its input, Kaldi filter banks, is computed in JavaScript and checked against kaldi-native-fbank). The people are this computer's (`people.json` in the app's settings folder, `VIK_PEOPLE` for the server alone), never an agent's: a voiceprint is personal data, and an agent shared carries nobody's. API, for the studio's own page: `GET /api/people`, `POST /api/people?name=` and `POST /api/people/identify` (16-bit PCM, 16 kHz), `DELETE /api/people/<id>`.
+
+**In a conversation**, at the end of each spoken turn, its voice (the last 8.5 s, without the silences) goes to the closest voiceprint, if it is close enough. The line depends on the length of the voice, since a short one scores lower: 0.30 under 1 s, 0.40 under 3 s, 0.45 above; under 0.3 s, nobody. Measured on LibriSpeech test-clean (40 people, 15 s recorded each, a family of 4): a sentence finds the right person 96–99 % of the time and a wrong one under 0.2 %, a stranger stays unrecognized 97 % of the time; half a second, the right person 90 %. Too short or too far: "someone not recognized", never the last person recognized (a child's "yes" must not pass for a parent's). The name goes to the decision (`who`), to `{speaker}`, to the events (`speaker`, `user.text`), and to the language model as one sentence of its system prompt ("You are talking with Léo right now."). Measured with Qwen3 1.7B: that sentence keeps its replies as natural as with nobody recorded, but it rarely says a name by itself; a note after the person's words made it repeat their question, a name before them ("[Léo] …") made it write "[Papa] …" itself, and a list of everyone recognized made it narrate the family.
 
 ### 5.1 The Guide and the tutorial
 
@@ -209,7 +217,7 @@ The tutorial only edits **its own agent**: the agents that existed when it start
 
 On top of [`CONTRACT.md`](../CONTRACT.md):
 
-- **Events:** `decision` (`text`, `stage`, `pattern`, `score`, `entry`, `candidates`, `matcher`), `stage` (`stage`, `from`), `signal` (`name`, `value`), `language` (`language`, `own`). They reach every client through the hub.
+- **Events:** `decision` (`text`, `stage`, `pattern`, `score`, `entry`, `candidates`, `matcher`, `speaker`, `who`), `stage` (`stage`, `from`), `signal` (`name`, `value`), `language` (`language`, `own`), `speaker` (`name`, `closest`, `score`, `short`). They reach every client through the hub.
 - **Commands (clients → agent):** `signal` (`name`, `value`): fires the patterns `when.kind = "signal"`; `language` (`language`): the conversation's language, like the Talk view's switch.
 - **Settings:** `agent` (the agent's folder name), `llm`, `llmUrl`, `llmModel`, `llmKey`, `localAsr`, `localLlm`.
 

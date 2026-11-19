@@ -71,6 +71,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .saved.err { color: var(--fail); }
 /* the mic meter (Settings, Microphone): the level, the gate's threshold, coloured while the gate is open */
 .osc-in { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; max-width: 420px; font-size: 13px; }
+.people { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-width: 520px; }
+.people li { display: flex; align-items: center; gap: 12px; padding: 4px 4px 4px 10px; border-radius: var(--r); background: var(--sunk); }
+.people li .hint { flex: 1; }
+.read-text { margin: 12px 0; padding: 10px 14px; max-width: 64ch; border-left: 3px solid var(--rule); font-size: 15px; line-height: 1.6; }
 .osc-in li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 8px; border-radius: var(--r); background: var(--sunk); font-variant-numeric: tabular-nums; }
 .mic-meter { display: block; position: relative; height: 10px; border-radius: 5px; background: var(--sunk); overflow: hidden; margin: 6px 0 4px; }
 .mic-meter .lvl { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--idle); }
@@ -200,6 +204,7 @@ button.link { background: none; border: 0; padding: 0; font: inherit; color: var
 .choices button:hover { background: var(--ink); color: var(--paper); }
 .say { width: min(720px, 100%); display: flex; gap: 8px; margin-top: auto; }
 .say input { background: transparent; }
+.say select { width: auto; max-width: 30%; }
 .talk-tools { display: flex; gap: 8px; width: min(720px, 100%); justify-content: space-between; align-items: center; }
 .talk-tools select { width: auto; }
 .talk-tools .metrics { display: flex; gap: 22px; color: var(--muted); font-size: 12.5px; }

@@ -247,6 +247,7 @@ async function start() {
       mock: MOCK,
       log,
       agentsDir: agentsDir(),
+      peopleFile: path.join(userDir(), 'people.json'),      // the people recognized by their voice (Settings → People)
       // the personas of earlier versions become agents (first launch only)
       legacyDirs: [path.join(oldUserDir(), 'personas'), path.join(userDir(), 'personas')],
       onStatus: ({ text, progress }) => {

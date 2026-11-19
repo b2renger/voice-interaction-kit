@@ -17,6 +17,7 @@ import { handleApi } from './api.mjs';
 import { mutex, progressText } from './util.mjs';
 import { createZonosVoice, withZonos } from './engines/zonos.mjs';
 import { createZonosFiles } from './engines/zonos-files.mjs';
+import { createPeople, voiced, ENROL_SECONDS, MIN_SECONDS } from './speakers/speakers.mjs';
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,8 +35,9 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
  * Starts the server. Tries the requested port, then the next ones if it is taken (up to +9).
  * @param {{config: any, mock?: boolean, port?: number, host?: string, log?: (m: string) => void,
  *   onStatus?: (s: {text: string, progress: number|null}) => void,
- *   agentsDir?: string, legacyDirs?: string[]}} o
+ *   agentsDir?: string, legacyDirs?: string[], peopleFile?: string}} o
  *   agentsDir: where the agents live (default: a new temporary folder, with the examples: for the tests);
+ *   peopleFile: the people recognized by their voice, this computer's (default: in a new temporary folder);
  *   legacyDirs: folders of persona JSON files from earlier versions, imported on first launch.
  * @returns {Promise<{port: number, url: string, wsUrl: string, engineName: () => string|null, ready: Promise<void>, close: () => Promise<void>}>}
  */
@@ -66,6 +68,8 @@ export async function startServer(o) {
   const sessions = new Set();
   const hub = createHub(log);
   const farms = createFarmFinder(log);
+  // the people recognized by their voice (Settings → People): this computer's, never an agent's
+  const people = createPeople({ file: o.peopleFile || join(mkdtempSync(join(tmpdir(), 'vik-people-')), 'people.json'), log });
   const status = (text, progress) => {
     lastStatus = { text, progress: progress == null ? null : progress };
     for (const s of sessions) s.status(text, progress);
@@ -173,6 +177,7 @@ export async function startServer(o) {
       if (!samePage(req)) { res.writeHead(403); res.end(); return; }
       if (zonosFiles.handle(req, res, path)) return;
     }
+    if (path.startsWith('/api/people') && handlePeople(req, res, path)) return;
     if (handleApi(req, res, path, { store, decide: decideForStudio })) return;
     // The models offered for listening and thinking (config.json "choices"), and whether each is on this computer.
     if (path === '/models') {
@@ -228,6 +233,8 @@ export async function startServer(o) {
         decider,
         newConversation: () => { if (engine && engine.newConversation) engine.newConversation(); },
         smartTurn: () => getSmartTurn(),
+        people,                                    // Settings → People: who is recognized by their voice
+        speakerModel: () => getSpeakers(),
       }, prepareLock, log);
       sessions.add(session);
       ws.on('close', () => sessions.delete(session));
@@ -267,6 +274,63 @@ export async function startServer(o) {
       })();
     }
     return smartTurn;
+  }
+
+  // The speaker model (who is speaking): loaded the first time it is needed, then shared, like Smart Turn.
+  let speakers = null;
+  function getSpeakers() {
+    if (!speakers) {
+      speakers = (async () => {
+        const c = config.speakers || {};
+        const model = String(c.model || 'models/campplus-voxceleb.onnx');
+        const { createSpeakerModel } = await import('./speakers/speakers.mjs');
+        return createSpeakerModel({ modelPath: isAbsolute(model) ? model : join(APP_DIR, model), threads: Number(c.threads) || 1, log });
+      })();
+    }
+    return speakers;
+  }
+
+  /** Settings → People: the voice read by someone (16-bit PCM, 16 kHz), as {audio, seconds of voice}. */
+  function readVoice(req) {
+    return new Promise((resolve, reject) => {
+      const parts = []; let n = 0;
+      req.on('data', (c) => { n += c.length; if (n > 16000 * 2 * 60) { req.destroy(); reject(new Error('More than a minute of sound.')); } else parts.push(c); });
+      req.on('end', () => {
+        const b = Buffer.concat(parts);
+        const a = new Float32Array(b.length >> 1);
+        for (let i = 0; i < a.length; i++) a[i] = b.readInt16LE(i * 2) / 32768;
+        resolve(voiced(a));
+      });
+      req.on('error', reject);
+    });
+  }
+  async function voiceprint(req, least) {
+    const model = await getSpeakers();
+    if (!(await model.ready())) throw new Error('Recognizing people is unavailable on this computer (see the log).');
+    const v = await readVoice(req);
+    if (v.seconds < least) throw new Error(`Only ${v.seconds.toFixed(1)} s of voice were heard: ${least >= ENROL_SECONDS ? 'read the whole text, close to the microphone' : 'speak a little longer'}.`);
+    return { print: await model.embed(v.audio), seconds: v.seconds };
+  }
+  /** GET /api/people, POST /api/people?name= (a recording), POST /api/people/identify (a recording), DELETE /api/people/<id>. */
+  function handlePeople(req, res, path) {
+    const fail = (e) => json(res, 400, { error: e.message });
+    if (path === '/api/people' && req.method === 'GET') { json(res, 200, { people: people.list() }); return true; }
+    if (path === '/api/people' && req.method === 'POST') {
+      const name = new URL(req.url || '/', 'http://x').searchParams.get('name') || '';
+      voiceprint(req, ENROL_SECONDS).then((v) => {
+        const p = people.add(name, v.print, v.seconds);
+        log(`▸ people: ${p.name} recorded (${p.seconds} s of voice)`);
+        json(res, 200, { person: p, people: people.list() });
+      }).catch(fail);
+      return true;
+    }
+    if (path === '/api/people/identify' && req.method === 'POST') {
+      voiceprint(req, MIN_SECONDS).then((v) => json(res, 200, people.identify(v.print, v.seconds))).catch(fail);
+      return true;
+    }
+    const m = /^\/api\/people\/([0-9a-f]{8})$/.exec(path);
+    if (m && req.method === 'DELETE') { people.remove(m[1]); json(res, 200, { people: people.list() }); return true; }
+    return false;
   }
 
   let actualPort = wanted;
@@ -310,6 +374,7 @@ export async function startServer(o) {
       farms.close();
       await new Promise((r) => server.close(() => r()));
       try { if (smartTurn) await (await smartTurn).close(); } catch { /* closed */ }
+      try { if (speakers) await (await speakers).close(); } catch { /* closed */ }
       try { if (engine && engine.close) await engine.close(); } catch { /* closed */ }
     },
   };

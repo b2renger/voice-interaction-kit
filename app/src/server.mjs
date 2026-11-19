@@ -3,6 +3,8 @@
 //   npm run server:mock       simulated engine, no models
 //   node src/server.mjs --port 8790 --host 127.0.0.1 --config config.json --agents <folder>
 // The agents: --agents, or the VIK_AGENTS environment variable, or the app's own folder (the same as the window's).
+// The people recognized by their voice: --people, or VIK_PEOPLE, or the app's own people.json; with another agents
+// folder (the tests), a temporary one: never the user's.
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { loadConfig } from './config.mjs';
@@ -24,6 +26,8 @@ try {
   srv = await startServer({
     config,
     agentsDir: resolve(String(args.agents || process.env.VIK_AGENTS || join(appDataDir(), 'agents'))),
+    peopleFile: args.people || process.env.VIK_PEOPLE ? resolve(String(args.people || process.env.VIK_PEOPLE))
+      : args.agents || process.env.VIK_AGENTS ? undefined : join(appDataDir(), 'people.json'),
     mock: !!args.mock || process.env.VOICE_ENGINE === 'mock',
     port: Number(args.port || process.env.PORT || config.port || 8790),
     host: String(args.host || process.env.HOST || config.host || '127.0.0.1'),

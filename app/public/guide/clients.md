@@ -12,6 +12,7 @@ Clients connect to the address shown in **Settings → Clients** (`ws://localhos
 - the words, as they come, and the levels of the microphone and the voice;
 - the choices and the mood;
 - what the agent decided: the pattern, its score, the entry found, the stage;
+- who is speaking, when people are recorded ([Recognizing people](people.md)): the event `speaker`, with their name;
 - the **signals** sent by the agent's patterns, like `show-artwork` with the value `Water Lilies`.
 
 ## What clients send

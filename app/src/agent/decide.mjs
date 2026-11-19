@@ -4,6 +4,8 @@
 //      table (the sentence against the entry's name and against its whole row; a name said word for word ≥ 0.95);
 //   2. the best score at or above the agent's confidence wins; otherwise the stage's "otherwise" pattern, if any;
 //   3. otherwise a free answer.
+// A pattern kept for some people (`who`) fires only for them. When it is the best one, the person speaking is not
+// one of them, and nothing else fits: "denied", the agent says it won't (Settings → People).
 // Whatever happens, the knowledge for the model: the entry found, the entry in focus, and the closest entries.
 import { entriesOf, describe, withLinks, entryNamedIn, normalize, findEntry } from './knowledge.mjs';
 
@@ -56,13 +58,16 @@ export function createDecider({ store, matcher, log = () => {} }) {
 
   const stageOf = (agent, stage) => (agent.interactions.stages.some((s) => s.id === stage) ? stage : agent.interactions.start);
   const applies = (p, stage) => p.on && (!p.stage || p.stage === stage);
+  /** May this person trigger it? (speaker null: nobody is recognized on this computer) */
+  const allows = (p, speaker) => !p.who || (!!speaker && p.who.some((w) => normalize(w) === normalize(speaker)));
   const round = (x) => (x == null ? null : Math.round(x * 100) / 100);
   const ref = (e) => (e ? { table: e.table, key: e.key } : null);
 
   /**
    * What the agent would do with this sentence.
    * @param {string} id the agent @param {string} text what was said
-   * @param {{stage?: string, focus?: {table: string, key: string}|null}} [state]
+   * @param {{stage?: string, focus?: {table: string, key: string}|null, speaker?: string|null}} [state]
+   *   speaker: who is speaking ('': someone not recognized; null: nobody is recognized on this computer)
    */
   async function decide(id, text, state = {}) {
     const t0 = Date.now();
@@ -108,10 +113,12 @@ export function createDecider({ store, matcher, log = () => {} }) {
     }
     cands.sort((a, b) => b.score - a.score);
     const confidence = agent.interactions.confidence;
-    let chosen = cands[0] && cands[0].score >= confidence ? cands[0] : null;
+    const speaker = state.speaker == null ? null : String(state.speaker);
+    let chosen = cands.find((c) => c.score >= confidence && allows(c.p, speaker)) || null;
     let kind = chosen ? 'pattern' : 'free';
+    if (!chosen && cands[0] && cands[0].score >= confidence) { chosen = cands[0]; kind = 'denied'; }   // not for this person
     if (!chosen) {
-      const other = ix.pats.map((x) => x.p).filter((p) => p.when.kind === 'otherwise' && applies(p, stage))
+      const other = ix.pats.map((x) => x.p).filter((p) => p.when.kind === 'otherwise' && applies(p, stage) && allows(p, speaker))
         .sort((a, b) => Number(!!b.stage) - Number(!!a.stage))[0];          // the stage's own first
       if (other) { chosen = { p: other, score: null, example: '', entry: null }; kind = 'otherwise'; }
     }
@@ -129,13 +136,15 @@ export function createDecider({ store, matcher, log = () => {} }) {
       matcher: m.name,
       kind,
       pattern: chosen ? { id: chosen.p.id, name: chosen.p.name, kind: chosen.p.when.kind } : null,
+      speaker,
+      who: (chosen && chosen.p.who) || [],
       score: chosen ? round(chosen.score) : null,
       example: chosen ? chosen.example : '',
       entry: ref(entry),
       candidates: cands.slice(0, CANDIDATES).map((c) => ({ id: c.p.id, name: c.p.name, score: round(c.score), example: c.example, entry: ref(c.entry) })),
       ms: Date.now() - t0,
       // for the conversation (not sent as is): what to do, the entry's cells, the knowledge
-      then: chosen ? chosen.p.then : [],
+      then: chosen && kind !== 'denied' ? chosen.p.then : [],
       entryCells: entry ? entry : (focus || null),
       knowledge,
     };

@@ -3,6 +3,7 @@
 // follow it and drive it (CONTRACT.md, "The clients protocol").
 import { $, h, seconds, pct } from './ui.js';
 import { settings, onChange } from './state.js';
+import { onPeople } from './people.js';
 
 const STATE_WORDS = { idle: 'ready', connecting: 'connecting', listening: 'listening', hearing: 'hearing you', thinking: 'thinking', speaking: 'speaking', ended: 'ended', error: 'something went wrong' };
 const LIVE_WORDS = { idle: 'Ready', connecting: 'Connecting', listening: 'Listening', hearing: 'Hearing you', thinking: 'Thinking', speaking: 'Speaking', ended: 'Ended', error: 'Error' };
@@ -44,6 +45,18 @@ export function initTalk(agent) {
   agent.on('error', (ev) => banner(ev.fatal ? 'err' : 'warn', ev.message));
 
   // — the words —
+  // — who is speaking (Settings → People): their name instead of "You" —
+  let heard = null;               // the last {name, closest, score, short} the server recognized
+  const whoWord = (name) => (name == null ? 'You' : name || 'Someone');
+  agent.on('speaker', (ev) => { heard = ev; $('#userWho').textContent = whoWord(ev.name); });
+  agent.on('user.text', (ev) => { if (ev.typed) $('#userWho').textContent = whoWord(ev.speaker); });
+  agent.on('state', (ev) => { if (ev.state === 'connecting') { heard = null; $('#userWho').textContent = 'You'; } });
+  onPeople((list) => {
+    const as = $('#sayAs'); const was = as.value;
+    as.replaceChildren(h('option', { value: '' }, 'as someone not recognized'), ...list.map((p) => h('option', { value: p.name }, `as ${p.name}`)));
+    as.value = list.some((p) => p.name === was) ? was : '';
+    as.hidden = !list.length;
+  });
   agent.on('user.start', () => { $('#userCap').textContent = '…'; });
   agent.on('user.partial', (ev) => { $('#userCap').textContent = ev.text; $('#liveCaption').textContent = `You: ${ev.text}`; });
   agent.on('user.text', (ev) => { $('#userCap').textContent = ev.text; });
@@ -90,14 +103,21 @@ export function initTalk(agent) {
   const add = (li) => { trace.prepend(li); while (trace.children.length > 60) trace.lastChild.remove(); $('#traceHint').hidden = true; return li; };
   agent.on('decision', (d) => {
     const took = d.pattern
-      ? [d.kind === 'otherwise' ? `Otherwise: ${d.pattern.name}` : d.pattern.name, d.entry ? h('span', {}, d.entry.key) : '',
-        d.score != null ? h('span', { class: 'score' }, pct(d.score)) : '']
+      ? [d.kind === 'otherwise' ? `Otherwise: ${d.pattern.name}` : d.kind === 'denied' ? `Not for ${d.speaker || 'this voice'}: ${d.pattern.name}` : d.pattern.name,
+        d.entry ? h('span', {}, d.entry.key) : '', d.score != null ? h('span', { class: 'score' }, pct(d.score)) : '']
       : ['A free answer'];
+    // who said it: the name and how sure (the voice), or typed as someone
+    const by = d.speaker == null || !d.text ? ''
+      : heard && heard.name === d.speaker && !heard.short ? `${d.speaker || 'Someone not recognized'} (${pct(heard.score)}${!heard.name && heard.closest ? `, closest ${heard.closest}` : ''}): `
+        : heard && heard.short && !d.speaker ? 'Someone not recognized (too short to tell): '
+          : `${d.speaker || 'Someone not recognized'}: `;
+    heard = null;
     const others = d.candidates.filter((c) => !d.pattern || c.id !== d.pattern.id || (c.entry && d.entry && c.entry.key !== d.entry.key)).slice(0, 3);
     lastDecision = add(h('li', {},
       d.pattern && d.pattern.kind === 'osc' ? h('p', { class: 'said' }, `OSC ${d.text}`)
-        : d.text ? h('p', { class: 'said' }, `“${d.text}”`) : h('p', { class: 'said' }, d.pattern && d.pattern.kind === 'signal' ? 'A signal' : 'The conversation starts'),
+        : d.text ? h('p', { class: 'said' }, `${by}“${d.text}”`) : h('p', { class: 'said' }, d.pattern && d.pattern.kind === 'signal' ? 'A signal' : 'The conversation starts'),
       h('p', { class: 'took' }, took),
+      d.kind === 'denied' ? h('p', { class: 'note' }, `Only ${(d.who || []).join(', ')} may trigger it: the agent says it won't.`) : '',
       d.kind === 'free' ? h('p', { class: 'note' }, 'No pattern was close enough: the language model answers, with what it knows.') : '',
       others.length ? h('p', { class: 'others' }, `Next: ${others.map((c) => `${c.name}${c.entry ? ` (${c.entry.key})` : ''} ${pct(c.score)}`).join(', ')}`) : '',
       d.matcher ? h('p', { class: 'note' }, `Stage ${d.stage}, decided by ${d.matcher} in ${d.ms} ms.`) : ''));
