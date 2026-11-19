@@ -33,7 +33,7 @@ const VoiceCore = (function () {
     'thinking', 'bot.start', 'bot.text', 'bot.sentence', 'bot.end', 'interrupted', 'turn',
     'ui.choices', 'ui.mood', 'tool.call', 'tool.cancel', 'timing', 'error', 'ended',
     'turn.prediction', 'interruption.pending', 'interruption.cancelled', 'bot.filler', 'user.away',
-    'decision', 'stage', 'signal', 'voice', 'osc', 'language', 'osc.in',
+    'decision', 'stage', 'signal', 'voice', 'osc', 'language', 'osc.in', 'speaker',
   ];
   const EVENT_SET = new Set(EVENTS);
 
@@ -737,8 +737,10 @@ const VoiceCore = (function () {
       case 'user.partial': h.userTranscript(m.text || '', 'partial'); break;
       case 'user.text':
         if (m.reply === false) { h.userNoReply(m.text || ''); break; }      // a "stop" said over the agent
+        if (typeof m.speaker === 'string') h.userSpeaker(m.speaker);
         h.userTranscript(m.text || '', 'final'); h.userTurnEnd();
         break;
+      case 'speaker': h.speaker(m); break;
       case 'not.understood': h.notUnderstood(m.text || ''); break;
       case 'thinking': h.thinking(m.turnId); break;
       case 'bot.text': h.botTranscript(m.text || '', false); break;
@@ -774,7 +776,12 @@ const VoiceCore = (function () {
   LocalEngine.prototype.sendAudio = function (int16) {
     if (this.ws && this.ready && this.ws.readyState === 1) this.ws.send(int16.slice().buffer);
   };
-  LocalEngine.prototype.sendText = function (text) { return this.send({ type: 'text', text: String(text) }); };
+  /** Typed text; speaker: as if this person had said it (a person recorded in Settings → People). */
+  LocalEngine.prototype.sendText = function (text, complete, speaker) {
+    const m = { type: 'text', text: String(text) };
+    if (typeof speaker === 'string') m.speaker = speaker;
+    return this.send(m);
+  };
   LocalEngine.prototype.sendContext = function (text) { return this.send({ type: 'context', text: String(text) }); };
   /** A client's signal (a sensor, a button): the agent's patterns "when a client sends this signal" decide. */
   LocalEngine.prototype.sendSignal = function (name, value) { return this.send({ type: 'signal', name: String(name), value: value == null ? '' : String(value) }); };
@@ -1086,11 +1093,12 @@ const VoiceCore = (function () {
     function sendUserText() {
       if (turn.userTextSent || !turn.user.trim()) return;
       turn.userTextSent = true;
-      emit('user.text', { text: turn.user.trim() });
+      emit('user.text', turn.speaker != null ? { text: turn.user.trim(), speaker: turn.speaker } : { text: turn.user.trim() });
     }
     function closeTurn() {
       sendUserText();
       const rec = { user: turn.user.trim(), bot: turn.bot.trim(), interrupted: turn.interrupted, ms: Object.assign({}, turn.ms) };
+      if (turn.speaker != null) rec.speaker = turn.speaker;
       if (rec.user || rec.bot) {
         turns.push(rec);
         if (turns.length > 60) turns.shift();
@@ -1197,7 +1205,9 @@ const VoiceCore = (function () {
       /** The local decision model's choice, explained (docs/DESIGN.md, 3). */
       decision: function (m) {
         emit('decision', { text: String(m.text || ''), stage: String(m.stage || ''), kind: String(m.kind || ''), pattern: m.pattern || null, score: m.score == null ? null : Number(m.score),
-          example: String(m.example || ''), entry: m.entry || null, candidates: Array.isArray(m.candidates) ? m.candidates : [], matcher: String(m.matcher || ''), ms: Number(m.ms) || 0 });
+          example: String(m.example || ''), entry: m.entry || null, candidates: Array.isArray(m.candidates) ? m.candidates : [], matcher: String(m.matcher || ''), ms: Number(m.ms) || 0,
+          // who said it (Settings → People: '' someone not recognized), and who a pattern is kept for
+          speaker: typeof m.speaker === 'string' ? m.speaker : null, who: Array.isArray(m.who) ? m.who.map(String) : [] });
       },
       stage: function (stage, from) { emit('stage', { stage: stage, from: from }); },
       // a pattern changed the agent's voice: one of its saved voices (its id and name), or '' = its own again
@@ -1207,6 +1217,12 @@ const VoiceCore = (function () {
       osc: function (m) { emit('osc', { address: String(m.address || ''), args: Array.isArray(m.args) ? m.args : [], to: Array.isArray(m.to) ? m.to : [] }); },
       // the conversation's language (at the start, then each change); own: it is the agent's own
       language: function (language, own) { emit('language', { language: language, own: own }); },
+      // who is speaking, recognized by their voice (Settings → People): name '' = someone not recognized
+      speaker: function (m) {
+        turn.speaker = String(m.name || '');
+        emit('speaker', { name: turn.speaker, closest: String(m.closest || ''), score: m.score == null ? null : Number(m.score), short: !!m.short });
+      },
+      userSpeaker: function (name) { turn.speaker = String(name); },
       // an OSC message arrived (a sensor, a button: the setting oscIn); a stream comes thinned out
       oscIn: function (m) { emit('osc.in', { address: String(m.address || ''), args: Array.isArray(m.args) ? m.args : [] }); },
       toolCancel: function (ids) { emit('tool.cancel', { ids: ids }); },
@@ -1396,9 +1412,11 @@ const VoiceCore = (function () {
       return true;
     }
 
-    function sendText(text) {
+    /** Typed text. opts.speaker (local engine): as if this person had said it, to try their patterns. */
+    function sendText(text, opts) {
       const t = String(text || '').trim();
       if (!t || !engine || !active) return false;
+      const speaker = opts && typeof opts.speaker === 'string' ? opts.speaker : null;
       awayCount = 0;
       if (state === 'speaking' || state === 'thinking') interrupt();
       turn = newTurn();
@@ -1406,9 +1424,10 @@ const VoiceCore = (function () {
       turn.typed = true;
       turn.userTextSent = true;
       turn.userStartAt = now();
-      emit('user.text', { text: t, typed: true });
+      if (speaker != null) turn.speaker = speaker;
+      emit('user.text', speaker != null ? { text: t, typed: true, speaker: speaker } : { text: t, typed: true });
       endUserTurn('text');
-      return engine.sendText(t, true) !== false;
+      return engine.sendText(t, true, speaker == null ? undefined : speaker) !== false;
     }
 
     return {

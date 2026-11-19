@@ -4,6 +4,25 @@
 export const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
 export const LANGUAGES = { en: 'English', fr: 'French', es: 'Spanish', de: 'German', it: 'Italian', pt: 'Portuguese' };
 
+/**
+ * A pattern kept for some people (Settings → People), asked for by someone else: what the agent says, in the
+ * conversation's language. A fixed line: Qwen3 1.7B, asked to refuse, often agreed instead (measured).
+ */
+const REFUSALS = {
+  en: ['Sorry {speaker}, only {who} can ask me that.', 'Sorry, I don\'t recognize your voice: only {who} can ask me that.', 'or'],
+  fr: ['Pardon {speaker}, c\'est à {who} de me le demander.', 'Pardon, je ne reconnais pas ta voix : c\'est à {who} de me le demander.', 'ou'],
+  es: ['Lo siento, {speaker}, solo {who} me lo puede pedir.', 'Lo siento, no reconozco tu voz: solo {who} me lo puede pedir.', 'o'],
+  de: ['Entschuldige, {speaker}, nur {who} darf mich darum bitten.', 'Entschuldige, ich erkenne deine Stimme nicht: nur {who} darf mich darum bitten.', 'oder'],
+  it: ['Scusa, {speaker}, solo {who} può chiedermelo.', 'Scusa, non riconosco la tua voce: solo {who} può chiedermelo.', 'o'],
+  pt: ['Desculpa, {speaker}, só {who} pode me pedir isso.', 'Desculpa, não reconheço a tua voz: só {who} pode me pedir isso.', 'ou'],
+};
+/** @param {string} language @param {string|null} speaker '' or null: not recognized @param {string[]} who */
+export function refusalLine(language, speaker, who) {
+  const [known, unknown, or] = REFUSALS[language] || REFUSALS.en;
+  const names = who.length > 1 ? `${who.slice(0, -1).join(', ')} ${or} ${who[who.length - 1]}` : who[0] || '';
+  return (speaker ? known : unknown).replace('{speaker}', speaker || '').replace('{who}', names);
+}
+
 /** French mood names (still accepted in tags, with or without accents, masculine or feminine) → English moods. */
 const MOOD_ALIASES = {
   neutre: 'neutral',
@@ -297,6 +316,7 @@ export class ReplyParser {
       const inner = s.slice(double ? 2 : 1, close);
       const tag = parseTag(inner);
       if (tag) { ui.push(tag); s = s.slice(close + (double ? 2 : 1)); continue; }
+      if (double) { s = s.slice(close + 2); continue; }      // an unknown [[tag]]: never said nor shown
       add += s[0]; s = s.slice(1);
     }
     if (final && this.pending) { if (!this.inThink && !this.pending.startsWith('[')) add += this.pending; this.pending = ''; }

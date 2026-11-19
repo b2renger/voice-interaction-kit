@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import { check, summary, ROOT } from './helpers.mjs';
-import { nextSentences, speakable, heardNothing, parseTag, ReplyParser, systemPrompt, classifyInterjection, isBackchannel, isStopPhrase } from '../app/src/text.mjs';
+import { nextSentences, speakable, heardNothing, parseTag, ReplyParser, systemPrompt, classifyInterjection, isBackchannel, isStopPhrase, refusalLine } from '../app/src/text.mjs';
 
 // — sentences —
 let r = nextSentences('Hello! I am Ada. How', 0);
@@ -100,5 +100,17 @@ check(fromArray.list.length === 1 && fromArray.error === null, 'tools: as an arr
   check(back.open && back.out[0] === 0 && Math.abs(back.out[2047]) > 0 && rmsOf(back.out) > 0.03, 'mic: it opens at once, with a fade in over the block (no click)');
   check(Math.abs(off.process(sine(0.1), dt, 99, -80).db - (a.db + 24)) < 0.1, 'mic: the gain is limited to +24 dB');
 }
+
+// a reply the model ends with a tag nobody knows ("[[Refuse]]", seen with Qwen3 1.7B): never said nor shown
+{
+  const r = new ReplyParser();
+  const out = r.push('Léo, tu ne peux pas. [[Refuse]] Demande à Papa.', true);
+  check(r.text === 'Léo, tu ne peux pas. Demande à Papa.' && !out.sentences.join(' ').includes('Refuse'), 'reply: an unknown [[tag]] is dropped', r.text);
+}
+// Settings → People: a pattern kept for some people, asked for by someone else (a fixed line, the conversation's language)
+check(refusalLine('fr', 'Léo', ['Papa', 'Maman']) === "Pardon Léo, c'est à Papa ou Maman de me le demander."
+  && refusalLine('en', '', ['Papa', 'Maman', 'Zoé']) === "Sorry, I don't recognize your voice: only Papa, Maman or Zoé can ask me that."
+  && refusalLine('de', 'Zoé', ['Papa']) === 'Entschuldige, Zoé, nur Papa darf mich darum bitten.' && refusalLine('xx', null, ['A']).startsWith('Sorry, I don'),
+  'refusal: in the conversation\'s language, with who may ask ("or" in that language); unknown language: English');
 
 process.exit(summary() ? 1 : 0);

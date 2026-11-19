@@ -1,12 +1,13 @@
 // A conversation: what happens between a browser (the studio) and the local engine.
 // Protocol: see CONTRACT.md ("Local engine"). Incoming audio: 16-bit PCM, mono, 16 kHz, in binary frames.
 // Outgoing audio: binary frames [u32 sample rate][u32 turn id][16-bit mono PCM].
-import { ReplyParser, systemPrompt, translatePrompt, LANGUAGES, heardNothing, speakable, trimHistory, classifyInterjection } from './text.mjs';
+import { ReplyParser, systemPrompt, translatePrompt, LANGUAGES, heardNothing, speakable, trimHistory, classifyInterjection, refusalLine } from './text.mjs';
 import { delay, clamp, num, progressText } from './util.mjs';
 import { fill } from './agent/knowledge.mjs';
 import { knowledgePrompt } from './agent/decide.mjs';
 import { VOICE_KEYS } from './agent/voices.mjs';
 import { oscArgs, oscTargets, sendOsc, listenOsc, oscPort, oscFires, oscValue, liveDataPrompt } from './osc.mjs';
+import { voiced, MIN_SECONDS } from './speakers/speakers.mjs';
 
 const DEFAULTS = {
   name: 'Ada', persona: '', language: 'en', greeting: '', shortAnswers: true, creativity: 1,
@@ -52,6 +53,17 @@ export const FILLER_TURN_ID = 0xFFFFFFFF;
 const FILLER_CACHE = new Map();   // synthesized fillers, per voice and text (shared by the conversations)
 const FILLER_CACHE_MAX = 40;
 /** The filler phrases of the setting fillerLines ("Hmm, let me see…|Good question…"). */
+/**
+ * Who the language model is talking with (Settings → People), one sentence of the system prompt; '' for a moment
+ * (nobody speaks). Measured with Qwen3 1.7B, a family of 4 in a car, French and English: this keeps the replies as
+ * natural as with nobody recorded. A note after the person's words made it repeat their question; their name before
+ * them ("[Léo] …") made it write "[Papa] …" itself; the list of everyone recognized made it narrate the family.
+ * It rarely says a name by itself: {speaker} in a line to say does.
+ */
+export function peoplePrompt(speaker) {
+  return speaker == null ? '' : speaker ? `You are talking with ${speaker} right now.` : 'You are talking with someone whose voice you do not recognize.';
+}
+
 export function fillerPhrases(lines) {
   return String(lines || '').split('|').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 20);
 }
@@ -78,6 +90,7 @@ export class Session {
     this.turnId = 0;
     this.bot = null;              // the reply in progress: {id, phase, abort, gen, tts}
     this.pendingUser = null;      // what was heard while the agent was speaking (not interruptible)
+    this.pendingSpeaker = null;   // … and who said it (Settings → People)
     this.started = false;
     this.closed = false;
     this.marks = {};
@@ -114,7 +127,7 @@ export class Session {
   onMessage(data, binary) {
     if (binary) {
       if (this.asr) this.asr.write(data);
-      if (this.s.turnDetection === 'smart') this.keepTurnAudio(data);
+      if (this.keepsAudio) this.keepTurnAudio(data);
       return;
     }
     let m;
@@ -122,7 +135,7 @@ export class Session {
     switch (m && m.type) {
       case 'start': this.start(m.settings || {}).catch((e) => this.fatal(e)); break;
       case 'settings': this.updateSettings(m.settings || {}).catch((e) => this.error('settings', e.message)); break;
-      case 'text': this.onTyped(String(m.text || '')); break;
+      case 'text': this.onTyped(String(m.text || ''), typeof m.speaker === 'string' ? m.speaker.slice(0, 40) : undefined); break;
       case 'say': this.onSay(String(m.text || '')); break;
       case 'context': this.addContext(String(m.text || '')); break;
       case 'signal': this.onSignal(String(m.name || '').slice(0, 80), m.value == null ? '' : String(m.value).slice(0, 2000)); break;
@@ -273,7 +286,7 @@ export class Session {
     this.turnSeq++;                                   // new speech: a prediction still running no longer applies
     this.smartEnded = false;
     this.skipEot = false;
-    if (this.s.turnDetection === 'smart') this.turnAudio.inTurn = true;
+    if (this.keepsAudio) this.turnAudio.inTurn = true;
     if (this.bot && this.s.interruptible !== false) this.speechOverBot();
   }
 
@@ -373,6 +386,28 @@ export class Session {
     this.endOfTurn();
   }
 
+  /** The turn's audio is kept for Smart Turn, and to recognize who speaks (people recorded in Settings → People). */
+  get keepsAudio() { return this.s.turnDetection === 'smart' || this.peopleOn; }
+  get peopleOn() { return !!(this.engine.people && this.engine.people.size); }
+
+  /**
+   * Who said this turn: {name ('' someone not recognized), closest, score, short}, or null when nobody is recorded
+   * on this computer. Too short to tell: someone not recognized.
+   */
+  async whoSpoke(audio) {
+    if (!audio || !this.peopleOn || typeof this.engine.speakerModel !== 'function') return null;
+    try {
+      const model = await this.engine.speakerModel();
+      if (!(await model.ready())) return null;
+      const v = voiced(audio);
+      if (v.seconds < MIN_SECONDS) return { name: '', closest: '', score: null, short: true };
+      return { ...this.engine.people.identify(await model.embed(v.audio), v.seconds), short: false };
+    } catch (e) {
+      this.log(`(who is speaking: ${e.message})`);
+      return null;
+    }
+  }
+
   /** The audio of the current turn (16-bit PCM, 16 kHz): 500 ms before its first speech, at most 8.5 s. */
   keepTurnAudio(buf) {
     const ta = this.turnAudio;
@@ -424,6 +459,7 @@ export class Session {
 
   finishUserTurn() {
     const text = this.userText.trim();
+    const audio = this.peopleOn ? this.turnPcm() : null;     // its voice, to recognize who spoke
     this.userText = '';
     this.turnAudio.inTurn = false;
     this.turnSeq++;
@@ -436,19 +472,26 @@ export class Session {
       if (repair && !this.bot) this.translated(repair).then((t) => { if (!this.bot && !this.closed) this.sayFixed(t, false); });
       return;
     }
-    if (this.bot) {                                   // the agent is speaking and can't be interrupted: keep it for later
-      this.pendingUser = text;
-      return;
-    }
-    this.send({ type: 'user.text', text });
-    this.respond(text, { asrMs, smartTurnMs });
+    this.whoSpoke(audio).then((who) => {
+      if (this.closed) return;
+      if (who) this.send({ type: 'speaker', name: who.name, closest: who.closest, score: who.score, short: who.short });
+      const speaker = who ? who.name : null;
+      if (this.bot) {                                 // the agent is speaking and can't be interrupted: keep it for later
+        this.pendingUser = text;
+        this.pendingSpeaker = speaker;
+        return;
+      }
+      this.send({ type: 'user.text', text, ...(who ? { speaker } : {}) });
+      this.respond(text, { asrMs, smartTurnMs, speaker });
+    });
   }
 
-  onTyped(text) {
+  /** Typed text; `speaker`: as if this person had said it (the studio's test of a pattern kept for some people). */
+  onTyped(text, speaker) {
     const t = text.trim();
     if (!t) return;
     if (this.bot) this.interrupt('client');
-    this.respond(t, { asrMs: null });
+    this.respond(t, { asrMs: null, speaker: speaker !== undefined ? speaker.trim() : this.peopleOn ? '' : null });
   }
 
   /** {type:'say'}: the agent says this line as written (a reprompt…): an agent turn, kept in the history. */
@@ -479,6 +522,7 @@ export class Session {
 
   async respond(userText, timing) {
     const bot = this.newBot('thinking');
+    const speaker = timing.speaker == null ? null : timing.speaker;  // who said it (Settings → People)
     this.history.push({ role: 'user', content: userText });
     const t0 = Date.now();
     this.scheduleFiller(bot);                         // counted from the end of the user's turn (reply delay included)
@@ -488,20 +532,20 @@ export class Session {
     if (!(await delay(clamp(num(this.s.replyDelayMs, 0), 0, 10000), bot.abort.signal))) return;
     this.send({ type: 'thinking', turnId: bot.id });
     // the decision model first: a pattern, the stage's "otherwise", or a free answer (docs/DESIGN.md, 3)
-    const d = await this.decide(userText);
+    const d = await this.decide(userText, speaker);
     if (bot.abort.signal.aborted) return;
     if (d) ms.decide = d.ms;
-    await this.perform(bot, d, { userText, t0, ms });
+    await this.perform(bot, d, { userText, speaker, t0, ms });
   }
 
   /** What the agent decides to do with this sentence (null without an agent, or if the decision fails). */
-  async decide(text) {
+  async decide(text, speaker = null) {
     const decider = this.engine.decider;
     if (!this.s.agent || !decider) return null;
     try {
       // a choice button arrives as '(The user chose: "Paintings")': decide on the option itself
       const chose = /^\(The user chose: "([\s\S]*)"\)$/.exec(String(text).trim());
-      const d = await decider.decide(String(this.s.agent), chose ? chose[1] : text, { stage: this.stage, focus: this.focus });
+      const d = await decider.decide(String(this.s.agent), chose ? chose[1] : text, { stage: this.stage, focus: this.focus, speaker });
       this.announce(d);
       return d;
     } catch (e) {
@@ -515,6 +559,7 @@ export class Session {
     this.send({
       type: 'decision', text: d.text, stage: d.stage, kind: d.kind, pattern: d.pattern, score: d.score, example: d.example,
       entry: d.entry, candidates: d.candidates, matcher: d.matcher, ms: d.ms,
+      ...(d.speaker != null ? { speaker: d.speaker } : {}), ...(d.who && d.who.length ? { who: d.who } : {}),
     });
     if (d.pattern) this.log(`▸ decided: ${d.pattern.name}${d.score != null ? ` (${d.score})` : ''}${d.entry ? ` · ${d.entry.key}` : ''}`);
   }
@@ -523,12 +568,14 @@ export class Session {
    * Does what was decided, in one turn of the agent: the interface actions at once (choices, mood, signals, stage),
    * then the speech in order (fixed lines, and the language model's answers). No decision: a free answer.
    */
-  async perform(bot, d, { userText = '', t0 = Date.now(), ms = {} } = {}) {
+  async perform(bot, d, { userText = '', speaker = null, t0 = Date.now(), ms = {} } = {}) {
     const { id, abort } = bot;
     const actions = d ? d.then : [];
-    const plan = d && d.kind !== 'free' ? actions.filter((a) => a.do === 'say' || a.do === 'answer') : [{ do: 'answer', instruction: '' }];
+    const plan = d && d.kind === 'denied' ? [{ do: 'say', said: refusalLine(this.language, d.speaker, d.who) }]   // not for this person
+      : d && d.kind !== 'free' ? actions.filter((a) => a.do === 'say' || a.do === 'answer') : [{ do: 'answer', instruction: '' }];
     if (d && d.entry) this.focus = d.entry;
-    const vars = { said: userText, ...(d && d.vars) };    // the placeholders: {said}; {value}, {address} (OSC in)
+    // the placeholders: {said}, {speaker}; {value}, {address} (OSC in)
+    const vars = { said: userText, speaker: speaker || '', ...(d && d.vars) };
     for (const a of actions) this.act(a, d, vars);
     // a change of language, then of voice: this very reply is said in the new ones (the last change wins)
     const language = actions.filter((a) => a.do === 'language').pop();
@@ -561,6 +608,7 @@ export class Session {
     };
     for (const step of plan) {
       if (abort.signal.aborted) return;
+      if (step.do === 'say' && step.said) { onDelta(`${step.said} `); continue; }   // already in the conversation's language
       if (step.do === 'say') {
         const line = fill(pickLine(step.text), d && d.entryCells, vars);
         if (line) onDelta(`${await this.translated(line, bot)} `);
@@ -568,7 +616,7 @@ export class Session {
       }
       let result = null;
       try {
-        const system = this.systemFor(d, step.instruction && fill(step.instruction, d && d.entryCells, vars), parser.text);
+        const system = this.systemFor(d, step.instruction && fill(step.instruction, d && d.entryCells, vars), parser.text, speaker);
         bot.gen = this.engine.generate({ system, history: this.withLiveData(trimHistory(this.history)), temperature: num(this.s.creativity, 1) * 0.7, onDelta, remote: remoteOf(this.s) });
         result = await bot.gen.done;
       } catch (e) {
@@ -627,12 +675,16 @@ export class Session {
     this.send({ type: 'stage', stage, from });
   }
 
-  /** The system prompt of an answer: the persona, the interface's context, the knowledge, the pattern's instruction. */
-  systemFor(d, instruction, saidSoFar) {
+  /**
+   * The system prompt of an answer: the persona, the interface's context, the knowledge, who is speaking (Settings →
+   * People; speaker null: a moment, nobody speaks), the pattern's instruction.
+   */
+  systemFor(d, instruction, saidSoFar, speaker = null) {
     const parts = [systemPrompt({ ...this.s, language: this.language }, 'local')];
     if (this.context.length) parts.push(`What the interface knows right now: ${this.context.join('; ')}`);
     const k = knowledgePrompt(d ? d.knowledge : []);
     if (k) parts.push(k);
+    if (this.peopleOn && speaker != null) parts.push(peoplePrompt(speaker));
     const live = liveDataPrompt(this.oscValues);       // late: a small model trusts the latest text it read
     if (live) parts.push(live);
     if (instruction) parts.push(`For this reply: ${instruction}`);
@@ -661,6 +713,7 @@ export class Session {
    * The live data again, after the last thing said to the model (this request only, not the history): measured with
    * Qwen3 1.7B, a value in the system prompt loses to the same number said a few turns earlier ("28.2 degrees").
    */
+  /** The live data again after the person's last words, for this request only: a small model trusts what it read last. */
   withLiveData(history) {
     const live = liveDataPrompt(this.oscValues);
     const last = history[history.length - 1];
@@ -982,9 +1035,11 @@ export class Session {
     }
     if (this.pendingUser) {
       const t = this.pendingUser;
+      const speaker = this.pendingSpeaker;
       this.pendingUser = null;
-      this.send({ type: 'user.text', text: t });
-      this.respond(t, { asrMs: null });
+      this.pendingSpeaker = null;
+      this.send({ type: 'user.text', text: t, ...(speaker != null ? { speaker } : {}) });
+      this.respond(t, { asrMs: null, speaker });
     }
   }
 

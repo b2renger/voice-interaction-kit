@@ -88,17 +88,21 @@ export function namedIn(sentence, key) {
 
 /**
  * A line with placeholders: {column} → the entry's cell (column names in any case), {said} → what was said.
- * A placeholder with nothing to fill it becomes empty.
+ * A placeholder with nothing to fill it becomes empty, and so does the comma left beside it ("Voilà, {speaker} !"
+ * for someone not recognized → "Voilà !").
  */
 export function fill(template, entry, extra = {}) {
   const cells = {};
   if (entry) for (const [h, v] of Object.entries(entry.cells)) cells[normalize(h)] = v;
   for (const [k, v] of Object.entries(extra)) cells[normalize(k)] = String(v == null ? '' : v);
-  return String(template || '').replace(/\{([^{}]{1,60})\}/g, (_, name) => cells[normalize(name)] ?? '').replace(/[ \t]{2,}/g, ' ').trim();
+  let empty = false;
+  const out = String(template || '').replace(/\{([^{}]{1,60})\}/g, (_, name) => { const v = cells[normalize(name)] ?? ''; if (!v) empty = true; return v; })
+    .replace(/[ \t]{2,}/g, ' ').trim();
+  return empty ? out.replace(/,(?=\s*[.!?…])/g, '').replace(/[ \t]+([.,…])/g, '$1').replace(/^[\s,;:]+/, '') : out;
 }
 
 /** The placeholders of a line that no column of `headers` fills (to warn in the studio). */
 export function unknownPlaceholders(template, headers = []) {
-  const known = new Set(['said', ...headers.map(normalize)]);
+  const known = new Set(['said', 'speaker', ...headers.map(normalize)]);
   return [...String(template || '').matchAll(/\{([^{}]{1,60})\}/g)].map((m) => m[1]).filter((n) => !known.has(normalize(n)));
 }

@@ -3,6 +3,7 @@
 import { $, h, debounce, toast, ask, slug, pct } from './ui.js';
 import { api } from './api.js';
 import { state, settings, saveInteractionsSoon, touched, flush } from './state.js';
+import { people, onPeople } from './people.js';
 
 const WHEN = {
   says: 'the person says something like',
@@ -36,7 +37,15 @@ const tableName = (id) => (state.agent.tables.find((t) => t.id === id) || { name
 const optionsOf = (list, value) => list.map(([v, label]) => h('option', { value: v, selected: v === value }, label));
 
 /** "says: when do you open (+3)" → one line under the pattern's name. */
+/** The patterns a person triggers by speaking: those can be kept for some people (app/src/agent/interactions.mjs). */
+const SPOKEN = ['says', 'mentions', 'otherwise'];
+const samePerson = (a, b) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+
 function summary(p) {
+  const who = p.who && p.who.length && SPOKEN.includes(p.when.kind) ? `, for ${p.who.join(', ')}` : '';
+  return `${when(p)}${who}`;
+}
+function when(p) {
   const w = p.when;
   if (w.kind === 'says') return w.examples.length ? `“${w.examples[0]}”${w.examples.length > 1 ? ` and ${w.examples.length - 1} more` : ''}` : 'no example yet';
   if (w.kind === 'mentions') return `mentions ${tableName(w.table)}`;
@@ -152,6 +161,21 @@ function renderEditor() {
       h('p', { class: 'hint' }, `${w.test === 'above' || w.test === 'below' ? 'It fires when the value crosses the line, and again only once it has gone back a little. ' : 'Every message fires it: right for a button, not for a sensor that streams. '}The agent speaks at the next pause, never over someone. {value} is the message's value, {address} its address. ${port ? `VIK listens on port ${port} (Settings).` : 'VIK does not listen yet: set a port in Settings → OSC.'}`));
   } else whenBody = h('p', { class: 'hint' }, w.kind === 'start' ? 'Replaces the greeting.' : 'When no other pattern of this stage is close enough. Without one, the language model answers freely.');
 
+  // — Who may trigger it (Settings → People): anyone, or only some people —
+  let whoRow = '';
+  const spoken = SPOKEN.includes(w.kind);
+  if (spoken && p.who) {
+    const known = people.list.map((x) => x.name);
+    const names = [...known, ...p.who.filter((n) => !known.some((k) => samePerson(k, n)))];
+    whoRow = h('div', { class: 'stack' },
+      names.length ? h('div', { class: 'row' }, names.map((n) => h('label', { class: 'check' },
+        h('input', { type: 'checkbox', checked: p.who.some((x) => samePerson(x, n)), onchange: edit((e) => { p.who = e.target.checked ? [...p.who, n] : p.who.filter((x) => !samePerson(x, n)); }) }),
+        known.includes(n) ? n : `${n} (not recorded here)`))) : '',
+      h('p', { class: 'hint' }, known.length
+        ? 'Recognized by their voice. Anyone else who asks for it (or someone not recognized): the agent says it won\'t, kindly.'
+        : 'Nobody is recorded on this computer yet: record each person in Settings → People.'));
+  }
+
   // — Then —
   const move = (i, d) => redraw(() => { const a = p.then.splice(i, 1)[0]; p.then.splice(i + d, 0, a); });
   const actionRow = (a, i) => {
@@ -161,7 +185,7 @@ function renderEditor() {
       const warn = h('p', { class: 'warn-line', 'aria-live': 'polite' });
       const check = () => { const u = unknownPlaceholders(a.text, headers); warn.textContent = u.length ? `No column fills ${u.map((x) => `{${x}}`).join(', ')}.` : ''; warn.hidden = !u.length; };
       body = [h('textarea', { rows: 2, value: a.text, 'aria-label': 'The line', oninput: edit((e) => { a.text = e.target.value; check(); }) }),
-        h('p', { class: 'hint' }, headers.length ? `Fill it from ${source}: ${headers.map((x) => `{${x}}`).join(' ')}. Several lines separated by | : one at random.` : 'Several lines separated by | : one is picked at random. {said} is what the person said.'),
+        h('p', { class: 'hint' }, headers.length ? `Fill it from ${source}: ${headers.map((x) => `{${x}}`).join(' ')}. Several lines separated by | : one at random.` : 'Several lines separated by | : one is picked at random. {said} is what the person said, {speaker} who said it (Settings → People).'),
         warn];
       check();
     } else if (a.do === 'answer') {
@@ -213,9 +237,13 @@ function renderEditor() {
     h('div', { class: 'row' },
       h('label', { class: 'field', style: 'min-width:200px' }, h('span', {}, 'Applies'),
         h('select', { onchange: redraw((e) => { p.stage = e.target.value; }) }, ...optionsOf([['', 'In every stage'], ...it.stages.map((s) => [s.id, `In ${s.name}`])], p.stage))),
+      spoken ? h('label', { class: 'field', style: 'min-width:160px' }, h('span', {}, 'Who'),
+        h('select', { 'aria-label': 'Who may trigger it', onchange: redraw((e) => { if (e.target.value) p.who = p.who || []; else delete p.who; }) },
+          ...optionsOf([['', 'Anyone'], ['only', 'Only…']], p.who ? 'only' : ''))) : '',
       h('span', { class: 'spacer' }),
       h('button', { class: 'btn quiet', type: 'button', onclick: () => duplicate(p) }, 'Duplicate'),
       h('button', { class: 'btn quiet danger', type: 'button', onclick: () => remove(p) }, 'Delete')),
+    whoRow,
     h('div', { class: 'clause' }, h('span', { class: 'kw' }, 'When'),
       h('div', { class: 'stack' },
         h('div', { class: 'row', style: 'flex-wrap:nowrap' },
@@ -234,7 +262,7 @@ function renderEditor() {
 /** The placeholders of a line that no column fills. */
 function unknownPlaceholders(text, headers) {
   const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-  const known = new Set(['said', ...headers.map(norm)]);
+  const known = new Set(['said', 'speaker', ...headers.map(norm)]);
   return [...String(text || '').matchAll(/\{([^{}]{1,60})\}/g)].map((m) => m[1]).filter((n) => !known.has(norm(n)));
 }
 
@@ -282,7 +310,7 @@ const tryIt = debounce(async () => {
     const d = await api.decide({ agent: state.agentId, text, stage: $('#tryStage').value });
     const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'osc' ? `OSC ${a.address} ${a.value}`.trim() :a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : a.do === 'language' ? `language ${languageName(a.language)}` : `mood ${a.mood}`));
     out.replaceChildren(
-      h('p', { class: 'took' }, d.pattern ? `${d.kind === 'otherwise' ? 'Otherwise: ' : ''}${d.pattern.name}${d.entry ? `, ${d.entry.key}` : ''}${d.score != null ? `  ${pct(d.score)}` : ''}` : 'A free answer'),
+      h('p', { class: 'took' }, d.pattern ? `${d.kind === 'otherwise' ? 'Otherwise: ' : d.kind === 'denied' ? `Only for ${d.who.join(', ')}: ` : ''}${d.pattern.name}${d.entry ? `, ${d.entry.key}` : ''}${d.score != null ? `  ${pct(d.score)}` : ''}` : 'A free answer'),
       h('p', { class: 'hint' }, d.pattern ? (then.length ? `Then: ${then.join(', then ')}.` : 'This pattern does nothing yet.') : `No pattern reaches the confidence (${pct(I().confidence)}): the language model answers, with what it knows.`),
       d.candidates.length ? h('ol', {}, d.candidates.map((c) => h('li', {}, `${c.name}${c.entry ? ` (${c.entry.key})` : ''}: `, h('span', { class: 'meter' + (c.score < I().confidence ? ' low' : '') }, h('i', { style: `width:${Math.round(c.score * 100)}%` })), ` ${pct(c.score)}${c.example ? `, closest to “${c.example}”` : ''}`))) : '',
       h('p', { class: 'hint' }, `Decided by ${d.matcher} in ${d.ms} ms.`));
@@ -291,6 +319,7 @@ const tryIt = debounce(async () => {
 }, 300);
 
 export function initInteractions() {
+  onPeople(() => { if (state.agent && selected) renderEditor(); });
   $('#startStage').addEventListener('change', (e) => { I().start = e.target.value; changed(); renderInteractions(); });
   $('#newPattern').addEventListener('click', newPattern);
   $('#confidence').addEventListener('input', (e) => { I().confidence = Number(e.target.value); $('#confOut').textContent = pct(I().confidence); changed(); });

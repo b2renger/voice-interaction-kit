@@ -12,6 +12,13 @@ async function call(method, path, body) {
   return j;
 }
 const enc = encodeURIComponent;
+/** A recording (16-bit PCM, 16 kHz) sent as is. */
+async function sendVoice(path, pcm) {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: pcm.buffer });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((j && j.error) || `The server answered ${r.status}.`);
+  return j;
+}
 
 export const api = {
   agents: () => call('GET', '/api/agents'),
@@ -32,4 +39,9 @@ export const api = {
   llmModels: (url, key) => call('POST', '/api/llm/models', { url, key }),
   health: () => call('GET', '/health'),
   zonos: (fresh) => call('GET', `/api/voice/zonos${fresh ? '?fresh' : ''}`),
+  // Settings → People: the people recognized by their voice (this computer's)
+  people: () => call('GET', '/api/people'),
+  addPerson: (name, pcm) => sendVoice(`/api/people?name=${enc(name)}`, pcm),
+  identify: (pcm) => sendVoice('/api/people/identify', pcm),
+  removePerson: (id) => call('DELETE', `/api/people/${enc(id)}`),
 };

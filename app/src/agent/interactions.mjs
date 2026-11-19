@@ -24,6 +24,8 @@ export const THEN = {
   osc: 'send an OSC message (ArtLux, Arduino…)',
   go: 'go to another stage',
 };
+/** The patterns a person triggers by speaking: those can be kept for some people (`who`, their names). */
+export const SPOKEN = ['says', 'mentions', 'otherwise'];
 export const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
 export const DEFAULT_CONFIDENCE = 0.5;   // the score (0–1) a pattern needs to fire
 const MAX_TEXT = 4000;
@@ -39,6 +41,16 @@ const text = (v, max = MAX_TEXT) => String(v == null ? '' : v).replace(/\s+/g, '
 /** An OSC address as typed: no spaces, starts with "/" ('' when there is nothing). */
 const oscAddress = (v) => { const a = String(v == null ? '' : v).replace(/\s+/g, '').slice(0, 200); return !a || a.startsWith('/') ? a : `/${a}`; };
 const list = (v) =>(Array.isArray(v) ? v : String(v || '').split(/\n|\|/)).map((x) => text(x, 300)).filter(Boolean).slice(0, 200);
+
+/** People's names, each once (whatever the case), as Settings → People writes them. */
+function names(v) {
+  const out = [];
+  for (const x of Array.isArray(v) ? v : String(v || '').split(',')) {
+    const n = text(String(x).replace(/[[\]]/g, ''), 40);
+    if (n && !out.some((o) => o.toLocaleLowerCase() === n.toLocaleLowerCase())) out.push(n);
+  }
+  return out.slice(0, 50);
+}
 
 /** A unique id among `taken`, from `wanted` or the name. */
 function uniqueId(wanted, name, taken, fallback) {
@@ -72,12 +84,15 @@ export function normalizeInteractions(raw) {
       when.test = w.test === 'above' || w.test === 'below' ? w.test : 'any';
       when.threshold = Number.isFinite(Number(w.threshold)) && String(w.threshold).trim() !== '' ? Number(w.threshold) : 0;
     }
+    // only these people (recognized by their voice, Settings → People) may trigger it; none listed: anyone
+    const who = SPOKEN.includes(kind) ? names(p.who) : [];
     return {
       id: uniqueId(p.id, name, patternIds, 'pattern'),
       name,
       stage: stageIds.has(p.stage) ? p.stage : '',
       on: p.on !== false,
       when,
+      ...(who.length ? { who } : {}),
       then: (Array.isArray(p.then) ? p.then : []).filter((a) => a && a.do in THEN).slice(0, 20).map(action),
     };
   });

@@ -34,7 +34,8 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `status` | information (loading, reconnecting…) | `text`, `progress` | — (`Status` port) |
 | `user.start` | the person starts speaking | `source` (`client`, `server`, `interruption`) | `On user start` |
 | `user.partial` | transcript in progress | `text` | — (`User text` port) |
-| `user.text` | what the person said, in full | `text`, `typed` (typed on the keyboard) | — (`Last user text` port) |
+| `user.text` | what the person said, in full | `text`, `typed` (typed on the keyboard), `speaker` (only when people are recorded in Settings → People: their name, `''` someone not recognized) | — (`Last user text` port) |
+| `speaker` | who is speaking, recognized by their voice (local engine, people recorded in Settings → People): at the end of each spoken turn, before its `user.text` | `name` (`''`: someone not recognized), `closest` (the closest person anyway), `score` (0 to 1; null when too short), `short` (too short to tell) | — |
 | `user.end` | end of their turn (silence, or the Smart Turn model) | `speechMs` | `On user end` |
 | `user.cancel` | false alarm (cough, noise), or no reply. `reason` `stop`: a stop phrase ("stop", "wait"…) cut the agent off, and it listens without replying | `reason` | — |
 | `turn.prediction` | the Smart Turn model has judged the turn (local, `turnDetection` = `smart`) | `probability` (0 to 1), `complete`, `ms` | — (`Turn probability (local)` port) |
@@ -58,7 +59,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `tool.call` | the agent calls a tool declared in the settings (`extraTools`, Gemini). A client sends the result back (`tool.result`) | `id`, `name`, `args` | `On tool call` |
 | `tool.cancel` | Gemini cancels tool calls | `ids` | — |
 | `timing` | measurements from the local server | `turnId`, `ms` | — |
-| `decision` | the local decision model has decided what to do with a sentence, a signal or the start (docs/DESIGN.md §3) | `text`, `stage`, `kind` (`pattern`, `otherwise` or `free`), `pattern` (`{id, name, kind}` or null), `score` (0 to 1), `example` (the closest one), `entry` (`{table, key}` or null), `candidates` (the next best: `{id, name, score, example, entry}`), `matcher` (`EmbeddingGemma 300M` or `Words`), `ms` | `On decision` (`Decision`, `Decision score`, `Entry` ports) |
+| `decision` | the local decision model has decided what to do with a sentence, a signal or the start (docs/DESIGN.md §3) | `text`, `stage`, `kind` (`pattern`, `otherwise`, `free`, or `denied`: the pattern is kept for some people, and the person speaking is not one of them), `speaker` (who said it, null when nobody is recorded), `who` (the people the pattern is kept for), `pattern` (`{id, name, kind}` or null), `score` (0 to 1), `example` (the closest one), `entry` (`{table, key}` or null), `candidates` (the next best: `{id, name, score, example, entry}`), `matcher` (`EmbeddingGemma 300M` or `Words`), `ms` | `On decision` (`Decision`, `Decision score`, `Entry` ports) |
 | `stage` | the agent moves to another stage (and once at the start) | `stage`, `from` | `On stage` (`Stage` port) |
 | `signal` | a pattern sends a signal to the clients ("show-artwork: Water Lilies") | `name`, `value` | `On agent signal` (`Agent signal`, `Agent signal value` ports) |
 | `osc` | a pattern has sent an OSC message (ArtLux, an Arduino…), to the addresses of the setting `oscTo` | `address`, `args` (its value: none or one), `to` (`host:port` list; empty: not sent) | — |
@@ -164,7 +165,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
 - as JSON:
   - `{type:'start', settings}`: start;
   - `{type:'settings', settings}`: change a setting;
-  - `{type:'text', text}`: a typed message, or a choice (`(The user chose: "…")`: the decision is made on the option itself);
+  - `{type:'text', text}`: a typed message, or a choice (`(The user chose: "…")`: the decision is made on the option itself). `speaker` (optional): decided as if this person had said it (the studio's "as Léa"); without it, when people are recorded, a typed message is from someone not recognized;
   - `{type:'context', text}`: information for the agent, with no reply. It never cuts the agent off: the local engine keeps it for the next reply (the last 5), and the Gemini engine holds it while the agent is speaking, then sends it at the end of the reply;
   - `{type:'interrupt'}`: cut the reply;
   - `{type:'say', text}`: the agent says this line as written, with no thinking state, and it goes into the history as the agent's message (used for the reprompt line);
@@ -179,7 +180,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
   - `{type:'status', text, progress}`;
   - `{type:'ready', engine, voices, models, voiceEngine}`: `voices` is empty (`[]`) for Parler, Chatterbox and Zonos. With `localVoiceEngine: 'zonos'` and a Zonos that cannot speak (not installed, no WebGPU, the studio's window closed), `voiceEngine` is the default voice's, `voiceFallback` holds the reason, and a `status` says "Zonos voice unavailable (…): the default voice speaks instead.";
   - `{type:'vad', speaking}`;
-  - `{type:'user.partial'|'user.text', text}`. A stop phrase comes as `{type:'user.text', text, reply:false}`: it goes into the history, but the agent does not reply;
+  - `{type:'user.partial'|'user.text', text}`. A stop phrase comes as `{type:'user.text', text, reply:false}`: it goes into the history, but the agent does not reply. With people recorded (Settings → People), a `user.text` has a `speaker`, and a `{type:'speaker', name, closest, score, short}` comes just before it: the turn's voice (its last 8.5 s, without its silences) compared with each voiceprint;
   - `{type:'turn.prediction', probability, complete, ms}`: the Smart Turn model's verdict on the turn;
   - `{type:'not.understood', text}`;
   - `{type:'thinking', turnId}`;

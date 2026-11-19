@@ -762,6 +762,76 @@ await browser.close();
   await browser7.close();
 }
 
+// =========================== 8. the studio: people recognized by their voice (Settings → People) ============
+// A server of its own, the real speaker model (app/models, run by onnxruntime-node), and a mic that speaks all the
+// time: someone recorded in Settings, recognized by "Who is speaking?", a pattern kept for them, typed as them in Talk.
+{
+  const PORT8 = 21400 + Math.floor(Math.random() * 400);
+  const srv8 = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--mock', '--port', String(PORT8)],
+    { env: agentsEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
+  srv8.stdout.on('data', (d) => serverLog.push('[people] ' + String(d)));
+  srv8.stderr.on('data', (d) => serverLog.push('[people] ' + String(d)));
+  const base8 = `http://127.0.0.1:${PORT8}`;
+  await until(async () => { try { return (await (await fetch(`${base8}/health`)).json()).models === 'ready'; } catch { return false; } }, 10000);
+  const browser8 = await launch(makeFakeMicWav(join(tmpdir(), 'voice-fake-mic-reading.wav'), { lead: 0.2, speech: 30, tail: 1 }));
+  const page = await browser8.newPage();
+  page.on('pageerror', (e) => errors.push('lab (people): ' + e));
+  page.on('dialog', (d) => d.accept());
+  await page.goto(base8 + '/');
+  await page.click('.nav button[data-view="settings"]');
+  check(await page.isVisible('#peopleEmpty') && await page.isDisabled('#recordPerson') && await page.isDisabled('#testPerson'),
+    'people: nobody yet; Record waits for a name, "Who is speaking?" for someone recorded');
+  await page.selectOption('#personText', 'fr');
+  check(/^Le vent du nord/.test(await page.textContent('#readText')), 'people: a text to read, in French or in English');
+  await page.fill('#personName', 'Léa');
+  await page.click('#recordPerson');
+  check(await until(async () => /Recording Léa… read the text aloud\. [3-9] s/.test(await page.textContent('#recordStatus')), 6000), 'people: Record listens, and counts the seconds', await page.textContent('#recordStatus'));
+  await until(async () => /Recording Léa… read the text aloud\. 1[01] s/.test(await page.textContent('#recordStatus')), 15000);
+  check((await page.textContent('#recordPerson')) === 'Stop', 'people: the button says Stop while recording');
+  await page.click('#recordPerson');
+  check(await until(async () => /^Léa is recorded \(\d+(\.\d)? s of voice\)/.test(await page.textContent('#recordStatus')), 8000)
+    && /Léa/.test(await page.textContent('#peopleList')) && await page.isHidden('#peopleEmpty'), 'people: Stop saves Léa (her voiceprint), listed', await page.textContent('#recordStatus'));
+  const ppl = await (await fetch(`${base8}/api/people`)).json();
+  check(ppl.people.length === 1 && ppl.people[0].name === 'Léa' && ppl.people[0].seconds >= 8, 'people: on the server, this computer\'s', ppl);
+  await until(() => page.isEnabled('#testPerson'), 3000);
+  await page.click('#testPerson');
+  check(await until(async () => /^Léa is speaking \(\d+ %\)\.$/.test(await page.textContent('#recordStatus')), 9000), '"Who is speaking?": Léa, with the score', await page.textContent('#recordStatus'));
+  // a pattern kept for her (Interactions → Who)
+  await page.waitForSelector('#agentSelect option[value="station-kiosk"]', { state: 'attached' });
+  await page.selectOption('#agentSelect', 'station-kiosk');
+  await until(() => page.evaluate(() => window.agent.settings.agent === 'station-kiosk'), 5000);
+  await page.click('.nav button[data-view="interactions"]');
+  await page.click('#patternList button:has-text("A place in the station")');
+  await page.selectOption('#patternEditor select[aria-label="Who may trigger it"]', 'only');
+  await page.check('#patternEditor label.check:has-text("Léa") input');
+  const kept = await until(async () => { const a = await (await fetch(`${base8}/api/agents/station-kiosk`)).json(); const p = a.interactions.patterns.find((x) => x.id === 'place'); return p && p.who && p.who.join() === 'Léa' && p; }, 4000);
+  check(kept, 'Who: "Only…", Léa ticked → the pattern is kept for her (interactions.json)', kept);
+  check(/, for Léa/.test(await page.textContent('#patternList button[aria-current="true"]')), 'Who: the list says who it is for');
+  // Talk: typed as Léa, or as someone not recognized
+  await page.click('.nav button[data-view="talk"]');
+  check(await until(() => page.isVisible('#sayAs'), 3000) && (await page.$$eval('#sayAs option', (o) => o.map((x) => x.textContent))).join('|') === 'as someone not recognized|as Léa', 'Talk: type as one of the people');
+  await page.click('#start');
+  await until(() => page.evaluate(() => window.agent.active), 8000);
+  await page.selectOption('#sayAs', 'Léa');
+  await page.fill('#sayText', 'Where are the toilets?');
+  await page.press('#sayText', 'Enter');
+  check(await until(async () => /^Léa: “Where are the toilets\?”/.test(await page.textContent('#trace li:first-child .said')) && /A place in the station/.test(await page.textContent('#trace li:first-child .took')), 6000),
+    'Talk: typed as Léa, her pattern fires, "Why it answered" says who', await page.textContent('#trace li:first-child'));
+  await page.selectOption('#sayAs', '');
+  await page.fill('#sayText', 'Where are the toilets?');
+  await page.press('#sayText', 'Enter');
+  check(await until(async () => /^Someone not recognized: /.test(await page.textContent('#trace li:first-child .said')) && /^Not for this voice: A place in the station/.test(await page.textContent('#trace li:first-child .took'))
+    && /Only Léa may trigger it/.test(await page.textContent('#trace li:first-child')), 6000), 'Talk: as someone else, "Not for this voice", and who may', await page.textContent('#trace li:first-child'));
+  await page.click('#stop');
+  // Settings: recording waits for the end of a conversation; Delete forgets her
+  await page.click('.nav button[data-view="settings"]');
+  await page.click('#peopleList button:has-text("Delete")');
+  check(await until(async () => (await (await fetch(`${base8}/api/people`)).json()).people.length === 0, 4000) && await until(() => page.isVisible('#peopleEmpty'), 2000), 'people: Delete forgets her voice');
+  await page.close();
+  await browser8.close();
+  srv8.kill();
+}
+
 check(errors.length === 0, 'no JavaScript error', errors.slice(0, 5));
 srv.kill();
 const failed = summary();
