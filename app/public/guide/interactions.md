@@ -15,7 +15,7 @@ A pattern says what the agent does when something happens: "When someone asks wh
 | **the conversation starts** | you click **Start** (it replaces the greeting) | |
 | **a client sends the signal** | cables, p5.js or a page sends this signal | `visitor-near`, from a sensor |
 | **an OSC message arrives at** | a sensor or a button (an Arduino) sends to this address: any message, or the value going above or below a number. The agent speaks at the next pause, never over someone. See [Sensors and buttons](clients.md#sensors-and-buttons-osc-in) | `/arduino/temp` goes above `28` |
-| **nothing else fits, in this stage** | no other pattern of the stage is close enough | a line that brings people back on topic |
+| **nothing else fits, in this stage** | no other pattern of the stage is close enough, and nothing in the knowledge fits. Only for an agent that keeps to its subject ([Persona](persona.md#talking-about-anything)) | a line that brings people back on topic |
 
 For **says**, write a few examples, each followed by Enter. **Write whole sentences, as people say them**: a single word matches too many things.
 

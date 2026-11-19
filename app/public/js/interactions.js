@@ -2,7 +2,7 @@
 // sentence on the decision model. Saved as you type.
 import { $, h, debounce, toast, ask, slug, pct } from './ui.js';
 import { api } from './api.js';
-import { state, settings, saveInteractionsSoon, touched, flush } from './state.js';
+import { state, settings, saveInteractionsSoon, touched, flush, freeTalk } from './state.js';
 import { people, onPeople } from './people.js';
 
 const WHEN = {
@@ -159,7 +159,9 @@ function renderEditor() {
           ...optionsOf([['any', 'any message'], ['above', 'the value goes above'], ['below', 'the value goes below']], w.test || 'any')),
         w.test === 'above' || w.test === 'below' ? h('input', { type: 'number', step: 'any', value: w.threshold ?? 0, style: 'max-width:110px', 'aria-label': 'OSC threshold', oninput: edit((e) => { w.threshold = e.target.value === '' ? 0 : Number(e.target.value); }) }) : ''),
       h('p', { class: 'hint' }, `${w.test === 'above' || w.test === 'below' ? 'It fires when the value crosses the line, and again only once it has gone back a little. ' : 'Every message fires it: right for a button, not for a sensor that streams. '}The agent speaks at the next pause, never over someone. {value} is the message's value, {address} its address. ${port ? `VIK listens on port ${port} (Settings).` : 'VIK does not listen yet: set a port in Settings → OSC.'}`));
-  } else whenBody = h('p', { class: 'hint' }, w.kind === 'start' ? 'Replaces the greeting.' : 'When no other pattern of this stage is close enough. Without one, the language model answers freely.');
+  } else whenBody = h('p', { class: 'hint' }, w.kind === 'start' ? 'Replaces the greeting.'
+    : freeTalk(state.agent) ? 'Never, while the agent talks about anything (Persona): the language model answers what no other pattern catches.'
+      : "When no other pattern of this stage is close enough and nothing in the knowledge fits. Without one, the agent says “Sorry, I can't help you with that.”");
 
   // — Who may trigger it (Settings → People): anyone, or only some people —
   let whoRow = '';
@@ -310,8 +312,10 @@ const tryIt = debounce(async () => {
     const d = await api.decide({ agent: state.agentId, text, stage: $('#tryStage').value });
     const then = (d.then || []).map((a) => (a.do === 'say' ? `say “${a.text}”` : a.do === 'answer' ? `answer${a.instruction ? ` (${a.instruction})` : ''}` : a.do === 'go' ? `go to ${stageName(a.stage)}` : a.do === 'signal' ? `signal ${a.name}` : a.do === 'osc' ? `OSC ${a.address} ${a.value}`.trim() :a.do === 'choices' ? `choices ${a.options.join(' | ')}` : a.do === 'voice' ? `voice ${a.voice ? ((state.agent.voices || []).find((v) => v.id === a.voice) || { name: a.voice }).name : 'its own'}` : a.do === 'language' ? `language ${languageName(a.language)}` : `mood ${a.mood}`));
     out.replaceChildren(
-      h('p', { class: 'took' }, d.pattern ? `${d.kind === 'otherwise' ? 'Otherwise: ' : d.kind === 'denied' ? `Only for ${d.who.join(', ')}: ` : ''}${d.pattern.name}${d.entry ? `, ${d.entry.key}` : ''}${d.score != null ? `  ${pct(d.score)}` : ''}` : 'A free answer'),
-      h('p', { class: 'hint' }, d.pattern ? (then.length ? `Then: ${then.join(', then ')}.` : 'This pattern does nothing yet.') : `No pattern reaches the confidence (${pct(I().confidence)}): the language model answers, with what it knows.`),
+      h('p', { class: 'took' }, d.pattern ? `${d.kind === 'otherwise' ? 'Otherwise: ' : d.kind === 'denied' ? `Only for ${d.who.join(', ')}: ` : ''}${d.pattern.name}${d.entry ? `, ${d.entry.key}` : ''}${d.score != null ? `  ${pct(d.score)}` : ''}` : d.kind === 'outside' ? 'Nothing it knows about' : 'A free answer'),
+      h('p', { class: 'hint' }, d.pattern ? (then.length ? `Then: ${then.join(', then ')}.` : 'This pattern does nothing yet.')
+        : d.kind === 'outside' ? `No pattern reaches the confidence (${pct(I().confidence)}) and nothing in the knowledge fits: the agent says “Sorry, I can't help you with that.” Persona → Talks about anything lets the language model answer, or add an “otherwise” pattern to say your own line.`
+          : `No pattern reaches the confidence (${pct(I().confidence)}): the language model answers, with what it knows.`),
       d.candidates.length ? h('ol', {}, d.candidates.map((c) => h('li', {}, `${c.name}${c.entry ? ` (${c.entry.key})` : ''}: `, h('span', { class: 'meter' + (c.score < I().confidence ? ' low' : '') }, h('i', { style: `width:${Math.round(c.score * 100)}%` })), ` ${pct(c.score)}${c.example ? `, closest to “${c.example}”` : ''}`))) : '',
       h('p', { class: 'hint' }, `Decided by ${d.matcher} in ${d.ms} ms.`));
     if (d.pattern && I().patterns.some((p) => p.id === d.pattern.id)) { selected = d.pattern.id; renderList(); renderEditor(); }

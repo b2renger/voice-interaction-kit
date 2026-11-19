@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import { check, summary, ROOT } from './helpers.mjs';
-import { nextSentences, speakable, heardNothing, parseTag, ReplyParser, systemPrompt, classifyInterjection, isBackchannel, isStopPhrase, refusalLine } from '../app/src/text.mjs';
+import { nextSentences, speakable, heardNothing, parseTag, ReplyParser, systemPrompt, classifyInterjection, isBackchannel, isStopPhrase, refusalLine, outsideLine } from '../app/src/text.mjs';
 
 // — sentences —
 let r = nextSentences('Hello! I am Ada. How', 0);
@@ -112,5 +112,8 @@ check(refusalLine('fr', 'Léo', ['Papa', 'Maman']) === "Pardon Léo, c'est à Pa
   && refusalLine('en', '', ['Papa', 'Maman', 'Zoé']) === "Sorry, I don't recognize your voice: only Papa, Maman or Zoé can ask me that."
   && refusalLine('de', 'Zoé', ['Papa']) === 'Entschuldige, Zoé, nur Papa darf mich darum bitten.' && refusalLine('xx', null, ['A']).startsWith('Sorry, I don'),
   'refusal: in the conversation\'s language, with who may ask ("or" in that language); unknown language: English');
+// Persona → Talks about anything off: what the agent says outside its subject
+check(['en', 'fr', 'es', 'de', 'it', 'pt'].every((l) => outsideLine(l).length > 10) && outsideLine('fr') === "Désolé, je ne peux pas t'aider pour ça." && outsideLine('xx') === outsideLine('en'),
+  'outside its subject: a fixed line in each of the six languages; unknown language: English');
 
 process.exit(summary() ? 1 : 0);

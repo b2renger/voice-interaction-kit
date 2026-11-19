@@ -11,7 +11,7 @@ import { startMockFarm } from './mock-farm.mjs';
 const src = (f) => pathToFileURL(join(ROOT, 'app', 'src', f)).href;
 const { entriesOf, namedIn, fill, unknownPlaceholders, describe, withLinks, normalize } = await import(src('agent/knowledge.mjs'));
 const { wordVector, cosine, wordsMatcher, modelMatcher } = await import(src('agent/matcher.mjs'));
-const { createDecider, knowledgePrompt } = await import(src('agent/decide.mjs'));
+const { createDecider, knowledgePrompt, freeTalkOf } = await import(src('agent/decide.mjs'));
 const { createAgentStore } = await import(src('agent/agents.mjs'));
 
 // — 1. knowledge —
@@ -157,6 +157,25 @@ const decider = createDecider({ store, matcher: () => words });
   const clear = await decider.decide('rooms', 'take me to the blue room', {});
   check(vague.kind === 'free' && vague.candidates[0].score < 0.3 && clear.kind === 'pattern' && clear.entry.key === 'Blue room',
     'decide: a sentence that fits every entry about as well is not a mention (ambiguity); a name said is', [vague.candidates[0], clear.entry]);
+  // Persona → Talks about anything
+  check(freeTalkOf(store.compiled('gardener')) === true && freeTalkOf(store.compiled('station-kiosk')) === false,
+    'free talk: not set → on, unless the agent has an "otherwise" pattern (its behavior before the switch)');
+  const kioskPersona = { settings: store.get('station-kiosk').settings, body: store.get('station-kiosk').body };
+  store.savePersona('station-kiosk', { ...kioskPersona, settings: { ...kioskPersona.settings, freeTalk: true } });
+  const chat = await decider.decide('station-kiosk', 'what is the weather like', {});
+  const lyon = await decider.decide('station-kiosk', 'When is the train to Lyon?', {});
+  check(chat.kind === 'free' && !chat.pattern && lyon.kind === 'pattern' && lyon.pattern.id === 'departure',
+    'free talk on: the "otherwise" pattern never fires, the model answers; a pattern still fires on its words', [chat.kind, lyon.pattern]);
+  store.savePersona('station-kiosk', kioskPersona);
+  const roomsPersona = { settings: store.get('rooms').settings, body: store.get('rooms').body };
+  store.savePersona('rooms', { ...roomsPersona, settings: { ...roomsPersona.settings, freeTalk: false } });
+  const known = await decider.decide('rooms', 'is it a quiet room', {});
+  const outside = await decider.decide('rooms', 'what is the capital of Peru', {});
+  check(known.kind === 'free' && known.knowledge.length > 0 && outside.kind === 'outside' && !outside.pattern && outside.then.length === 0,
+    'free talk off: the model answers when something in the knowledge fits; nothing fits and no "otherwise" → "outside"', [known.kind, known.knowledge.map((e) => e.key), outside.kind]);
+  store.saveInteractions('rooms', { ...store.get('rooms').interactions, patterns: [...store.get('rooms').interactions.patterns, { name: 'Else', when: { kind: 'otherwise' }, then: [{ do: 'say', text: 'Only rooms here.' }] }] });
+  const other = await decider.decide('rooms', 'what is the capital of Peru', {});
+  check(other.kind === 'otherwise' && other.then[0].text === 'Only rooms here.', 'free talk off: nothing fits → the "otherwise" pattern, when there is one', other.kind);
   // moments: a client's signal, the start
   const sig = await decider.onMoment('station-kiosk', 'signal', {}, 'Visitor-Near');
   check(sig && sig.pattern.id === 'someone-near' && sig.then[0].text === 'Hello! Where are you going?', 'decide: a client\'s signal fires its pattern (name: case ignored)', sig && sig.pattern);
@@ -511,6 +530,17 @@ const decider = createDecider({ store, matcher: () => words });
   await alone.after(k, 'bot.done');
   check(alone.msgs.slice(k).find((m) => m.type === 'decision').kind === 'denied', 'who: nobody recorded → a pattern kept for some people is denied to all');
   alone.ws.close();
+  // an agent that keeps to its subject (Persona → Talks about anything off), in French: a fixed line, no model
+  const shop = await api('/agents', { bundle: { vik: 'agent', id: 'shop', persona: "---\nname: Sam\nlanguage: fr\nfreeTalk: false\n---\nLa caisse d'un magasin.", knowledge: {}, interactions: { version: 1, patterns: [
+    { id: 'hours', name: 'Horaires', when: { kind: 'says', examples: ['quand ouvrez-vous'] }, then: [{ do: 'say', text: 'De 9 h à 19 h.' }] }] } } });
+  const till = await open({ agent: shop.id, name: 'Sam', persona: 'Une caisse.', language: 'fr', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant' });
+  asked = farm.requests.length;
+  k = till.msgs.length;
+  till.ws.send(JSON.stringify({ type: 'text', text: 'raconte-moi une blague' }));
+  const joke = await till.after(k, 'bot.done');
+  check(till.msgs.slice(k).find((m) => m.type === 'decision').kind === 'outside' && joke.text === "Désolé, je ne peux pas t'aider pour ça." && farm.requests.length === asked,
+    "free talk off: outside its subject, the agent says a fixed line in the conversation's language, without the model", joke.text);
+  till.ws.close();
   carOsc.close();
   await srv.close();
   await farm.close();

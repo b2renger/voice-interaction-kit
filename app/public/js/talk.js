@@ -105,7 +105,7 @@ export function initTalk(agent) {
     const took = d.pattern
       ? [d.kind === 'otherwise' ? `Otherwise: ${d.pattern.name}` : d.kind === 'denied' ? `Not for ${d.speaker || 'this voice'}: ${d.pattern.name}` : d.pattern.name,
         d.entry ? h('span', {}, d.entry.key) : '', d.score != null ? h('span', { class: 'score' }, pct(d.score)) : '']
-      : ['A free answer'];
+      : [d.kind === 'outside' ? 'Nothing it knows about' : 'A free answer'];
     // who said it: the name and how sure (the voice), or typed as someone
     const by = d.speaker == null || !d.text ? ''
       : heard && heard.name === d.speaker && !heard.short ? `${d.speaker || 'Someone not recognized'} (${pct(heard.score)}${!heard.name && heard.closest ? `, closest ${heard.closest}` : ''}): `
@@ -119,6 +119,7 @@ export function initTalk(agent) {
       h('p', { class: 'took' }, took),
       d.kind === 'denied' ? h('p', { class: 'note' }, `Only ${(d.who || []).join(', ')} may trigger it: the agent says it won't.`) : '',
       d.kind === 'free' ? h('p', { class: 'note' }, 'No pattern was close enough: the language model answers, with what it knows.') : '',
+      d.kind === 'outside' ? h('p', { class: 'note' }, "No pattern was close enough and nothing in the knowledge fits: the agent says it can't help (Persona → Talks about anything is off).") : '',
       others.length ? h('p', { class: 'others' }, `Next: ${others.map((c) => `${c.name}${c.entry ? ` (${c.entry.key})` : ''} ${pct(c.score)}`).join(', ')}`) : '',
       d.matcher ? h('p', { class: 'note' }, `Stage ${d.stage}, decided by ${d.matcher} in ${d.ms} ms.`) : ''));
   });

@@ -42,6 +42,16 @@ You don't need to put the facts in the persona: prices, opening hours and lists 
 - **Short answers, one question at a time.** Almost always better when spoken.
 - **Can show choices and a mood by itself.** The language model can then add buttons to the screen and set a mood. Patterns can do it too, see [Interactions](interactions.md).
 - **Creativity.** Low: predictable and steady. High: surprising, sometimes off topic.
+- **Talks about anything.** What happens to a sentence that no pattern catches, see below.
+
+## Talking about anything
+
+**Talks about anything** decides what happens to a sentence that no pattern catches.
+
+- **On**: the language model answers it freely, as the persona: a joke, the weather, a question about itself. The patterns still fire when their words come up ("show me the forest"), and the conversation goes back to them. The **nothing else fits** patterns never fire.
+- **Off**: the agent keeps to its subject. The language model answers only when something in the knowledge fits the sentence ("who painted it?", in a museum). Anything else gets the stage's **nothing else fits** pattern, your own line ("I can show the fire, the sea or the forest."), or, without one, "Sorry, I can't help you with that.", in the conversation's language. Neither needs the language model.
+
+An agent saved before this option keeps working as it did: off if it has a **nothing else fits** pattern, on otherwise. In [Interactions](view:interactions), the test field shows what a sentence would get.
 
 ## What the model reads
 
