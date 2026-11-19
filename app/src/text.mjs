@@ -23,6 +23,17 @@ export function refusalLine(language, speaker, who) {
   return (speaker ? known : unknown).replace('{speaker}', speaker || '').replace('{who}', names);
 }
 
+/** What an agent that keeps to its subject says when nothing fits and it has no "otherwise" pattern. */
+const OUTSIDE = {
+  en: 'Sorry, I can\'t help you with that.',
+  fr: 'Désolé, je ne peux pas t\'aider pour ça.',
+  es: 'Lo siento, no puedo ayudarte con eso.',
+  de: 'Tut mir leid, dabei kann ich dir nicht helfen.',
+  it: 'Mi dispiace, non posso aiutarti con questo.',
+  pt: 'Desculpa, não posso te ajudar com isso.',
+};
+export const outsideLine = (language) => OUTSIDE[language] || OUTSIDE.en;
+
 /** French mood names (still accepted in tags, with or without accents, masculine or feminine) → English moods. */
 const MOOD_ALIASES = {
   neutre: 'neutral',

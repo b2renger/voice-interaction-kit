@@ -29,7 +29,7 @@ An agent is made of four things, all edited in the studio:
 
 - **a persona**: who it is and how it speaks, in markdown;
 - **knowledge**: tables of what it knows (artworks, dishes, departures, plants), edited like a spreadsheet and imported or exported as CSV. A cell that names an entry of another table links the two;
-- **interactions**: **patterns**, "When … → Then …" ("when the visitor mentions an artwork, tell it in two sentences, then show it on screen"), grouped in **stages** (welcome, tour, goodbye). Before any language model writes a word, a small local **decision model** (EmbeddingGemma 300M) compares what was said with the patterns and the knowledge. The closest pattern fires; if none is close enough, the language model answers freely, with what the agent knows. The studio shows **why** each answer was chosen, with scores;
+- **interactions**: **patterns**, "When … → Then …" ("when the visitor mentions an artwork, tell it in two sentences, then show it on screen"), grouped in **stages** (welcome, tour, goodbye). Before any language model writes a word, a small local **decision model** (EmbeddingGemma 300M) compares what was said with the patterns and the knowledge. The closest pattern fires; if none is close enough, the language model answers freely, with what the agent knows (an agent that keeps to its subject only answers about what it knows, and otherwise says it can't help). The studio shows **why** each answer was chosen, with scores;
 - **a voice and a timing**: which voice, how long a silence ends a turn, what it does while it thinks.
 
 Four example agents come with the app: a museum guide, a station kiosk, a chef who guides a recipe step by step, and a gardener.

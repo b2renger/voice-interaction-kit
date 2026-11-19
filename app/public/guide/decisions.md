@@ -16,8 +16,8 @@ For each sentence, in the current stage:
 
 1. **Every pattern gets a score**, from 0 to 1. A **says** pattern: how close the sentence is to its closest example. A **mentions** pattern: how well the sentence matches the best entry of its table (a name said word for word scores at least 95 %).
 2. **The best score at or above the confidence wins**: its actions run.
-3. **Otherwise**, the stage's **nothing else fits** pattern runs, if there is one.
-4. **Otherwise**, the language model answers freely, with what the agent knows.
+3. **Otherwise**, if the agent talks about anything ([Persona](persona.md#talking-about-anything)), the language model answers freely, with what the agent knows.
+4. If it keeps to its subject: the language model answers only when something in the knowledge fits the sentence. Otherwise the stage's **nothing else fits** pattern runs, or, without one, the agent says "Sorry, I can't help you with that."
 
 A choice tapped on the screen is decided like a sentence: tapping "Painting" is like saying "Painting". A signal sent by a client fires the pattern made for that signal.
 
@@ -36,7 +36,7 @@ In [Talk](view:talk), **Why it answered** shows each turn:
 - the stage reached and the signals sent;
 - the felt wait, and how long the decision took.
 
-**A free answer** means no pattern reached the confidence.
+**A free answer** means no pattern reached the confidence: the language model answers. **Nothing it knows about** means that, and the agent keeps to its subject: it says it can't help.
 
 ## Writing patterns that fire
 

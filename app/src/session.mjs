@@ -1,7 +1,7 @@
 // A conversation: what happens between a browser (the studio) and the local engine.
 // Protocol: see CONTRACT.md ("Local engine"). Incoming audio: 16-bit PCM, mono, 16 kHz, in binary frames.
 // Outgoing audio: binary frames [u32 sample rate][u32 turn id][16-bit mono PCM].
-import { ReplyParser, systemPrompt, translatePrompt, LANGUAGES, heardNothing, speakable, trimHistory, classifyInterjection, refusalLine } from './text.mjs';
+import { ReplyParser, systemPrompt, translatePrompt, LANGUAGES, heardNothing, speakable, trimHistory, classifyInterjection, refusalLine, outsideLine } from './text.mjs';
 import { delay, clamp, num, progressText } from './util.mjs';
 import { fill } from './agent/knowledge.mjs';
 import { knowledgePrompt } from './agent/decide.mjs';
@@ -572,6 +572,7 @@ export class Session {
     const { id, abort } = bot;
     const actions = d ? d.then : [];
     const plan = d && d.kind === 'denied' ? [{ do: 'say', said: refusalLine(this.language, d.speaker, d.who) }]   // not for this person
+      : d && d.kind === 'outside' ? [{ do: 'say', said: outsideLine(this.language) }]   // the agent keeps to its subject
       : d && d.kind !== 'free' ? actions.filter((a) => a.do === 'say' || a.do === 'answer') : [{ do: 'answer', instruction: '' }];
     if (d && d.entry) this.focus = d.entry;
     // the placeholders: {said}, {speaker}; {value}, {address} (OSC in)

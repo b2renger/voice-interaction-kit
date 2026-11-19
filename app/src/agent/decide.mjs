@@ -2,8 +2,10 @@
 //
 //   1. score the patterns of the current stage: "says" → the closest example; "mentions" → the best entry of its
 //      table (the sentence against the entry's name and against its whole row; a name said word for word ≥ 0.95);
-//   2. the best score at or above the agent's confidence wins; otherwise the stage's "otherwise" pattern, if any;
-//   3. otherwise a free answer.
+//   2. the best score at or above the agent's confidence wins;
+//   3. nothing wins: the agent talks about anything (Persona → Talk about anything) → a free answer. It does not →
+//      a free answer only when something in the knowledge fits; otherwise the stage's "otherwise" pattern, or
+//      "outside" (a fixed line: it can't help).
 // A pattern kept for some people (`who`) fires only for them. When it is the best one, the person speaking is not
 // one of them, and nothing else fits: "denied", the agent says it won't (Settings → People).
 // Whatever happens, the knowledge for the model: the entry found, the entry in focus, and the closest entries.
@@ -117,16 +119,17 @@ export function createDecider({ store, matcher, log = () => {} }) {
     let chosen = cands.find((c) => c.score >= confidence && allows(c.p, speaker)) || null;
     let kind = chosen ? 'pattern' : 'free';
     if (!chosen && cands[0] && cands[0].score >= confidence) { chosen = cands[0]; kind = 'denied'; }   // not for this person
-    if (!chosen) {
+    // the closest entries: what the model may use, and, for an agent that keeps to its subject, whether it may answer
+    const closest = entries.map((e, i) => ({ e, s: entryScore[i] })).filter((x) => x.s >= RETRIEVE_MIN)
+      .sort((a, b) => b.s - a.s).slice(0, RETRIEVE).map((x) => x.e);
+    if (!chosen && !freeTalkOf(agent) && !closest.length) {
       const other = ix.pats.map((x) => x.p).filter((p) => p.when.kind === 'otherwise' && applies(p, stage) && allows(p, speaker))
         .sort((a, b) => Number(!!b.stage) - Number(!!a.stage))[0];          // the stage's own first
-      if (other) { chosen = { p: other, score: null, example: '', entry: null }; kind = 'otherwise'; }
+      if (other) { chosen = { p: other, score: null, example: '', entry: null }; kind = 'otherwise'; } else kind = 'outside';
     }
 
     // the knowledge for the model: the entry found, the entry in focus, then the closest entries
     const focus = findEntry(entries, state.focus);
-    const closest = entries.map((e, i) => ({ e, s: entryScore[i] })).filter((x) => x.s >= RETRIEVE_MIN)
-      .sort((a, b) => b.s - a.s).slice(0, RETRIEVE).map((x) => x.e);
     const entry = chosen && chosen.entry;
     const knowledge = withLinks(entries, [entry, focus, ...closest].filter(Boolean));
 
@@ -195,6 +198,15 @@ export function createDecider({ store, matcher, log = () => {} }) {
     /** Computes an agent's embeddings ahead of its first sentence. */
     warm: (id) => indexOf(id).then(() => true, (e) => { log(`(decision model: ${e.message})`); return false; }),
   };
+}
+
+/**
+ * Does the agent talk about anything (Persona → Talk about anything)? Not set (an agent saved before the switch):
+ * it does, unless it has an "otherwise" pattern, which kept it to its subject until then.
+ */
+export function freeTalkOf(agent) {
+  const v = agent.settings && agent.settings.freeTalk;
+  return typeof v === 'boolean' ? v : !agent.interactions.patterns.some((p) => p.on && p.when.kind === 'otherwise');
 }
 
 /** The knowledge given to the model, as text for its prompt. */

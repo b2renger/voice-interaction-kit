@@ -56,7 +56,18 @@ export function settings() {
 export function valueOf(k) {
   if (k === 'persona') return state.agent ? state.agent.body : '';
   if (k === 'title') return state.agent ? (state.agent.settings.title ?? '') : '';
+  if (k === 'freeTalk') return state.agent ? freeTalk(state.agent) : true;
   return settings()[k];
+}
+
+/**
+ * Does the agent talk about anything (Persona)? Not set (an agent saved before the switch): yes, unless it has an
+ * "otherwise" pattern. The same rule as the decision model's (app/src/agent/decide.mjs, freeTalkOf). Not in
+ * VoiceCore.DEFAULTS on purpose: a value equal to a default is not written, and this one must be once chosen.
+ */
+export function freeTalk(agent) {
+  const v = agent.settings.freeTalk;
+  return typeof v === 'boolean' ? v : !agent.interactions.patterns.some((p) => p.on && p.when.kind === 'otherwise');
 }
 
 /** A field changed. */

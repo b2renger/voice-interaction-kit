@@ -553,6 +553,17 @@ await browser.close();
   // try a sentence
   await page.fill('#tryText', 'how much is the racing bike?');
   check(await until(async () => /A bike, Racing bike/.test(await page.textContent('#tryOut')), 4000), 'studio: "Try a sentence" shows the decision and why', await page.textContent('#tryOut'));
+  // Persona → Talks about anything: off, a sentence outside its subject gets the fixed line
+  await page.click('.nav button[data-view="persona"]');
+  check(await page.isChecked('[data-k="freeTalk"]'), 'studio: an agent without an "otherwise" pattern talks about anything');
+  await page.uncheck('[data-k="freeTalk"]');
+  check(await until(async () => (await disk('bike-shop')).settings.freeTalk === false, 4000), 'studio: "Talks about anything" off is saved to persona.md');
+  await page.click('.nav button[data-view="interactions"]');
+  await page.fill('#tryText', 'what is the capital of Peru');
+  check(await until(async () => /Nothing it knows about/.test(await page.textContent('#tryOut')), 4000), 'studio: off, "Try a sentence" shows a sentence outside its subject', await page.textContent('#tryOut'));
+  await page.click('.nav button[data-view="persona"]');
+  await page.check('[data-k="freeTalk"]');
+  await until(async () => (await disk('bike-shop')).settings.freeTalk === true, 4000);
   // talk: the decision is followed, explained, and its signal goes out
   await page.click('.nav button[data-view="talk"]');
   await page.evaluate(() => { window.__ev = []; window.agent.on('*', (e) => window.__ev.push({ type: e.type, text: e.text, name: e.name, value: e.value, pattern: e.pattern })); });
