@@ -407,6 +407,7 @@ dialog::backdrop { background: rgb(10 14 22 / .35); }
 dialog h2 { font-size: 17px; }
 dialog form { display: grid; gap: 14px; }
 dialog .row { justify-content: flex-end; }
+a.btn { text-decoration: none; color: inherit; }
 .menu { position: absolute; z-index: 20; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); padding: 4px; display: grid; min-width: 200px; box-shadow: 0 10px 30px rgb(10 14 22 / .14); }
 .menu button { text-align: left; border: 0; background: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
 .menu button:hover { background: var(--sunk); }

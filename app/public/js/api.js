@@ -43,5 +43,9 @@ export const api = {
   people: () => call('GET', '/api/people'),
   addPerson: (name, pcm) => sendVoice(`/api/people?name=${enc(name)}`, pcm),
   identify: (pcm) => sendVoice('/api/people/identify', pcm),
+  // the Updates window: this version, and new ones (app/electron/updates.cjs, through the server)
+  updates: () => call('GET', '/api/updates'),
+  checkUpdates: () => call('POST', '/api/updates/check'),
+  installUpdate: () => call('POST', '/api/updates/install'),
   removePerson: (id) => call('DELETE', `/api/people/${enc(id)}`),
 };

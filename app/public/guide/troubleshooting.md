@@ -10,7 +10,7 @@ Most problems show in the banner of [Talk](view:talk), in plain words. The menu 
 | "3 models could not be downloaded" | the reason is in **Files → Server log**. The dialog's **Open the download page** shows the voice files: put them in the models folder (**Open models folder**), then restart VIK |
 | a Vulkan error (Windows) | update the graphics driver |
 | the first reply is slow | the models load at startup: wait for **The models are ready** |
-| a new version is out | **Files → Check for updates**. On Windows, VIK installs it and offers to restart; on a Mac, download the new version from the page it opens. Your agents and settings stay |
+| which version is this? a new version is out? | **Files → Check for updates…**, or **Settings → Version**: the Updates window shows your version and looks for a new one. On Windows, VIK installs it and offers **Restart now**; on a Mac, download the new version from the page it links to. Your agents and settings stay |
 | after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner. On Windows, Chatterbox runs on the processor and takes long for each sentence: Supertonic is the fastest voice |
 
 ## Talking

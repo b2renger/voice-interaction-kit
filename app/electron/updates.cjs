@@ -4,14 +4,17 @@
 //     which reads this repository's releases (the RELEASES and .nupkg files that .github/workflows/release.yml
 //     publishes), downloads the new version in the background and installs it next to this one. VIK then offers to
 //     restart; "Later": the new version starts next time.
-//   Mac (updating requires a code-signed app, and VIK is not signed) and the portable .zip: a notice, with a button
+//   Mac (updating requires a code-signed app, and VIK is not signed) and the portable .zip: a notice, with a link
 //     to the download page.
 //   Run from the source code (npm start): nothing (git pull updates it).
+// What happens is a state ({version, mode, status, latest, page, error, checkedAt}) that the studio shows in its
+// Updates window (Files → Check for updates…, Settings → Version), through the server (GET /api/updates).
 'use strict';
 const path = require('node:path');
 
 const REPO = 'b2renger/voice-interaction-kit';
 const PAGE = `https://github.com/${REPO}/releases/latest`;
+const pageOf = (version) => `https://github.com/${REPO}/releases/tag/v${String(version).replace(/^v/, '')}`;
 
 /** Is version a newer than version b? "3.10.0" > "3.9.2"; a leading "v" is ignored. */
 function newer(a, b) {
@@ -38,33 +41,27 @@ async function latestRelease(fetchImpl) {
 }
 
 /**
- * Starts looking for updates. Returns {check(manual)}: Files → Check for updates calls check(true), which says
- * so when there is nothing new or when it fails. `feed` replaces update.electronjs.org (the tests' own server).
+ * Starts looking for updates. Returns {check(), state(), install()}.
+ * status: 'source' (run from the source code), 'idle' (not checked yet), 'checking', 'latest' (up to date),
+ *   'downloading' (Windows: the new version is on its way), 'ready' (Windows: installed, starts with the next launch;
+ *   install() restarts into it), 'available' (Mac, .zip: a newer installer is on `page`), 'failed' (`error`).
+ * notify(state, show): every change; show: open the Updates window by itself (a new version ready or available).
+ * `feed` replaces update.electronjs.org (the tests' own server).
  */
 function setupUpdates({
-  app, autoUpdater, dialog, shell, getWin, log, mode, enabled = true,
+  app, autoUpdater, log, mode, enabled = true, notify = () => {},
   fetchImpl = globalThis.fetch, firstAfterMs = 15000, everyMs = 3600000,
-  platform = process.platform, arch = process.arch, feed = '',
+  platform = process.platform, arch = process.arch, feed = '', now = Date.now,
 }) {
   const version = app.getVersion();
-  const win = () => { const w = getWin(); return w && !w.isDestroyed() ? w : undefined; };
-  const box = (o) => dialog.showMessageBox(win(), o);
+  const st = { version, mode, status: mode === 'none' ? 'source' : 'idle', latest: '', page: pageOf(version), error: '', checkedAt: 0 };
+  const set = (o, show = false) => { Object.assign(st, o); notify({ ...st }, show); };
   let timer = null;
-  let manual = false;      // the menu asked: say what happens, even "nothing new"
-  let downloaded = false;  // Squirrel has installed the new version: no more checks (it would download it again)
-  const told = new Set();  // the versions already announced (a notice once per version and launch)
+  const told = new Set();  // the versions already shown by themselves (once per version and launch)
 
   const failed = (e) => {
     log(`(updates: ${e.message})`);
-    if (!manual) return;
-    manual = false;
-    box({ type: 'warning', message: 'Could not check for a new version', detail: `${e.message}\n\nThe new versions are on ${PAGE}`, buttons: ['OK', 'Open the download page'], defaultId: 0, cancelId: 0 })
-      .then(({ response }) => { if (response === 1) shell.openExternal(PAGE); });
-  };
-  const upToDate = () => {
-    if (!manual) return;
-    manual = false;
-    box({ type: 'info', message: 'VIK is up to date', detail: `You have the latest version, ${version}.`, buttons: ['OK'] });
+    if (st.status !== 'ready') set({ status: 'failed', error: e.message, page: PAGE, checkedAt: now() });
   };
 
   if (mode === 'squirrel') {
@@ -72,59 +69,50 @@ function setupUpdates({
     autoUpdater.on('error', failed);
     autoUpdater.on('update-available', () => {
       log('▸ updates: a new version of VIK is downloading');
-      if (manual) { manual = false; box({ type: 'info', message: 'A new version of VIK is downloading', detail: 'VIK will offer to restart once it is ready.', buttons: ['OK'] }); }
+      set({ status: 'downloading', error: '', page: PAGE, checkedAt: now() });
+      // the updater does not say which version: GitHub does, for the window (nothing if it can't)
+      latestRelease(fetchImpl).then((l) => { if (st.status === 'downloading' && newer(l.version, version)) set({ latest: l.version, page: l.page }); }, () => {});
     });
-    autoUpdater.on('update-not-available', upToDate);
-    autoUpdater.on('update-downloaded', async (event, notes, name) => {
-      downloaded = true;
-      clearInterval(timer);
-      log(`▸ updates: ${name || 'a new version'} is installed, it starts with the next launch`);
-      const { response } = await box({
-        type: 'info',
-        message: `A new version of VIK is ready${name ? ` (${name})` : ''}`,
-        detail: 'Restart now to use it, or later: it starts the next time you open VIK. Your agents and settings are kept.',
-        buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1,
-      });
-      if (response === 0) autoUpdater.quitAndInstall();
+    autoUpdater.on('update-not-available', () => set({ status: 'latest', latest: version, error: '', page: pageOf(version), checkedAt: now() }));
+    autoUpdater.on('update-downloaded', (event, notes, name) => {
+      clearInterval(timer);          // no more checks: it would download it again
+      const latest = String(name || '').replace(/^v/, '') || (newer(st.latest, version) ? st.latest : '');
+      log(`▸ updates: ${latest ? `VIK ${latest}` : 'a new version'} is installed, it starts with the next launch`);
+      set({ status: 'ready', latest, error: '', page: latest ? pageOf(latest) : PAGE }, true);
     });
   }
 
-  async function check(fromMenu = false) {
-    manual = manual || fromMenu;
-    if (mode === 'none') {
-      manual = false;
-      if (fromMenu) box({ type: 'info', message: 'This VIK runs from the source code', detail: 'Update it with git pull. The installers are on ' + PAGE, buttons: ['OK'] });
-      return;
-    }
+  async function check() {
+    // nothing to do from the source code, nor while the new version downloads (it ends 'ready' or 'failed')
+    if (mode === 'none' || st.status === 'ready' || st.status === 'downloading') return;
+    set({ status: 'checking', error: '' });
     if (mode === 'squirrel') {
-      if (downloaded) { manual = false; if (fromMenu) box({ type: 'info', message: 'A new version of VIK is ready', detail: 'It starts the next time you open VIK.', buttons: ['OK'] }); return; }
       try { autoUpdater.checkForUpdates(); } catch (e) { failed(e); }
       return;
     }
     let latest;
     try { latest = await latestRelease(fetchImpl); } catch (e) { failed(e); return; }
-    if (!newer(latest.version, version)) { upToDate(); return; }
-    if (told.has(latest.version) && !manual) return;
-    manual = false;
+    if (!newer(latest.version, version)) { set({ status: 'latest', latest: version, page: pageOf(version), checkedAt: now() }); return; }
+    const show = !told.has(latest.version);
     told.add(latest.version);
-    log(`▸ updates: VIK ${latest.version} is available (this is ${version})`);
-    const { response } = await box({
-      type: 'info',
-      message: `VIK ${latest.version} is available`,
-      detail: `You have ${version}. Download the new installer and open it: your agents and settings are kept.`,
-      buttons: ['Open the download page', 'Later'], defaultId: 0, cancelId: 1,
-    });
-    if (response === 0) shell.openExternal(latest.page);
+    if (show) log(`▸ updates: VIK ${latest.version} is available (this is ${version})`);
+    set({ status: 'available', latest: latest.version, page: latest.page, checkedAt: now() }, show);
   }
 
   if (enabled && mode !== 'none') {
     setTimeout(() => {
-      check(false);
-      timer = setInterval(() => { if (!downloaded) check(false); }, everyMs);
+      check();
+      timer = setInterval(() => { if (st.status !== 'ready') check(); }, everyMs);
       if (timer.unref) timer.unref();
     }, firstAfterMs).unref?.();
   }
-  return { check, mode };
+  return {
+    check,
+    mode,
+    state: () => ({ ...st }),
+    /** Restarts into the new version (Windows, once it is ready). */
+    install() { if (mode === 'squirrel' && st.status === 'ready') autoUpdater.quitAndInstall(); },
+  };
 }
 
-module.exports = { setupUpdates, updateMode, newer, latestRelease, REPO };
+module.exports = { setupUpdates, updateMode, newer, latestRelease, REPO, PAGE };

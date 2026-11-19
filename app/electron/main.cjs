@@ -160,7 +160,7 @@ function buildMenu() {
           },
         },
         { label: 'Server log', click: () => showLog() },
-        { label: 'Check for updates…', click: () => { if (updates) updates.check(true); } },
+        { label: 'Check for updates…', click: () => showUpdates(true) },
         ...(isMac ? [] : [{ type: 'separator' }, { role: 'quit', label: 'Quit' }]),
       ],
     },
@@ -233,6 +233,11 @@ async function offerInstall(fromMenu) {
   if (chosen === 2) openModelsFolder();
 }
 
+/** The studio's Updates window (app/public/js/updates.js): this version, and what the last check found. */
+function showUpdates(check) {
+  if (win) win.webContents.executeJavaScript(`window.vikUpdates && window.vikUpdates(${check ? 'true' : 'false'})`).catch(() => {});
+}
+
 function showLog() {
   dialog.showMessageBox(win, { type: 'info', message: 'Server log', detail: logLines.slice(-40).join('\n') || '(empty)' });
 }
@@ -248,6 +253,7 @@ async function start() {
       log,
       agentsDir: agentsDir(),
       peopleFile: path.join(userDir(), 'people.json'),      // the people recognized by their voice (Settings → People)
+      updates: () => updates,                                 // new versions, for the studio's Updates window
       // the personas of earlier versions become agents (first launch only)
       legacyDirs: [path.join(oldUserDir(), 'personas'), path.join(userDir(), 'personas')],
       onStatus: ({ text, progress }) => {
@@ -282,7 +288,8 @@ async function start() {
   win.on('closed', () => { win = null; });
   srv.ready.then(() => offerInstall(false));
   updates = setupUpdates({
-    app, autoUpdater, dialog, shell, log, getWin: () => win,
+    app, autoUpdater, log,
+    notify: (state, show) => { if (show) showUpdates(false); },   // a new version ready or available: the window opens
     mode: updateMode({ isPackaged: app.isPackaged, platform: process.platform, execPath: process.execPath, exists: fs.existsSync }),
     enabled: config.updates !== false,
     feed: process.env.VIK_UPDATE_FEED || '',   // the tests' own update server (.github/workflows/update-test.yml)
