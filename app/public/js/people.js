@@ -65,14 +65,17 @@ function render() {
 }
 const status = (t) => { $('#recordStatus').textContent = t; };
 
+let opening = false;   // the microphone is being opened: a second click must not open another one
+
 async function toggleRecord() {
   if (rec) { finish(); return; }
   const name = $('#personName').value.trim();
-  if (!name) return;
+  if (!name || opening) return;
+  opening = true;
   try {
     const r = await record((sec) => { status(`Recording ${name}… read the text aloud. ${Math.floor(sec)} s`); if (sec >= MAX_S) finish(); });
     rec = { kind: 'add', name, stop: r.stop };
-  } catch (e) { status(`No microphone: ${e.message}`); }
+  } catch (e) { status(`No microphone: ${e.message}`); } finally { opening = false; }
   render();
 }
 
@@ -98,11 +101,12 @@ async function finish() {
 }
 
 async function test() {
-  if (rec) return;
+  if (rec || opening) return;
+  opening = true;
   try {
     const r = await record((sec) => { status(`Listening… say a sentence. ${Math.max(0, Math.ceil(TEST_S - sec))} s`); if (sec >= TEST_S) finish(); });
     rec = { kind: 'test', stop: r.stop };
-  } catch (e) { status(`No microphone: ${e.message}`); }
+  } catch (e) { status(`No microphone: ${e.message}`); } finally { opening = false; }
   render();
 }
 

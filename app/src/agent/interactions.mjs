@@ -65,15 +65,23 @@ function uniqueId(wanted, name, taken, fallback) {
 export function normalizeInteractions(raw) {
   const o = raw && typeof raw === 'object' ? raw : {};
   const stageIds = new Set();
+  const asWritten = new Map();          // a stage named as the file wrote it ("Main Hall") → its id ("main-hall")
   const stages = (Array.isArray(o.stages) ? o.stages : []).filter((s) => s && (s.id || s.name)).slice(0, 50)
-    .map((s) => { const name = text(s.name || s.id, 80); return { id: uniqueId(s.id, name, stageIds, 'stage'), name }; });
-  const start = stageIds.has(o.start) ? o.start : (stages[0] ? stages[0].id : '');
+    .map((s) => {
+      const name = text(s.name || s.id, 80);
+      const id = uniqueId(s.id, name, stageIds, 'stage');
+      if (!asWritten.has(String(s.id || name))) asWritten.set(String(s.id || name), id);
+      return { id, name };
+    });
+  // the start and each pattern's stage, written as in the file or as the id: the same stage
+  const stageOf = (x) => (x == null || x === '' ? '' : stageIds.has(x) ? x : asWritten.get(String(x)) || (stageIds.has(slug(x, '')) ? slug(x, '') : ''));
+  const start = stageOf(o.start) || (stages[0] ? stages[0].id : '');
   const conf = Number(o.confidence);
   const patternIds = new Set();
   const patterns = (Array.isArray(o.patterns) ? o.patterns : []).filter((p) => p && typeof p === 'object').slice(0, 500).map((p) => {
     const name = text(p.name, 80) || 'Pattern';
     const w = p.when && typeof p.when === 'object' ? p.when : {};
-    const kind = w.kind in WHEN ? w.kind : 'says';
+    const kind = Object.hasOwn(WHEN, String(w.kind)) ? w.kind : 'says';   // not "in": "constructor" is in every object
     const when = { kind };
     if (kind === 'says') when.examples = list(w.examples);
     if (kind === 'mentions') when.table = slug(w.table, '');
@@ -89,11 +97,11 @@ export function normalizeInteractions(raw) {
     return {
       id: uniqueId(p.id, name, patternIds, 'pattern'),
       name,
-      stage: stageIds.has(p.stage) ? p.stage : '',
+      stage: stageOf(p.stage),
       on: p.on !== false,
       when,
       ...(who.length ? { who } : {}),
-      then: (Array.isArray(p.then) ? p.then : []).filter((a) => a && a.do in THEN).slice(0, 20).map(action),
+      then: (Array.isArray(p.then) ? p.then : []).filter((a) => a && Object.hasOwn(THEN, String(a.do))).slice(0, 20).map(action).filter(Boolean),
     };
   });
   return { version: 1, start, stages, confidence: Number.isFinite(conf) ? Math.min(1, Math.max(0, conf)) : DEFAULT_CONFIDENCE, patterns };

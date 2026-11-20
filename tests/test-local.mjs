@@ -137,6 +137,15 @@ check(plain.id === 'plain', 'the test agent "Plain" (no pattern) is created thro
   await page.evaluate(() => window.agent.update({ micMuted: false }));
   await page.click('#stop');
   check(await until(() => page.evaluate(() => window.agent.state === 'ended'), 3000), 'lab: Stop');
+  // a new conversation after an interruption: its replies are heard (its turns are numbered from 1 again)
+  await page.click('#start');
+  await until(() => page.evaluate(() => ['listening', 'speaking'].includes(window.agent.state)), 8000);
+  await page.evaluate(() => window.agent.update({ micMuted: true }));
+  await until(() => page.evaluate(() => window.agent.state === 'listening'), 15000);
+  await page.fill('#sayText', 'Tell me about the storm.');
+  await page.click('#sayForm button');
+  check(await until(() => page.evaluate(() => window.agent.state === 'speaking'), 6000), 'lab: after an interruption, Stop then Start: the new conversation\'s replies are heard', await page.evaluate(() => window.agent.state));
+  await page.click('#stop');
   await page.close();
 }
 
@@ -169,8 +178,20 @@ check(plain.id === 'plain', 'the test agent "Plain" (no pattern) is created thro
   await set('App address', hubUrl);
   check(await until(async () => (await port('App connected')) === 1, 5000), 'op: connected to the app (the lab window is open)', await port('App connected'));
   check((await port('Agent name')) === (await lab.evaluate(() => window.agent.settings.name)), "op: shows the agent's name", await port('Agent name'));
+  // a client may not open the microphone unless this computer allows it (Settings → Clients)
+  await fire('Start');
+  await sleep(1500);
+  check(!['connecting', 'listening', 'speaking'].includes(await labState()) && await lab.evaluate(() => /Clients may not open the microphone/.test(document.querySelector('#banner')?.textContent || document.body.textContent)),
+    'op: "Start" refused while "Clients may start a conversation" is off, and the studio says why', await labState());
+  await lab.evaluate(() => { const el = document.querySelector('[data-k="clientsMayStart"]'); el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); });
+  check(await lab.evaluate(() => JSON.parse(localStorage.getItem('vik.machine') || '{}').clientsMayStart === true), 'Settings → Clients: "Clients may start a conversation" is this computer\'s setting');
   await fire('Start');
   check(await until(async () => ['listening', 'speaking'].includes(await labState()), 8000), 'op: "Start" starts the conversation in the lab window', await labState());
+  await sleep(300);
+  const restarts = await lab.evaluate(() => (window.__restarts = 0, window.agent.on('ended', (e) => { if (e.reason === 'restart') window.__restarts++; }), 0));
+  await fire('Start');
+  await sleep(1000);
+  check(restarts === 0 && await lab.evaluate(() => window.__restarts === 0), 'op: a second "Start" during the conversation does not restart it');
   check(await until(async () => ['listening', 'hearing', 'thinking', 'speaking'].includes(await port('State')), 4000), "op: follows the lab window's state", await port('State'));
   check(await until(async () => (await port('Last user text')).length > 0, 12000), 'op: what the person said (heard by the lab window) arrives', await port('Last user text'));
   check(await until(async () => (await page.evaluate(() => window.P('On reply start').triggered)) >= 1, 12000), 'op: the agent replies (On reply start)');
@@ -489,7 +510,8 @@ await browser.close();
   // a new agent (Manage → New agent…)
   await page.click('#agentMenuBtn');
   await page.click('.menu button:has-text("New agent")');
-  await answer('Bike shop');
+  await page.fill('#askValue', 'Bike shop');
+  await page.press('#askValue', 'Enter');            // Enter means OK (Cancel is not the form's first submit button)
   await until(() => page.evaluate(() => window.agent.settings.agent === 'bike-shop'), 5000);
   check(await page.evaluate(() => document.querySelector('#view-persona').hidden === false && document.querySelector('#agentSelect').value === 'bike-shop'), 'studio: "New agent…" creates it, opens it on its persona');
   await page.fill('[data-k="name"]', 'Bo');

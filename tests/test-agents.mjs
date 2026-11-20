@@ -168,7 +168,52 @@ let store = createAgentStore({ dir, examples, legacy: [legacy] });
   check((await call('GET', '/nothing')).status === 404 && (await call('GET', '/agents/Bad%20Name')).status === 400, 'api: unknown route 404, bad name 400');
   const foreign = await fetch(`${base}/agents`, { headers: { origin: 'https://evil.example' } });
   check(foreign.status === 403, 'api: a request from another website is refused', foreign.status);
-  await srv.close();
+  // DNS rebinding: a page whose own name points at this computer keeps that name in the Host header
+  const { request } = await import('node:http');
+  const asHost = (host, path, headers = {}) => new Promise((resolve) => {
+    const q = request({ host: '127.0.0.1', port: srv.port, path, headers: { host, ...headers } }, (res) => { res.resume(); resolve(res.statusCode); });
+    q.on('error', () => resolve(0));
+    q.end();
+  });
+  const rebound = await asHost(`evil.example:${srv.port}`, '/api/agents', { 'sec-fetch-site': 'same-origin' });
+  const upgrade = await asHost(`evil.example:${srv.port}`, '/voice', { connection: 'Upgrade', upgrade: 'websocket', 'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==', 'sec-websocket-version': '13' });
+  const named = await asHost(`localhost:${srv.port}`, '/api/agents');
+  check(rebound === 403 && upgrade === 403 && named === 200, 'host: a request named for another site (DNS rebinding) is refused, HTTP and WebSocket; localhost is fine', { rebound, upgrade, named });
+  const health = (h) => fetch(`http://127.0.0.1:${srv.port}/health`, { headers: h }).then((x) => x.json());
+  const [own, site] = [await health({}), await health({ origin: 'https://example.com' })];
+  check(own.agentsDir === adir && !('agentsDir' in site) && site.models, '/health: the agents folder (the account\'s name is in its path) only for the studio, not for a website', { own: own.agentsDir, site: site.agentsDir });
+  // stopping does not wait for the studio's open sockets (the Zonos voice keeps one open)
+  const sock = new WebSocket(`ws://127.0.0.1:${srv.port}/zonos`);
+  const opened = await new Promise((r) => { sock.onopen = () => r(true); sock.onerror = () => r(false); });
+  const t0 = Date.now();
+  await Promise.race([srv.close(), new Promise((r) => setTimeout(r, 3000))]);
+  check(opened && Date.now() - t0 < 1500, 'stop: the server closes at once with a socket still open', { opened, ms: Date.now() - t0 });
+}
+
+// — files written by people and other programs —
+{
+  // a column title with semicolons, written then read back: still two columns (the separator is guessed)
+  const t = { headers: ['Room', 'Open (mon; tue; wed)'], rows: [['Louvre', '9:00, closed tuesday'], ['Orsay', 'a;b']] };
+  check(JSON.stringify(parseCsv(writeCsv(t))) === JSON.stringify(t), 'csv: semicolons in a title or a cell survive a save (quoted): the separator stays a comma', parseCsv(writeCsv(t)));
+  const big = `a,b\n${'1,2\n'.repeat(200000)}`;
+  let rows = -1;
+  try { rows = parseCsv(big).rows.length; } catch (e) { rows = e.message; }
+  check(rows === 200000, 'csv: a table of 200 000 rows is read (no stack overflow)', rows);
+  const n = normalizeInteractions({ stages: [{ id: 'Intro' }, { name: 'Main Hall' }], start: 'Main Hall',
+    patterns: [{ name: 'A', stage: 'Intro', when: { kind: 'constructor' }, then: [{ do: 'say', text: 'hi' }, { do: 'toString' }, { do: '__proto__' }] }] });
+  check(n.start === 'main-hall' && n.patterns[0].stage === 'intro' && n.patterns[0].when.kind === 'says' && JSON.stringify(n.patterns[0].then) === '[{"do":"say","text":"hi"}]',
+    'interactions: stages named as written ("Main Hall", "Intro") still found; "constructor", "toString" are not kinds or actions', n);
+  // an interactions.json saved with a BOM (PowerShell, some Windows editors), a table named menu.CSV edited by hand
+  const d = mkdtempSync(join(tmpdir(), 'vik-bom-'));
+  const st = createAgentStore({ dir: d });
+  st.create({ name: 'Kiosk' });
+  writeFileSync(join(d, 'kiosk', 'interactions.json'), `﻿${JSON.stringify({ stages: [{ id: 'main' }], patterns: [{ name: 'Hi', when: { kind: 'says', examples: ['hello'] }, then: [] }] })}`);
+  check(st.get('kiosk').interactions.patterns.length === 1, 'files: an interactions.json starting with a BOM keeps its patterns');
+  writeFileSync(join(d, 'kiosk', 'knowledge', 'menu.CSV'), 'name,price\nTea,2\n');
+  const before = st.get('kiosk').tables.find((x) => x.id === 'menu');
+  writeFileSync(join(d, 'kiosk', 'knowledge', 'menu.CSV'), 'name,price\nTea,2\nCoffee,3\n');
+  const after = st.get('kiosk').tables.find((x) => x.id === 'menu');
+  check(before && before.rows.length === 1 && after && after.rows.length === 2, 'files: a table named menu.CSV, edited by hand, is read again', [before && before.rows.length, after && after.rows.length]);
 }
 
 // no process.exit(): on Windows, exiting while the fetch sockets close can crash Node (0xC0000409)

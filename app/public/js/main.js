@@ -225,12 +225,19 @@ async function save() {
 $('#saveBtn').addEventListener('click', save);
 window.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') { e.preventDefault(); save(); } });
 window.vikSave = save;
+// the window closing (app/electron/main.cjs): the edits typed a moment ago, on disk before it goes
+window.vikSaveBeforeClose = () => saveNow();
+// a reload or a browser tab closing: what waits is sent at once (fetch keepalive, app/public/js/api.js)
+window.addEventListener('pagehide', () => flush());
+// a file dropped on the studio would replace it (the browser opens the file): agents and tables are imported from the menus
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => e.preventDefault());
 
 // ———————————————————————————— the server: models loading, engine, decision model ————————————————————————————
 let wasLoading = false;
 async function pollHealth() {
   let hl;
-  try { hl = await api.health(); } catch { $('#engineLine').textContent = 'No local server: Gemini still works.'; return; }
+  try { hl = await api.health(); } catch { $('#engineLine').textContent = 'No local server: Gemini still works.'; setTimeout(pollHealth, 3000); return; }
   showHealth(hl);
   engineName = hl.engine || '';
   if (hl.error) banner('err', hl.error);

@@ -44,6 +44,7 @@ export function createFarmFinder(log = () => {}) {
       if (!warned) log(`(LLM farms: cannot listen to the network: ${e.message})`);
       warned = true;
       try { s.close(); } catch { /* closed */ }
+      if (socket === s) socket = null;                   // the next look at the farms tries again
     });
     s.on('message', (msg, rinfo) => {
       let snap;

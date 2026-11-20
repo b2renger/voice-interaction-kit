@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { ROOT, check, summary, sleep } from './helpers.mjs';
 
 const require = createRequire(import.meta.url);
-const { setupUpdates, updateMode, newer, REPO, PAGE } = require(join(ROOT, 'app', 'electron', 'updates.cjs'));
+const { setupUpdates, updateMode, newer, REPO, PAGE, STALL_MS } = require(join(ROOT, 'app', 'electron', 'updates.cjs'));
 
 // — versions —
 check(newer('3.2.0', '3.1.0') && newer('v3.10.0', '3.9.9') && newer('4.0.0', '3.99.99') && !newer('3.1.0', '3.1.0') && !newer('3.0.9', '3.1.0') && !newer('', '3.1.0'),
@@ -39,7 +39,38 @@ const tagPage = (v) => `https://github.com/${REPO}/releases/tag/v${v}`;
   const u = setupUpdates({ ...w, mode: 'none', fetchImpl: github('v9.0.0'), firstAfterMs: 10 });
   await u.check();
   await sleep(30);
-  check(u.state().status === 'source' && u.state().version === '3.1.0' && w.states.length === 0, 'source code: the window shows the version, nothing is checked', u.state());
+  check(u.state().status === 'source' && u.state().version === '3.1.0' && w.states.length === 0 && u.state().page === PAGE,
+    'source code: the window shows the version and the Releases page, nothing is checked', u.state());
+}
+
+// — a check that fails after a newer version was found: still available (Mac, .zip) —
+{
+  const w = world();
+  let up = true;
+  const signals = [];
+  const net = async (url, o) => { signals.push(o && o.signal); if (!up) throw new Error('offline'); return github('v3.2.0')(url, o); };
+  const u = setupUpdates({ ...w, mode: 'notice', fetchImpl: net, firstAfterMs: 1e9 });
+  await u.check();
+  up = false;
+  await u.check();
+  check(u.state().status === 'available' && u.state().latest === '3.2.0' && w.logs.some((l) => /offline/.test(l)),
+    'notice: offline an hour later, "VIK 3.2.0 is available" stays (the failure goes to the log)', u.state());
+  check(signals.every((s) => s && typeof s.aborted === 'boolean'), 'notice: GitHub is asked with a time limit (a network that swallows the request is not "looking…" forever)');
+}
+
+// — a download that stalls (Windows): checks start again after half an hour —
+{
+  const au = new (class extends EventEmitter { constructor() { super(); this.checks = 0; } setFeedURL() {} checkForUpdates() { this.checks++; } quitAndInstall() {} })();
+  const w = world();
+  let t = 1000;
+  const u = setupUpdates({ ...w, autoUpdater: au, mode: 'squirrel', firstAfterMs: 1e9, now: () => t });
+  await u.check();
+  au.emit('update-available');
+  await u.check();
+  const during = au.checks;
+  t += STALL_MS + 1;
+  await u.check();
+  check(during === 1 && au.checks === 2 && u.state().status === 'checking', 'Windows: a download silent for half an hour no longer blocks the checks', { during, after: au.checks });
 }
 
 // — the notice (Mac, the .zip) —
@@ -101,7 +132,7 @@ class FakeUpdater extends EventEmitter {
   au.emit('update-available');
   await sleep(10);
   check(u.state().status === 'downloading' && w.shows.length === 0, 'Windows: a download that starts shows "downloading", and opens nothing');
-  check(u.state().latest === '9.0.0' && calls.length === 1, 'Windows: the window says which version downloads (asked of GitHub: the updater does not say)', u.state().latest);
+  check(u.state().latest === '' && calls.length === 0, 'Windows: while it downloads, no version is named (the updater does not say which; GitHub\'s latest may not be it)', u.state().latest);
   const n = au.checks;
   await sleep(80);
   check(au.checks === n, 'Windows: no check while it downloads', [n, au.checks]);

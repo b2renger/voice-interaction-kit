@@ -9,7 +9,7 @@ import { debounce } from './ui.js';
 const D = VoiceCore.DEFAULTS;
 /** This computer's settings: they never travel with an agent (an export, a persona file shared by a student). */
 export const MACHINE = ['engine', 'apiKey', 'tokenUrl', 'geminiEndpoint', 'geminiModel', 'serverUrl', 'localAsr', 'localLlm',
-  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'micGain', 'micGate', 'micAutoGain'];
+  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'micGain', 'micGate', 'micAutoGain', 'clientsMayStart'];
 /** Written in persona.md even when they have their default value. */
 const ALWAYS = ['name', 'title', 'language', 'greeting'];
 const MACHINE_STORE = 'vik.machine';
@@ -147,13 +147,22 @@ export function busy() {
 }
 
 /**
+ * An agent as the server keeps it: cells trimmed, empty rows left out. A row just added (still empty) or a cell
+ * ending with a space is not a change made outside the studio.
+ */
+function asSaved(a) {
+  const clean = (r) => r.map((c) => String(c == null ? '' : c).trim());
+  return JSON.stringify({ ...a, tables: (a.tables || []).map((t) => ({ ...t, headers: clean(t.headers || []), rows: (t.rows || []).map(clean).filter((r) => r.some((c) => c !== '')) })) });
+}
+
+/**
  * The agent's files again, from disk: they may have been edited by hand (a table in a spreadsheet) while the
  * studio was in the background. Never over edits of the studio not yet saved. Tells the views if anything changed.
  */
 export async function reloadAgent() {
   if (!state.agentId || busy()) return false;
   const a = await api.agent(state.agentId);
-  if (busy() || a.id !== state.agentId || JSON.stringify(a) === JSON.stringify(state.agent)) return false;
+  if (busy() || a.id !== state.agentId || asSaved(a) === asSaved(state.agent)) return false;
   state.agent = a;
   emit('agent', a);
   return true;

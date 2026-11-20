@@ -34,7 +34,7 @@ A "patch op" travels with the patch: if you share or clone the patch, the op com
 | port | role |
 |---|---|
 | App address | the studio's address for clients: `ws://localhost:8790/events` (VIK: **Settings → Clients**) |
-| Start, Stop | open or close the conversation in the app (Start during a conversation = restart) |
+| Start, Stop | open or close the conversation in the app. **Start** works only if VIK allows it: **Settings → Clients → Clients may start a conversation** (off at first). Start during a conversation does nothing |
 | Text + Send text | type instead of talking, or a button that "says" something: the agent replies |
 | Context + Send context | inform the agent without it replying ("the user is looking at room 2"). Sent while the agent speaks, it waits for the end of the reply, so it does not cut it off |
 | Choice index + Choose | answer a choice by its number (0 = the first one) |

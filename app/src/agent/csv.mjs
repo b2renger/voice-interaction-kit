@@ -27,7 +27,7 @@ export function parseCsv(text) {
   if (started || field) { row.push(field); lines.push(row); }
   const kept = lines.map((r) => r.map((x) => x.trim())).filter((r) => r.some((x) => x !== ''));
   const head = kept.shift() || [];
-  const width = Math.max(head.length, ...kept.map((r) => r.length), 0);
+  const width = kept.reduce((w, r) => Math.max(w, r.length), head.length);   // a loop: a spread of 150 000 rows overflows
   const headers = uniqueHeaders(Array.from({ length: width }, (_, i) => head[i] || ''));
   const rows = kept.map((r) => Array.from({ length: width }, (_, i) => r[i] || ''));
   return { headers, rows };
@@ -38,7 +38,8 @@ export function writeCsv({ headers = [], rows = [] } = {}) {
   const width = headers.length;
   const cell = (v) => {
     const s = String(v == null ? '' : v);
-    return /[",\n\r]|^\s|\s$/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    // a ; or a tab too: read back, a first line with more of them than commas would change the separator
+    return /[",;\t\n\r]|^\s|\s$/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = [headers, ...rows.map((r) => Array.from({ length: width }, (_, i) => (r || [])[i]))];
   return `﻿${lines.map((r) => r.map(cell).join(',')).join('\n')}\n`;

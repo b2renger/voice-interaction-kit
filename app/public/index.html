@@ -309,6 +309,8 @@
       <div class="group">
         <header><h2>Clients</h2><p>cables.gl, p5.js and web pages follow the conversation at this address, on this computer.</p></header>
         <div class="row"><span class="addr" id="clientsAddr">…</span><button class="btn" id="copyAddr" type="button">Copy</button></div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" data-k="clientsMayStart"> Clients may start a conversation, and so open the microphone</label>
+        <p class="hint">While a conversation runs, every client connected here receives everything said, the person's words and the agent's replies, and can stop it, interrupt it, type and send signals. Off, a client's Start is refused: only someone at this window starts a conversation. On, a patch or sketch can start listening at any moment, for an installation that starts by itself. The pages that may connect are listed in config.json ("allowedOrigins"): by default cables.gl, the p5.js editor and the pages of this computer, so any patch or sketch from those sites can connect while VIK is open. Programs on this computer are not asked where they come from: any of them, or another account on this computer, can follow a conversation and change the agents. <a href="#guide/clients" class="help" data-guide="clients#who-can-connect">Who can connect</a></p>
       </div>
       <div class="group" data-show="local">
         <header><h2>OSC</h2><p>Out: the patterns' "Send OSC" messages, to ArtLux, an Arduino, a show controller. In: the messages of sensors and buttons, whose values the agent knows and its patterns react to.</p></header>
@@ -345,7 +347,7 @@
   <form method="dialog">
     <h2 id="askTitle"></h2>
     <label class="field"><span id="askLabel"></span><input type="text" id="askValue" autocomplete="off"></label>
-    <div class="row"><button class="btn quiet" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok" id="askOk">OK</button></div>
+    <div class="row"><button type="button" class="btn quiet" data-close="cancel">Cancel</button><button class="btn primary" value="ok" id="askOk">OK</button></div>
   </form>
 </dialog>
 <dialog id="signalDlg">
@@ -354,7 +356,7 @@
     <p class="hint">What a sensor or a button would send from cables or p5.js. A pattern "when a client sends this signal" answers it.</p>
     <label class="field"><span>Name</span><input type="text" id="signalName" list="signalNames" autocomplete="off"><datalist id="signalNames"></datalist></label>
     <label class="field"><span>Value</span><input type="text" id="signalValue" autocomplete="off"></label>
-    <div class="row"><button class="btn quiet" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Send</button></div>
+    <div class="row"><button type="button" class="btn quiet" data-close="cancel">Cancel</button><button class="btn primary" value="ok">Send</button></div>
   </form>
 </dialog>
 <!-- this version of VIK, and new ones (Files → Check for updates…, Settings → Version): app/public/js/updates.js -->

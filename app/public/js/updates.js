@@ -13,6 +13,7 @@ const MODE = {
   none: 'This VIK runs from the source code: git pull updates it. The installers are on the Releases page.',
 };
 const time = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const STALL_MS = 30 * 60000;   // a download silent this long can be checked again (app/electron/updates.cjs)
 
 /** What the window says for a state: [status, how, link label or '' (no link)]. */
 export function describe(s) {
@@ -24,7 +25,7 @@ export function describe(s) {
     case 'ready': return [`${v} is ready.`, 'Restart now to use it, or later: it starts the next time you open VIK. Your agents and settings are kept.', 'What\'s new'];
     case 'available': return [`${v} is available.`, 'Download the new installer and open it: your agents and settings are kept.', 'Open the download page'];
     case 'failed': return [`Could not check for a new version: ${s.error}`, 'The network may block GitHub. The new versions are on the Releases page.', 'Open the download page'];
-    case 'source': return ['', MODE.none, ''];
+    case 'source': return ['', MODE.none, 'Releases page'];
     default: return ['Not checked yet.', MODE[s.mode] || '', ''];
   }
 }
@@ -42,7 +43,8 @@ function paint() {
   if (st.page) page.href = st.page;
   page.classList.toggle('quiet', link === 'What\'s new');
   $('#updCheck').hidden = st.status === 'source';
-  $('#updCheck').disabled = ['checking', 'downloading', 'ready'].includes(st.status);
+  const stalled = st.status === 'downloading' && st.checkedAt && Date.now() - st.checkedAt > STALL_MS;
+  $('#updCheck').disabled = ['checking', 'ready'].includes(st.status) || (st.status === 'downloading' && !stalled);
   $('#updInstall').hidden = st.status !== 'ready';
   const news = ['ready', 'available'].includes(st.status) && st.latest ? `, VIK ${st.latest} is ${st.status === 'ready' ? 'ready' : 'available'}` : '';
   $('#appVersion').textContent = `${st.version ? `VIK ${st.version}` : 'VIK'}${news}`;
@@ -70,4 +72,6 @@ export function initUpdates() {
   // the app's menu (Files → Check for updates…), and a new version ready or available (app/electron/main.cjs)
   window.vikUpdates = (check) => open(!!check);
   refresh();
+  // Settings → Version follows too, window closed (a new version ready while you work)
+  setInterval(() => { if (!poll) refresh(); }, 30000);
 }

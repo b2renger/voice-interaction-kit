@@ -6,6 +6,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:        # the Release workflow runs it first: nothing is published if a suite fails
+
+permissions:
+  contents: read
 
 jobs:
   tests:
@@ -13,6 +17,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -24,7 +30,7 @@ jobs:
 
       - name: Install Playwright (Chromium) for the browser suites, and onnxruntime-node for Smart Turn
         run: |
-          npm install
+          npm ci
           npm install --no-save onnxruntime-node
           npx playwright install --with-deps chromium
 

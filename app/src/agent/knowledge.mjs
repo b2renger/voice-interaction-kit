@@ -64,6 +64,10 @@ export function describe(e) {
 
 /** Is any name of this entry said in the sentence? */
 export function entryNamedIn(sentence, e) { return (e.names || [e.key]).some((n) => namedIn(sentence, n)); }
+/** How long the longest of the entry's names said in the sentence is (0: none): "Paris Nord" beats "Paris". */
+export function namedLength(sentence, e) {
+  return Math.max(0, ...(e.names || [e.key]).filter((n) => namedIn(sentence, n)).map((n) => normalize(n).length));
+}
 
 /** The entries to give the model: these, then their links (one step), without repeats, at most `max`. */
 export function withLinks(entries, chosen, max = 6) {

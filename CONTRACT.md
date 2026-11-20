@@ -49,7 +49,7 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 | `bot.end` | the reply is finished | `text` | `On reply end` |
 | `interruption.pending` | someone talks over the agent: its voice dips while the kit decides (local, `interruptAfterMs` above 0) | `by` (`user`) | `On interruption pending` |
 | `interruption.cancelled` | it was only a backchannel ("mm-hm") or a noise: the voice comes back and the reply carries on | `reason` (`backchannel` or `noise`), `text` | `On interruption cancelled` |
-| `interrupted` | the agent was cut off | `by` (`user` or `client`), `said` | `On interruption` |
+| `interrupted` | the agent was cut off | `by` (`user`, `client`, or `error`: its reply failed, an `error` event says why), `said` | `On interruption` |
 | `turn` | summary of a turn | `user`, `bot`, `interrupted`, `ms` | `On turn` |
 | `ui.choices` | the agent offers choices | `question`, `options` | `On choices` |
 | `ui.mood` | the agent changes mood | `mood` | `On mood` |
@@ -131,20 +131,20 @@ On the Gemini side, an open session cannot change persona, voice or turn rules. 
 
 Any page can follow the conversation and drive it through one WebSocket: `ws://localhost:8790/events` (VIK menu **Engine → Copy address for clients**). The cables op, the examples in [`examples/`](examples/) and your own pages all use it.
 
-Allowed pages: those served from this computer (`http://localhost:*`, `http://127.0.0.1:*`), cables.gl and the p5.js web editor (`allowedOrigins` in `config.json`). A page opened by double-click (`file://`) is refused: the browser hides where it comes from, so it could be any website. Open it through a local web server instead (VS Code's Live Server, or `npx serve`).
+Allowed pages: those served from this computer (`http://localhost:*`, `http://127.0.0.1:*`), cables.gl and the p5.js web editor (`allowedOrigins` in `config.json`): any patch or sketch from those sites, in a browser of this computer, can connect, and receives everything said during a conversation. A program of this computer sends no origin and is accepted too, here and on the studio's own addresses: VIK cannot tell it from the studio. Requests must be named `127.0.0.1` or `localhost` (a web page whose name was pointed at this computer is refused), unless `host` in `config.json` opens the server to the network. A page opened by double-click (`file://`) is refused: the browser hides where it comes from, so it could be any website. Open it through a local web server instead (VS Code's Live Server, or `npx serve`).
 
 **The app sends** (JSON):
 
 - `{type:'hello', app, name, engine, state, stage, language, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the studio opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when no studio is connected (the server runs on its own, `npm run server`, with no lab page open): nothing happens until one opens;
 - every event of the table above, as it is: `{type, state, t, …data}`;
 - `{type:'levels', user, bot}`: the mic and the voice, from 0 to 1, about 30 times a second while they move;
-- `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the studio is closed) or `bad-command`.
+- `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the studio is closed), `bad-command`, or `start-refused` (this computer does not let clients start a conversation).
 
 **The client sends** (JSON):
 
 | command | what it does |
 |---|---|
-| `{type:'start'}` | starts the conversation, like the studio's Start button |
+| `{type:'start'}` | starts the conversation, like the studio's Start button, if this computer allows it (the studio's **Settings → Clients → Clients may start a conversation**, off at first; the setting `clientsMayStart` of that computer): otherwise refused, with `{type:'error', code:'start-refused'}` to every client. Nothing happens during a conversation |
 | `{type:'stop'}` | stops it |
 | `{type:'interrupt'}` | cuts the agent's reply |
 | `{type:'text', text}` | a typed message: the agent replies to it |

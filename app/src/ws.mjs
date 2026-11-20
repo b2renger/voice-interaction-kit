@@ -131,6 +131,7 @@ export class WebSocketConnection extends EventEmitter {
  * @param {{path?: string|RegExp, onConnection: (ws: WebSocketConnection, req: any) => void, allowOrigin?: (origin: string|undefined, path: string) => boolean}} o
  */
 export function attachWebSocket(server, o) {
+  const open = new Set();
   server.on('upgrade', (req, socket) => {
     // Node's HTTP server no longer listens for this socket's errors: a reset would be an uncaught exception
     socket.on('error', () => {});
@@ -139,6 +140,7 @@ export function attachWebSocket(server, o) {
     const key = req.headers['sec-websocket-key'];
     const upgrade = String(req.headers.upgrade || '').toLowerCase();
     if (!pathOk || !key || upgrade !== 'websocket') { socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'); return; }
+    if (o.allowRequest && !o.allowRequest(req)) { socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'); return; }
     if (o.allowOrigin && !o.allowOrigin(req.headers.origin, url)) { socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'); return; }
     const accept = createHash('sha1').update(key + GUID).digest('base64');
     socket.write([
@@ -149,6 +151,10 @@ export function attachWebSocket(server, o) {
       '', '',
     ].join('\r\n'));
     const ws = new WebSocketConnection(socket, req);
+    open.add(ws);
+    ws.on('close', () => open.delete(ws));
     o.onConnection(ws, req);
   });
+  /** Closes every connection still open (the server is stopping: server.close() waits for them). */
+  return { closeAll() { for (const ws of open) { try { ws.socket.destroy(); } catch { /* closed */ } } open.clear(); } };
 }

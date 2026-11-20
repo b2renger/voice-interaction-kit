@@ -31,7 +31,12 @@ class BrowserWindow extends EventEmitter {
     super();
     this.opts = opts; this.url = null; this.progress = []; this.destroyed = false;
     this.scripts = [];
-    this.webContents = { setWindowOpenHandler: (f) => { this.openHandler = f; }, getURL: () => this.url, executeJavaScript: (js) => { this.scripts.push(js); return Promise.resolve(); } };
+    this.wcEvents = {};
+    this.webContents = {
+      setWindowOpenHandler: (f) => { this.openHandler = f; }, getURL: () => this.url,
+      executeJavaScript: (js) => { this.scripts.push(js); return Promise.resolve(); },
+      on: (ev, fn) => { this.wcEvents[ev] = fn; },
+    };
     state.windows.push(this);
     setTimeout(() => this.emit('ready-to-show'), 10);
   }
@@ -39,6 +44,11 @@ class BrowserWindow extends EventEmitter {
   show() { this.shown = true; }
   setProgressBar(p) { this.progress.push(p); }
   isDestroyed() { return this.destroyed; }
+  close() {
+    const e = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+    this.emit('close', e);
+    if (!e.defaultPrevented) { this.destroyed = true; this.closedDone = true; this.emit('closed'); }
+  }
   isMinimized() { return false; }
   restore() {}
   focus() {}

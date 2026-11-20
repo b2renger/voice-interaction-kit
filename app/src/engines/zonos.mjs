@@ -141,7 +141,11 @@ export function createPageBridge(log = () => {}) {
     ready: () => !!ws && host.state === 'ready',
     /** The studio's window connected: it hosts the engine from now on (a newer window replaces an older one). */
     attach(sock) {
-      if (ws && ws !== sock) { try { ws.close(1000, 'replaced'); } catch { /* closed */ } }
+      if (ws && ws !== sock) {
+        // what the older window was saying ends now (its answers are ignored from here on): the reply moves on
+        failAll('another studio window took over the Zonos engine');
+        try { ws.close(1000, 'replaced'); } catch { /* closed */ }
+      }
       ws = sock;
       Object.assign(host, { state: 'loading', loaded: 0, total: 0, error: '' });
       sock.on('message', (data, binary) => {
@@ -278,7 +282,9 @@ export function createZonosVoice(cfg = {}, log = () => {}) {
     if (Object.keys(doses).length) body.controls = doses;
     let sent = 0;
     try {
-      const r = await transport.request('POST', '/v2/generate', { body: JSON.stringify(body), signal });
+      // a server or a studio window that never answers: the default voice takes over (the window: no start of an
+      // answer in 60 s; the server: a sentence not finished in 2 min)
+      const r = await transport.request('POST', '/v2/generate', { body: JSON.stringify(body), signal, timeoutMs: bridge ? 60000 : 120000 });
       if (r.status < 200 || r.status >= 300) {
         const detail = (await r.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300);
         throw Object.assign(new Error(`${bridge ? 'the Zonos engine' : 'the Zonos server'} answered ${r.status}${detail ? `: ${detail}` : ''}`), { status: r.status });

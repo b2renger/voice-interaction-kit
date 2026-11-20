@@ -46,6 +46,7 @@ export const SMART_TURN_UNAVAILABLE = 'Smart Turn is unavailable here: using sil
 const DUCK_TEXT_WAIT_MS = 1500;   // after a short burst, wait this long (at most) for its text
 // OSC in: the latest value of at most this many addresses; a pattern it fires speaks after this long a pause
 const OSC_VALUES_MAX = 30;
+const OSC_ADDRESS_MAX = 200;     // a longer address is dropped (it would go into every request to the language model)
 export const OSC_PAUSE_MS = 1500;
 const OSC_SHOW_MS = 200;          // {type:'osc.in'}: at most one per address in this time (the last one always)
 // Spoken fillers ("Hmm, let me see…") while a slow reply is prepared: their audio frames carry this turn id
@@ -154,8 +155,14 @@ export class Session {
     this.voice = null;                                // a new conversation starts in the agent's own voice
     this.lang = '';                                   // and in its own language
     this.status('Preparing the models…', 0);
-    await this.lock(() => this.engine.prepare(this.s, (p) => this.status(progressText(p), p.progress)));
-    if (this.closed) return;                          // the page left during loading
+    // a model chosen while the first ones load (the studio sends it at once) is loaded too, before the conversation
+    const MODEL_KEYS = [...ASR_KEYS, ...LLM_KEYS, 'localVoiceEngine', ...Object.values(TTS_KEYS).flat()];
+    let prepared = null;
+    for (let i = 0; i < 3 && (!prepared || MODEL_KEYS.some((k) => JSON.stringify(prepared[k]) !== JSON.stringify(this.s[k]))); i++) {
+      prepared = this.s;
+      await this.lock(() => this.engine.prepare(prepared, (p) => this.status(progressText(p), p.progress)));
+      if (this.closed) return;                        // the page left during loading
+    }
     if (typeof this.engine.newConversation === 'function') this.engine.newConversation();
     this.openAsr();
     this.started = true;
@@ -171,7 +178,7 @@ export class Session {
     // the agent: its first stage, then its "start" pattern if it has one, otherwise the greeting
     const moment = await this.enterAgent();
     if (this.closed) return;
-    if (moment) { this.announce(moment); this.perform(this.newBot('speaking'), moment).catch((e) => this.error('start', e.message)); } else {
+    if (moment) { this.announce(moment); const bot = this.newBot('speaking'); this.perform(bot, moment).catch((e) => this.turnFailed(bot, 'start', e)); } else {
       const greeting = String(this.s.greeting || '').trim();
       if (greeting) this.sayFixed(greeting, true);
     }
@@ -219,7 +226,7 @@ export class Session {
     }
     // so does the agent's language (or another agent): the conversation goes back to it
     if (this.lang && ['agent', 'language'].some((k) => k in patch && patch[k] !== own[k])) this.lang = '';
-    if (!this.started) return;
+    if (!this.started || this.closed) return;         // closed: another conversation may own the models now
     const changed = (keys) => keys.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(this.vs[k]));
     if (changed(['language'])) this.send({ type: 'language', language: this.language, own: !this.lang });
     const asrChanged = changed(ASR_KEYS);
@@ -227,7 +234,13 @@ export class Session {
     if (asrChanged && this.asr) { this.asr.close(); this.asr = null; }   // close BEFORE reloading the model
     if (asrChanged || ttsChanged || changed(LLM_KEYS)) {
       this.status('New settings: reloading…', null);
-      await this.lock(() => this.engine.prepare(this.vs, (p) => this.status(progressText(p), p.progress)));
+      try {
+        await this.lock(() => this.engine.prepare(this.vs, (p) => this.status(progressText(p), p.progress)));
+      } catch (e) {
+        // a model that could not load: the agent must not stay deaf without saying so
+        if (asrChanged && !this.closed && !this.asr) { try { this.openAsr(); } catch (e2) { this.fatal(new Error(`Speech recognition cannot restart: ${e2.message}`)); } }
+        throw e;
+      }
       if (this.closed) return;
       this.status('', null);
     }
@@ -489,7 +502,7 @@ export class Session {
   /** Typed text; `speaker`: as if this person had said it (the studio's test of a pattern kept for some people). */
   onTyped(text, speaker) {
     const t = text.trim();
-    if (!t) return;
+    if (!t || !this.started || this.closed) return;    // before the models are ready, there is no one to answer
     if (this.bot) this.interrupt('client');
     this.respond(t, { asrMs: null, speaker: speaker !== undefined ? speaker.trim() : this.peopleOn ? '' : null });
   }
@@ -499,7 +512,8 @@ export class Session {
     const t = text.trim();
     if (!t || !this.started || this.closed) return;
     const bot = this.bot;
-    if (bot && bot.phase === 'playing') this.onPlaybackEnded(bot.id);   // finished, only the "played" news is missing
+    // finished, only the "played" news is missing; a question waiting is answered after this line
+    if (bot && bot.phase === 'playing') this.onPlaybackEnded(bot.id, false);
     if (this.bot) this.interrupt('client');
     this.sayFixed(t, true);
   }
@@ -520,8 +534,20 @@ export class Session {
     return bot;
   }
 
+  /** The agent's reply to what the person said; a failure ends that turn, says why, and the next one can start. */
   async respond(userText, timing) {
     const bot = this.newBot('thinking');
+    try { await this.reply(bot, userText, timing); } catch (e) { this.turnFailed(bot, 'reply', e); }
+  }
+
+  /** A turn of the agent that failed (a model that could not load…): it ends and says why, instead of hanging. */
+  turnFailed(bot, code, e) {
+    if (this.closed) return;
+    this.error(code, e && e.message ? e.message : String(e));
+    if (this.bot === bot) this.interrupt('error');
+  }
+
+  async reply(bot, userText, timing) {
     const speaker = timing.speaker == null ? null : timing.speaker;  // who said it (Settings → People)
     this.history.push({ role: 'user', content: userText });
     const t0 = Date.now();
@@ -704,9 +730,11 @@ export class Session {
     if (!d || this.closed) return;
     this.announce(d);
     const bot = this.bot;
-    if (bot && bot.phase === 'playing') this.onPlaybackEnded(bot.id);     // finished, only the "played" news is missing
+    // finished, only the "played" news is missing; a question waiting is answered after the signal's turn
+    if (bot && bot.phase === 'playing') this.onPlaybackEnded(bot.id, false);
     if (this.bot) this.interrupt('client');
-    this.perform(this.newBot('speaking'), d).catch((e) => this.error('signal', e.message));
+    const bot2 = this.newBot('speaking');
+    this.perform(bot2, d).catch((e) => this.turnFailed(bot2, 'signal', e));
   }
 
   // — OSC in ————————————————————————————————————————————————————————————————————
@@ -743,6 +771,8 @@ export class Session {
    */
   onOscIn(address, args) {
     if (!this.started || this.closed) return;
+    // an address goes into every request to the language model: anything on the network could send a huge one
+    if (typeof address !== 'string' || address.length > OSC_ADDRESS_MAX) return;
     const value = oscValue(args);
     this.oscValues.delete(address);
     this.oscValues.set(address, { value, at: Date.now() });
@@ -766,7 +796,11 @@ export class Session {
   showOscIn(address, args) {
     let t = this.oscShown.get(address);
     if (!t) {
-      if (this.oscShown.size >= OSC_VALUES_MAX) return;
+      if (this.oscShown.size >= OSC_VALUES_MAX) {       // the oldest address makes room (a new sensor still shows)
+        const [old, o] = this.oscShown.entries().next().value;
+        clearTimeout(o.timer);
+        this.oscShown.delete(old);
+      }
       t = { at: 0, timer: 0, args };
       this.oscShown.set(address, t);
     }
@@ -796,7 +830,8 @@ export class Session {
         // the model replies to the message, not to its own last words (as a choice is "(The user chose: …)")
         this.history.push({ role: 'user', content: `(OSC message: ${d.text})` });
         this.announce(d);
-        this.perform(this.newBot('speaking'), d).catch((e) => this.error('osc', e.message));
+        const bot = this.newBot('speaking');
+        this.perform(bot, d).catch((e) => this.turnFailed(bot, 'osc', e));
       }
     }
     if (this.oscQueue.size) this.oscTimer = setTimeout(() => this.oscTurn(), 100);
@@ -863,6 +898,7 @@ export class Session {
     const lang = code === (this.s.language || 'en') ? '' : code;
     if (lang === this.lang) return;
     const before = this.vs;
+    const was = this.lang;
     this.lang = lang;
     const after = this.vs;
     this.send({ type: 'language', language: this.language, own: !lang });
@@ -872,7 +908,18 @@ export class Session {
     if (!asrChanged && !changed(TTS_KEYS[voiceEngine(after)])) return;
     if (asrChanged && this.asr) { this.asr.close(); this.asr = null; }   // close BEFORE reloading the model
     this.status('Changing language…', null);
-    await this.lock(() => this.engine.prepare(after, (p) => this.status(progressText(p), p.progress)));
+    try {
+      await this.lock(() => this.engine.prepare(after, (p) => this.status(progressText(p), p.progress)));
+    } catch (e) {
+      // its models could not load: the conversation stays in its language, and the agent keeps hearing
+      if (!this.closed) {
+        this.lang = was;
+        this.send({ type: 'language', language: this.language, own: !this.lang });
+        this.status('', null);
+        if (asrChanged && !this.asr) { try { this.openAsr(); } catch (e2) { this.fatal(new Error(`Speech recognition cannot restart: ${e2.message}`)); } }
+      }
+      throw e;
+    }
     if (this.closed) return;
     this.status('', null);
     if (parlerNotEnglish(after)) this.status(PARLER_ENGLISH_ONLY, null);
@@ -1023,7 +1070,8 @@ export class Session {
     this.ws.send(Buffer.concat([head, Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength)]));
   }
 
-  onPlaybackEnded(turnId) {
+  /** The browser has played turn `turnId` to the end; answerPending false: a question waiting stays for the next turn's end. */
+  onPlaybackEnded(turnId, answerPending = true) {
     const bot = this.bot;
     if (!bot || bot.id !== turnId || bot.phase !== 'playing') return;
     clearTimeout(bot.safety);
@@ -1034,7 +1082,7 @@ export class Session {
       if (this.userText.trim()) this.send({ type: 'user.partial', text: this.userText });
       if (d.eotSeen) this.endOfTurn();
     }
-    if (this.pendingUser) {
+    if (this.pendingUser && answerPending) {
       const t = this.pendingUser;
       const speaker = this.pendingSpeaker;
       this.pendingUser = null;

@@ -154,7 +154,7 @@ export function initOscIn(agent) {
   agent.on('osc.in', (ev) => { if (seen.size < 30 || seen.has(ev.address)) seen.set(ev.address, ev.args.map(String).join(' ')); render(); });
   agent.on('error', (ev) => { if (ev.code === 'osc') { failed = ev.message; render(); } });
   agent.on('state', (ev) => { if (ev.state === 'connecting') { seen.clear(); failed = ''; } render(); });
-  onChange(() => { failed = ''; render(); });
+  onChange((what, detail) => { if (what === 'setting' && detail === 'oscIn') failed = ''; render(); });   // another port: try again
   render();
 }
 

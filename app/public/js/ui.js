@@ -46,6 +46,10 @@ export function toast(text, kind = '') {
   toastTimer = setTimeout(() => { el.hidden = true; }, kind === 'err' ? 6000 : 2600);
 }
 
+// A dialog's Cancel is not a submit button: Enter in a field submits with the form's first submit button, which
+// must be OK. It closes its dialog with the value "cancel".
+for (const b of document.querySelectorAll('dialog [data-close]')) b.addEventListener('click', () => b.closest('dialog').close(b.dataset.close));
+
 /** Asks for a name (Electron has no window.prompt). Resolves with the text, or null if cancelled. */
 export function ask(title, label, value = '', ok = 'OK') {
   const dlg = $('#ask');

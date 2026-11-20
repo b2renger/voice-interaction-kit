@@ -42,7 +42,8 @@ function handleSquirrelEvent({
 
 const SQUIRREL = handleSquirrelEvent();
 
-if (process.platform === 'linux') app.commandLine.appendSwitch('no-sandbox');   // required by QVAC on Linux
+// Required by QVAC on Linux (no Linux build is published). The window only ever shows the studio (will-navigate below).
+if (process.platform === 'linux') app.commandLine.appendSwitch('no-sandbox');
 
 let win = null;
 let srv = null;
@@ -91,15 +92,18 @@ async function loadAppConfig() {
   }
 }
 
-/** The microphone: the app only grants it to its own page. */
+/** The studio's own pages (http://127.0.0.1:<port>/…). */
+let ours = () => false;
+/** The microphone, and writing to the clipboard (Settings → Clients → Copy): only for the app's own page. */
+const GRANTED = ['media', 'clipboard-sanitized-write'];
 function setupPermissions(port) {
   const origins = [`http://127.0.0.1:${port}`, `http://localhost:${port}`];
-  const ours = (url) => typeof url === 'string' && origins.some((o) => url === o || url.startsWith(o + '/'));
+  ours = (url) => typeof url === 'string' && origins.some((o) => url === o || url.startsWith(o + '/'));
   session.defaultSession.setPermissionRequestHandler((wc, permission, callback, details) => {
-    const ok = permission === 'media' && ours(details.requestingUrl || wc.getURL());
+    const ok = GRANTED.includes(permission) && ours(details.requestingUrl || wc.getURL());
     callback(ok);
   });
-  session.defaultSession.setPermissionCheckHandler((wc, permission, requestingOrigin) => permission === 'media' && ours(requestingOrigin));
+  session.defaultSession.setPermissionCheckHandler((wc, permission, requestingOrigin) => GRANTED.includes(permission) && ours(requestingOrigin));
 }
 
 async function askMacMicrophone() {
@@ -233,9 +237,16 @@ async function offerInstall(fromMenu) {
   if (chosen === 2) openModelsFolder();
 }
 
-/** The studio's Updates window (app/public/js/updates.js): this version, and what the last check found. */
+/**
+ * The studio's Updates window (app/public/js/updates.js): this version, and what the last check found. A page that
+ * cannot open it yet (loading, reloading) opens it once loaded: a new version ready must not go unseen.
+ */
+let updatesPending = null;
 function showUpdates(check) {
-  if (win) win.webContents.executeJavaScript(`window.vikUpdates && window.vikUpdates(${check ? 'true' : 'false'})`).catch(() => {});
+  const later = () => { updatesPending = { check: updatesPending ? updatesPending.check || check : check }; };
+  if (!win || win.isDestroyed()) { later(); return; }
+  win.webContents.executeJavaScript(`window.vikUpdates ? (window.vikUpdates(${check ? 'true' : 'false'}), true) : false`)
+    .then((opened) => { if (!opened) later(); }, later);
 }
 
 function showLog() {
@@ -267,7 +278,8 @@ async function start() {
     return;
   }
   setupPermissions(srv.port);
-  await askMacMicrophone();
+  // asked at once, without holding the window: unanswered (a Mac with nobody at it), the studio still opens
+  askMacMicrophone().catch(() => {});
   buildMenu();
 
   win = new BrowserWindow({
@@ -284,6 +296,20 @@ async function start() {
   // links open in the browser; only web addresses (never file: or other programs' protocols)
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:\/\//i.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.on('page-title-updated', (e) => e.preventDefault());
+  win.webContents.on('did-finish-load', () => { if (updatesPending) { const p = updatesPending; updatesPending = null; showUpdates(p.check); } });
+  // the window shows the studio and nothing else: a link or a file dropped on it opens in the browser, or not at all
+  const stay = (e, url) => { if (ours(url)) return; e.preventDefault(); if (/^https?:\/\//i.test(url)) shell.openExternal(url); };
+  win.webContents.on('will-navigate', (e, url) => stay(e, e.url || url));
+  win.webContents.on('will-frame-navigate', (e) => { if (!ours(e.url)) e.preventDefault(); });
+  // closing: the edits typed a moment ago are saved first (they wait half a second otherwise), at most 4 s
+  let saved = false;
+  win.on('close', (e) => {
+    if (saved || !win || win.isDestroyed()) return;
+    e.preventDefault();
+    saved = true;
+    const save = win.webContents.executeJavaScript('window.vikSaveBeforeClose ? window.vikSaveBeforeClose() : ""');
+    Promise.race([save, new Promise((r) => setTimeout(r, 4000))]).catch(() => {}).finally(() => { if (win && !win.isDestroyed()) win.close(); });
+  });
   win.loadURL(srv.url);
   win.on('closed', () => { win = null; });
   srv.ready.then(() => offerInstall(false));

@@ -85,6 +85,8 @@ check(await ask(base.replace('127.0.0.1', 'localhost') + '/'), 'mic also granted
 check(!(await ask('https://example.com/')), 'mic refused to any other page');
 check(!(await ask(base + '/', 'geolocation')), 'other permissions refused');
 check(st.permissionCheck(null, 'media', base) === true && st.permissionCheck(null, 'media', 'https://example.com') === false, 'consistent permission check');
+check(await ask(base + '/', 'clipboard-sanitized-write') && !(await ask('https://example.com/', 'clipboard-sanitized-write')),
+  'the clipboard (Settings → Clients → Copy): granted to the studio only');
 
 // the menus
 const labels = JSON.stringify(st.menu || []);
@@ -113,6 +115,24 @@ check(st.relaunched && !st.relaunched.args.includes('--mock') && st.exited === 0
 
 // external links open in the browser
 check(win.openHandler({ url: 'https://cables.gl' }).action === 'deny', 'external links do not open inside the app');
+{
+  // the window never leaves the studio: a link followed, a file dropped on it
+  const electron = require('electron');
+  const opened = [];
+  const open = electron.shell.openExternal;
+  electron.shell.openExternal = (u) => { opened.push(u); return Promise.resolve(); };
+  const go = (url) => { const e = { url, prevented: false, preventDefault() { this.prevented = true; } }; win.wcEvents['will-navigate'](e, url); return e.prevented; };
+  const away = go('https://example.com/page');
+  const file = go('file:///C:/Users/e/agent.vik.json');
+  const own = go(base + '/');
+  electron.shell.openExternal = open;
+  check(away && file && !own && opened.join() === 'https://example.com/page', 'the window stays on the studio: a web link opens in the browser, a dropped file goes nowhere', { away, file, own, opened });
+  // closing the window: the studio saves the edits typed a moment ago, then the window closes
+  const before = win.scripts.length;
+  win.close();
+  await until(() => win.destroyed, 2000);
+  check(win.scripts.slice(before).some((js) => /vikSaveBeforeClose/.test(js)) && win.destroyed, 'closing the window saves the edits first (window.vikSaveBeforeClose), then it closes', win.scripts.slice(before));
+}
 
 // quitting closes the server
 const { app } = (await import('node:module')).createRequire(import.meta.url)('electron');

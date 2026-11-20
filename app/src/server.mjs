@@ -6,12 +6,15 @@
 // The people recognized by their voice: --people, or VIK_PEOPLE, or the app's own people.json; with another agents
 // folder (the tests), a temporary one: never the user's.
 import { join, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { loadConfig } from './config.mjs';
 import { startServer, APP_DIR } from './app-server.mjs';
 
 const args = parseArgs(process.argv.slice(2));
-const config = loadConfig(args.config ? join(process.cwd(), args.config) : join(APP_DIR, 'config.json'));
+const configFile = args.config ? resolve(process.cwd(), String(args.config)) : join(APP_DIR, 'config.json');
+if (args.config && !existsSync(configFile)) console.error(`✖ --config: ${configFile} does not exist: the default settings are used`);
+const config = loadConfig(configFile);
 
 /** Where the Electron app keeps its settings (its "userData" folder), so both use the same agents. */
 function appDataDir() {

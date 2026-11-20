@@ -1,10 +1,13 @@
 // The studio's calls to its own server (app/src/api.mjs, app-server.mjs).
 
 async function call(method, path, body) {
+  const text = body !== undefined ? JSON.stringify(body) : undefined;
   const r = await fetch(path, {
     method,
     headers: body !== undefined ? { 'content-type': 'application/json' } : {},
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: text,
+    // a save sent as the page goes away (a reload, a closing tab) still arrives; browsers cap these at 64 KB
+    keepalive: method !== 'GET' && (!text || text.length < 60000),
   });
   let j = null;
   try { j = await r.json(); } catch { /* no body */ }
