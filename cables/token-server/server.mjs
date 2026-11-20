@@ -83,7 +83,18 @@ async function createToken() {
   return { token: json.name, expiresAt: body.expireTime };
 }
 
+/**
+ * Named for this machine (127.0.0.1, localhost): a web page whose own name was pointed at this machine (DNS
+ * rebinding) keeps that name in the Host header, and must not get a token. On the network (HOST set): any name.
+ */
+function hostAllowed(req) {
+  if (!['127.0.0.1', 'localhost', '::1'].includes(HOST)) return true;
+  const h = String(req.headers.host || '').toLowerCase();
+  return [`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`].includes(h);
+}
+
 const server = createServer(async (req, res) => {
+  if (!hostAllowed(req)) { send(res, 403, { error: 'Use http://127.0.0.1 or http://localhost.' }); return; }
   cors(req, res);
   const origin = req.headers.origin;
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }

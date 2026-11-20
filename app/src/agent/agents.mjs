@@ -8,7 +8,7 @@
 // The studio edits them through the server's API (app-server.mjs); they can also be edited by hand while the app
 // runs: compiled() notices a file that changed. Writes go through a temporary file, so a crash never leaves half
 // a file. Deleted agents go to <dir>/.trash, not to oblivion.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, cpSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, cpSync, unlinkSync } from 'node:fs';
 import { join, basename, extname } from 'node:path';
 import { parsePersona, writePersona } from './persona.mjs';
 import { parseCsv, writeCsv } from './csv.mjs';
@@ -24,7 +24,7 @@ const MAX_COLUMNS = 50;
  * come from an agent: an agent shared by someone else must not send the conversation (or a key) elsewhere.
  */
 export const MACHINE_KEYS = ['engine', 'apiKey', 'tokenUrl', 'geminiEndpoint', 'geminiModel', 'serverUrl', 'localAsr', 'localLlm',
-  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'llmFarm', 'llmFarmModel', 'llmFarmKey', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'micGain', 'micGate', 'micAutoGain', 'agent', 'persona', 'knowledge', 'id'];
+  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'llmFarm', 'llmFarmModel', 'llmFarmKey', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'micGain', 'micGate', 'micAutoGain', 'clientsMayStart', 'agent', 'persona', 'knowledge', 'id'];
 const agentOnly = (s) => Object.fromEntries(Object.entries(s || {}).filter(([k]) => !MACHINE_KEYS.includes(k)));
 
 /** "opening-hours" → "Opening hours" */
@@ -65,7 +65,7 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
     add(join(f, 'interactions.json'));
     add(join(f, 'voices.json'));
     const k = join(f, 'knowledge');
-    if (existsSync(k)) for (const n of readdirSync(k).sort()) if (n.endsWith('.csv')) add(join(k, n));
+    if (existsSync(k)) for (const n of readdirSync(k).sort()) if (n.toLowerCase().endsWith('.csv')) add(join(k, n));   // menu.CSV too
     return parts.join('|');
   }
 
@@ -126,7 +126,8 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
 
   const store = {
     dir,
-    list: () => ids().map(summary),
+    // an agent that cannot be read is left out of the list, not the whole list
+    list: () => ids().flatMap((id) => { try { return [summary(id)]; } catch (e) { log(`✖ agent ${id}: ${e.message}`); return []; } }),
     get: (id) => compiled(id),
     compiled,
     /** Calls fn(id) after any change made through the store. */
@@ -304,11 +305,24 @@ function cleanTable(t) {
   return { headers, rows };
 }
 
-function readText(p) { try { return readFileSync(p, 'utf8'); } catch { return ''; } }
+/** A text file, without the UTF-8 mark some editors put first (it would make interactions.json invalid JSON). */
+function readText(p) { try { return readFileSync(p, 'utf8').replace(/^﻿/, ''); } catch { return ''; } }
 function readIfThere(p) { return existsSync(p) ? readText(p) : ''; }
+/**
+ * Writes a whole file at once (never half of it). Windows refuses to replace a file another program holds (a table
+ * open in a spreadsheet, an antivirus scan): a few tries, then a clear message, and no temporary file left behind.
+ */
 function atomicWrite(p, text) {
   const tmp = `${p}.${process.pid}.tmp`;
   writeFileSync(tmp, text);
-  renameSync(tmp, p);
+  const held = (e) => ['EPERM', 'EBUSY', 'EACCES'].includes(e.code);
+  for (let i = 0; ; i++) {
+    try { renameSync(tmp, p); return; } catch (e) {
+      if (i < 5 && held(e)) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100); continue; }
+      try { unlinkSync(tmp); } catch { /* gone */ }
+      if (held(e)) throw httpError(409, `${basename(p)} is open in another program (a spreadsheet?): close it, then save again.`);
+      throw e;
+    }
+  }
 }
 export function httpError(status, message) { return Object.assign(new Error(message), { status }); }

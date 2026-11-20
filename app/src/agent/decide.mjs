@@ -9,7 +9,7 @@
 // A pattern kept for some people (`who`) fires only for them. When it is the best one, the person speaking is not
 // one of them, and nothing else fits: "denied", the agent says it won't (Settings → People).
 // Whatever happens, the knowledge for the model: the entry found, the entry in focus, and the closest entries.
-import { entriesOf, describe, withLinks, entryNamedIn, normalize, findEntry } from './knowledge.mjs';
+import { entriesOf, describe, withLinks, entryNamedIn, namedLength, normalize, findEntry } from './knowledge.mjs';
 
 const RETRIEVE = 3;          // the closest entries given to the model for a free answer
 const RETRIEVE_MIN = 0.35;   // … if they score at least this
@@ -83,7 +83,9 @@ export function createDecider({ store, matcher, log = () => {} }) {
     // how close the sentence is to each entry: one of its names, or its whole row; a name said word for word ≥ 0.95
     const entryScore = entries.map((e, i) => {
       const s = Math.max(...ix.keys[i].map((v) => m.score(uSim, v, 'similar')), m.score(uQuery, ix.rows[i], 'search'));
-      return entryNamedIn(text, e) ? Math.max(s, 0.95) : s;
+      // a name said: at least 0.95, a little more for a longer one ("Paris Nord" said: not "Paris")
+      const len = namedLength(text, e);
+      return len ? Math.min(1, Math.max(s, 0.95) + Math.min(0.04, len / 1000)) : s;
     });
 
     const cands = [];

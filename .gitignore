@@ -6,8 +6,11 @@ dist/
 app/qvac/
 # Zonos's in-browser engine, built by app/scripts/build-zonos-engine.mjs (npm run zonos:engine)
 app/zonos-engine/
-# no lockfile: app/package.json pins what must not move (@qvac/sdk, and @qvac/inference in "overrides")
+# lockfiles: only the kit's and the app's are kept, so that the tests and the releases install exactly those
+# versions (npm ci). Regenerate them from a clean folder (no node_modules), or a platform's packages go missing.
 package-lock.json
+!/package-lock.json
+!/app/package-lock.json
 *.log
 npm-debug.log*
 

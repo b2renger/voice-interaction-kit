@@ -33,6 +33,7 @@ export class AsyncQueue {
 /** A wait that can be cancelled. */
 export function delay(ms, signal) {
   return new Promise((resolve) => {
+    if (signal && signal.aborted) { resolve(false); return; }   // already cancelled: never "done"
     if (!ms || ms <= 0) { resolve(true); return; }
     const t = setTimeout(() => resolve(true), ms);
     if (signal) signal.addEventListener('abort', () => { clearTimeout(t); resolve(false); }, { once: true });

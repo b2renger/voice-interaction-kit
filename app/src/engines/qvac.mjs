@@ -287,6 +287,8 @@ export async function createQvacEngine(config, log) {
         clearInterval(tick);
       }
     }
+    // the decision model may be on this computer now: the next preparation tries to load it again
+    if (!st.embed) st.embedTried = false;
     return failed;
   }
 

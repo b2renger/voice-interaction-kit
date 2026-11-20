@@ -157,6 +157,15 @@ const decider = createDecider({ store, matcher: () => words });
   const clear = await decider.decide('rooms', 'take me to the blue room', {});
   check(vague.kind === 'free' && vague.candidates[0].score < 0.3 && clear.kind === 'pattern' && clear.entry.key === 'Blue room',
     'decide: a sentence that fits every entry about as well is not a mention (ambiguity); a name said is', [vague.candidates[0], clear.entry]);
+  // one name inside another: the longer one said wins, whatever the order of the rows
+  store.create({ name: 'Trains' });
+  store.saveTable('trains', 'stations', { headers: ['name', 'platform'], rows: [['Paris', '1'], ['Paris Nord', '7'], ['Lyon', '2'], ['Lyon Part Dieu', '9']] });
+  store.saveInteractions('trains', { stages: [{ name: 'Main' }], patterns: [{ name: 'A station', when: { kind: 'mentions', table: 'stations' }, then: [{ do: 'say', text: '{platform}' }] }] });
+  const nord = await decider.decide('trains', 'the train to Paris Nord please', {});
+  const paris = await decider.decide('trains', 'the train to Paris please', {});
+  const dieu = await decider.decide('trains', 'is it Lyon Part Dieu', {});
+  check(nord.entry.key === 'Paris Nord' && paris.entry.key === 'Paris' && dieu.entry.key === 'Lyon Part Dieu',
+    'decide: "Paris Nord" said → Paris Nord, not Paris (a name inside another; the longer one said wins)', [nord.entry, paris.entry, dieu.entry]);
   // Persona → Talks about anything
   check(freeTalkOf(store.compiled('gardener')) === true && freeTalkOf(store.compiled('station-kiosk')) === false,
     'free talk: not set → on, unless the agent has an "otherwise" pattern (its behavior before the switch)');
@@ -201,6 +210,11 @@ const decider = createDecider({ store, matcher: () => words });
   check(calls[3][0] === 'title: Lyon | text: Lyon row', 'model: an entry with the document prompt and its title', calls[3]);
   const [x] = await m.vectors(['a'], 'similar');
   check(calls.length === 4 && Math.abs(Math.hypot(...x) - 1) < 1e-6, 'model: vectors are cached, and of unit length');
+  // a big agent indexed while another call runs: neither loses its vectors to the other's (the cache is limited)
+  const big = modelMatcher({ id: 'big', name: 'Big', batch: 500, embed: async (texts) => { await sleep(1); return texts.map((t) => [t.length, 1, 0]); } });
+  const many = (p, n) => Array.from({ length: n }, (_, i) => `${p} ${i}`);
+  const [r1, r2] = await Promise.all([big.vectors(many('row', 7000), 'document'), big.vectors(many('name', 7000), 'similar')]);
+  check(r1.every(Boolean) && r2.every(Boolean) && r1.length === 7000, 'model: two big calls at once each get all their vectors (none pushed out of the cache by the other)', [r1.filter((v) => !v).length, r2.filter((v) => !v).length]);
   check(m.score(x, x) > 0.999 && m.score(x, Float32Array.from([0, 0, 0])) === 0, 'model: the score maps the cosine above the floor to 0–1');
 }
 

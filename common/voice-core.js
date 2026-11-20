@@ -445,6 +445,8 @@ const VoiceCore = (function () {
       self.ws = ws; self.ready = false;
       self.pendingReject = function (err) { try { ws.close(); } catch (e) { /* already closed */ } settle(err); };
       const timer = setTimeout(function () {
+        // this socket is given up: its close must not start a second reconnection next to the caller's own
+        if (self.ws === ws) self.ws = null;
         try { ws.close(); } catch (e) { /* already closed */ }
         settle(fail('timeout', 'Gemini isn\'t responding (timed out).'));
       }, 15000);
@@ -1279,6 +1281,9 @@ const VoiceCore = (function () {
         startedAt = now();
         awayCount = 0;
         turn = newTurn();
+        // the server numbers the turns from 1 again for each conversation: a cutoff left by an interruption in the
+        // previous one would drop every reply of this one
+        dropBelowTurn = 0; playTurnId = 0; serverTurnId = 0;
         setState('connecting');
         emit('connecting', { engine: engineName });
         try {

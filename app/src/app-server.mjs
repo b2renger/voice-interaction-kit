@@ -149,7 +149,20 @@ export async function startServer(o) {
     return !origin || ownOrigin(origin);
   }
 
+  /**
+   * A request named for this computer (127.0.0.1, localhost). A web page whose name was pointed at this computer
+   * (DNS rebinding) is "same-origin" for the browser but keeps its own name in the Host header: refused. When the
+   * server listens on the network ("host" in config.json), any name.
+   */
+  const loopback = ['127.0.0.1', 'localhost', '::1'].includes(host);
+  function hostAllowed(req) {
+    if (!loopback) return true;
+    const h = String(req.headers.host || '').toLowerCase();
+    return [`127.0.0.1:${actualPort}`, `localhost:${actualPort}`, `[::1]:${actualPort}`].includes(h);
+  }
+
   const server = createServer((req, res) => {
+    if (!hostAllowed(req)) { res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Use http://127.0.0.1 or http://localhost'); return; }
     let path;
     try { path = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); res.end('Invalid address'); return; }
     if (req.headers['access-control-request-private-network']) res.setHeader('Access-Control-Allow-Private-Network', 'true');
@@ -159,7 +172,9 @@ export async function startServer(o) {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
       const error = engineError ? engineError.message : warmupError ? `${warmupError.message} (Click Start to try again.)` : null;
       const m = engine && engine.matcher ? engine.matcher() : null;
-      res.end(JSON.stringify({ engine: engine ? engine.name : null, models: warm, error, port: actualPort, status: lastStatus, wsUrl, matcher: m ? m.name : 'Words', matcherModel: !!m, agentsDir: store.dir }));
+      res.end(JSON.stringify({ engine: engine ? engine.name : null, models: warm, error, port: actualPort, status: lastStatus, wsUrl, matcher: m ? m.name : 'Words', matcherModel: !!m,
+        // the agents folder (its path holds the account's name): for the studio's own page, not for any website
+        ...(samePage(req) && !req.headers.origin ? { agentsDir: store.dir } : {}) }));
       return;
     }
     if ((path.startsWith('/api/') || path === '/farms') && !samePage(req)) { res.writeHead(403); res.end(); return; }
@@ -212,8 +227,9 @@ export async function startServer(o) {
   // app's own page may use them, so no website can take over the conversation or pose as the agent.
   // /events: the clients (cables, p5.js, pages).
   const ownOrigin = (origin) => [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`].includes(origin);
-  attachWebSocket(server, {
+  const sockets = attachWebSocket(server, {
     path: /^\/(voice|brain|events|zonos)$/,
+    allowRequest: hostAllowed,
     allowOrigin: (origin, path) => {
       const ok = path === '/events' ? originAllowed(config.allowedOrigins, origin) : !origin || ownOrigin(origin);
       if (!ok) log(`✖ refused a connection to ${path} from the page ${origin}${path === '/events' ? ' (not in "allowedOrigins", config.json)' : ''}`);
@@ -321,7 +337,7 @@ export async function startServer(o) {
    */
   function handleUpdates(req, res, path) {
     const u = typeof o.updates === 'function' ? o.updates() : null;
-    const state = () => (u ? u.state() : { version: VERSION, mode: 'none', status: 'source', latest: '', page: '', error: '', checkedAt: 0 });
+    const state = () => (u ? u.state() : { version: VERSION, mode: 'none', status: 'source', latest: '', page: 'https://github.com/b2renger/voice-interaction-kit/releases/latest', error: '', checkedAt: 0 });
     if (path === '/api/updates' && req.method === 'GET') { json(res, 200, state()); return true; }
     if (path === '/api/updates/check' && req.method === 'POST') { if (u) u.check(); json(res, 200, state()); return true; }
     if (path === '/api/updates/install' && req.method === 'POST') { if (u) u.install(); json(res, 200, state()); return true; }
@@ -389,6 +405,8 @@ export async function startServer(o) {
       for (const s of sessions) s.close('server shutting down');
       hub.close();
       farms.close();
+      sockets.closeAll();                          // the studio's Zonos voice, the clients: server.close() waits for each one
+      if (server.closeAllConnections) server.closeAllConnections();
       await new Promise((r) => server.close(() => r()));
       try { if (smartTurn) await (await smartTurn).close(); } catch { /* closed */ }
       try { if (speakers) await (await speakers).close(); } catch { /* closed */ }

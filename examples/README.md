@@ -16,7 +16,7 @@ The VIK studio is the brain: it listens, decides and speaks, with its agent (per
    - **VS Code**: install the *Live Server* extension, right-click `index.html` → **Open with Live Server**;
    - **or** in a terminal, inside the example's folder: `npx serve`, then open the address it shows.
    - For the p5.js sketch, you can also paste `sketch.js` into the [p5.js web editor](https://editor.p5js.org/).
-3. Click **Start** (or click the sketch). Talk: the page follows.
+3. In VIK, turn on **Settings → Clients → Clients may start a conversation** (off at first: no page can open the microphone without it). Then click **Start** (or click the sketch). Talk: the page follows.
 
 Why not a double-click? A page opened from a file (`file://`) gives no origin to the app, so the app can't tell it from any website, and it refuses it. The pages allowed are those served from this computer, cables.gl and the p5.js web editor (`allowedOrigins` in the app's `config.json`).
 

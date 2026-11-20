@@ -71,7 +71,7 @@ The **Release** workflow builds the Windows installer on a Windows machine and t
 | `VIK-1.0.0-mac-arm64.dmg` | Mac installer (M1 and later) |
 | `VIK-1.0.0-mac-arm64.zip` | Mac, the app in a zip |
 
-It takes about 15–25 minutes. Students then download from the repository's **Releases** page.
+It takes about 25–35 minutes. Nothing is published unless every test suite passes (the **Tests** workflow runs first) and each packaged app starts and runs (`app/scripts/smoke-package.mjs`: the server answers, the studio's page loads its agents). A tag with a dash (`v3.8.0-rc.1`) makes a pre-release, which the installed VIKs never update to. Students then download from the repository's **Releases** page.
 
 For a new version: change what you want, commit, push, then tag `v1.0.1` (or `v1.1.0`) and push the tag. The tag sets the app's version number.
 
@@ -87,4 +87,5 @@ To build the installers **without** publishing a release (to try them first): Ac
 - **No secret is in the repository.** The Gemini key lives in each student's browser (never in the patch) or in `cables/token-server/.env`, which `.gitignore` excludes. Double-check with `git status` before your first push that no `.env` file is listed.
 - **The Smart Turn model** (8.7 MB, BSD-2) is part of the repository on purpose: VIK works without downloading it.
 - **QVAC moves fast** (several breaking releases in 2026). `app/package.json` pins the SDK version: upgrade between terms, run `npm run selftest` on a Windows PC and a Mac, then tag a new release.
+- **The lockfiles** (`package-lock.json`, `app/package-lock.json`) fix every dependency's version: the tests and the releases install exactly them (`npm ci`). After changing a `package.json`, regenerate its lockfile from a folder with no `node_modules` (copy the `package.json` to an empty folder, `npm install --package-lock-only`, copy the lockfile back): made next to an existing `node_modules`, it can miss the other platform's packages.
 - **Licenses:** the kit is MIT (`LICENSE`); third-party parts keep theirs (`THIRD_PARTY_NOTICES.md`).

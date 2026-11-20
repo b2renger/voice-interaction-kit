@@ -292,6 +292,8 @@ Any number of clients can follow the conversation and drive it, at the same time
 - **p5.js, or a plain web page**: start from [`../examples/`](../examples/). Open them through a local web server (VS Code's Live Server, `npx serve`) or the p5.js web editor: a page opened by double-click is refused.
 - **Your own**: the messages are in [`../CONTRACT.md`](../CONTRACT.md), "The clients protocol". Allowed pages are listed in `allowedOrigins` (`config.json`); clients on other computers are not accepted.
 
+**Who can connect, honestly.** Any patch on cables.gl and any sketch in the p5.js editor (the default `allowedOrigins`), opened in a browser of this computer, can connect while VIK is open, and receives everything said during a conversation. Any program of this computer, or another account of it, can connect too, change the agents and follow a conversation: a program does not say where it comes from. A web page cannot pretend to be this computer (requests must be named `127.0.0.1` or `localhost`). A client **starts** a conversation, and so opens the microphone, only if **Settings → Clients → Clients may start a conversation** is on: it is off at first. Turn it on for an installation that starts by itself.
+
 **The app must stay open**: its window is the one that listens and speaks.
 
 ## Known limits

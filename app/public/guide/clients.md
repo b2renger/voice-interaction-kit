@@ -17,7 +17,19 @@ Clients connect to the address shown in **Settings → Clients** (`ws://localhos
 
 ## What clients send
 
-Start, Stop, Interrupt, a typed message, a choice, context ("the visitor is in room 2"), the conversation's language (a language button: `{type:'language', language:'fr'}`), and **signals** of their own.
+Start, Stop, Interrupt, a typed message, a choice, context ("the visitor is in room 2"), the conversation's language (a language button: `{type:'language', language:'fr'}`), and **signals** of their own. **Start** only works if this computer allows it: see [Who can connect](#who-can-connect).
+
+## Who can connect
+
+Be clear about this before an installation or a class.
+
+- **Pages from the allowed sites.** By default: the pages of this computer, **cables.gl** and the **p5.js editor** (`allowedOrigins` in `config.json`). So any patch on cables.gl, and any sketch in the p5.js editor, opened in a browser of this computer, can connect while VIK is open, even one made by someone else.
+- **Programs of this computer.** A program (a script, a tool) does not say where it comes from: VIK cannot tell it from the studio. Any program you run, or another account of this computer, can connect, change the agents and follow a conversation. Use VIK on a computer you trust, as with any app.
+- **Nothing from another computer**, unless you set `"host"` in `config.json` to listen on the network. A web page cannot reach VIK by pretending to be this computer (the server only answers requests named `127.0.0.1` or `localhost`).
+
+**What a client gets:** while a conversation runs, everything said, the person's words and the agent's replies, and what the agent decided. **What it can do:** stop the conversation, interrupt the agent, type, choose, send signals and context.
+
+**Start is yours.** A client may start a conversation, and so open the microphone, only if [Settings](view:settings) → **Clients** → **Clients may start a conversation** is on. It is off at first: a patch's **Start** is then refused, and the studio says so. Turn it on for an installation that starts by itself (a sensor, a button), on a computer that does nothing else.
 
 ## Signals
 

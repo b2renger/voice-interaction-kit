@@ -214,7 +214,17 @@ function connectHub(agent) {
   const send = (m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
   const info = () => { const s = settings(); send({ type: 'info', name: s.name || '', engine: s.engine }); };
   const command = (c) => {
-    if (c.type === 'start') $('#start').click();
+    if (c.type === 'start') {
+      if (agent.active || agent.state === 'connecting') return;   // already on: a second Start must not cut it off
+      // a client opens the microphone only if this computer allows it (Settings → Clients)
+      if (!settings().clientsMayStart) {
+        const message = 'A client asked to start a conversation: this VIK does not let clients open the microphone (Settings → Clients).';
+        banner('warn', 'A client (a cables.gl patch, a p5.js sketch, a page) asked to start a conversation. Clients may not open the microphone: allow it in Settings → Clients.');
+        send({ type: 'event', event: { type: 'error', code: 'start-refused', message, fatal: false } });
+        return;
+      }
+      $('#start').click();
+    }
     else if (c.type === 'stop') $('#stop').click();
     else if (c.type === 'interrupt') agent.interrupt();
     else if (c.type === 'text') agent.sendText(c.text);

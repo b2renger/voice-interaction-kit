@@ -34,11 +34,16 @@ function updateMode({ isPackaged, platform, execPath, exists }) {
 
 /** The latest release on GitHub: {version, page}. */
 async function latestRelease(fetchImpl) {
-  const r = await fetchImpl(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'VIK' } });
+  // a network that swallows the request (a captive portal): "could not check" after 15 s, not "looking…" forever
+  const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined;
+  const r = await fetchImpl(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'VIK' }, signal });
   if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
   const j = await r.json();
   return { version: String(j.tag_name || '').replace(/^v/, ''), page: String(j.html_url || PAGE) };
 }
+
+/** A download that has said nothing for this long is stalled: checks start again (Windows). */
+const STALL_MS = 30 * 60000;
 
 /**
  * Starts looking for updates. Returns {check(), state(), install()}.
@@ -54,14 +59,17 @@ function setupUpdates({
   platform = process.platform, arch = process.arch, feed = '', now = Date.now,
 }) {
   const version = app.getVersion();
-  const st = { version, mode, status: mode === 'none' ? 'source' : 'idle', latest: '', page: pageOf(version), error: '', checkedAt: 0 };
+  const st = { version, mode, status: mode === 'none' ? 'source' : 'idle', latest: '', page: mode === 'none' ? PAGE : pageOf(version), error: '', checkedAt: 0 };
   const set = (o, show = false) => { Object.assign(st, o); notify({ ...st }, show); };
   let timer = null;
   const told = new Set();  // the versions already shown by themselves (once per version and launch)
 
-  const failed = (e) => {
+  // known: a newer version found before (Mac, .zip): a check that fails now does not hide it
+  const failed = (e, known = null) => {
     log(`(updates: ${e.message})`);
-    if (st.status !== 'ready') set({ status: 'failed', error: e.message, page: PAGE, checkedAt: now() });
+    if (st.status === 'ready') return;
+    if (known) set(known);
+    else set({ status: 'failed', error: e.message, page: PAGE, checkedAt: now() });
   };
 
   if (mode === 'squirrel') {
@@ -69,9 +77,8 @@ function setupUpdates({
     autoUpdater.on('error', failed);
     autoUpdater.on('update-available', () => {
       log('▸ updates: a new version of VIK is downloading');
-      set({ status: 'downloading', error: '', page: PAGE, checkedAt: now() });
-      // the updater does not say which version: GitHub does, for the window (nothing if it can't)
-      latestRelease(fetchImpl).then((l) => { if (st.status === 'downloading' && newer(l.version, version)) set({ latest: l.version, page: l.page }); }, () => {});
+      // the updater does not say which version: its name comes when it is installed
+      set({ status: 'downloading', latest: '', error: '', page: PAGE, checkedAt: now() });
     });
     autoUpdater.on('update-not-available', () => set({ status: 'latest', latest: version, error: '', page: pageOf(version), checkedAt: now() }));
     autoUpdater.on('update-downloaded', (event, notes, name) => {
@@ -83,15 +90,17 @@ function setupUpdates({
   }
 
   async function check() {
-    // nothing to do from the source code, nor while the new version downloads (it ends 'ready' or 'failed')
-    if (mode === 'none' || st.status === 'ready' || st.status === 'downloading') return;
+    // nothing to do from the source code, nor while the new version downloads (it ends 'ready' or 'failed'), unless
+    // the download has said nothing for half an hour
+    if (mode === 'none' || st.status === 'ready' || (st.status === 'downloading' && now() - st.checkedAt < STALL_MS)) return;
+    const known = st.status === 'available' ? { status: st.status, latest: st.latest, page: st.page, checkedAt: st.checkedAt, error: '' } : null;
     set({ status: 'checking', error: '' });
     if (mode === 'squirrel') {
       try { autoUpdater.checkForUpdates(); } catch (e) { failed(e); }
       return;
     }
     let latest;
-    try { latest = await latestRelease(fetchImpl); } catch (e) { failed(e); return; }
+    try { latest = await latestRelease(fetchImpl); } catch (e) { failed(e, known); return; }
     if (!newer(latest.version, version)) { set({ status: 'latest', latest: version, page: pageOf(version), checkedAt: now() }); return; }
     const show = !told.has(latest.version);
     told.add(latest.version);
@@ -115,4 +124,4 @@ function setupUpdates({
   };
 }
 
-module.exports = { setupUpdates, updateMode, newer, latestRelease, REPO, PAGE };
+module.exports = { setupUpdates, updateMode, newer, latestRelease, REPO, PAGE, STALL_MS };

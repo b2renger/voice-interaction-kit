@@ -87,7 +87,7 @@ const GEMMA_PROMPTS = {
  */
 export function modelMatcher({ id, name, embed, calibration = GEMMA_CALIBRATION, prompts = GEMMA_PROMPTS, batch = 32 }) {
   const cache = new Map();             // prompted text → unit vector
-  const MAX = 50000;
+  const MAX = 10000;                   // about 30 MB of 768 numbers; an agent's index keeps its own vectors anyway
   // QVAC's embedding model takes one job at a time ("Cannot set new job: a job is already set"): one after the other
   let chain = Promise.resolve();
   const oneAtATime = (fn) => { const run = chain.then(fn, fn); chain = run.catch(() => {}); return run; };
@@ -105,14 +105,16 @@ export function modelMatcher({ id, name, embed, calibration = GEMMA_CALIBRATION,
      */
     async vectors(texts, kind = 'similar', titles = []) {
       const prompted = texts.map((t, i) => (prompts[kind] || prompts.similar)(String(t), titles[i]));
-      const todo = [...new Set(prompted.filter((p) => !cache.has(p)))];
+      // this call's own vectors, held apart: another call running meanwhile may push them out of the cache
+      const mine = new Map(prompted.filter((p) => cache.has(p)).map((p) => [p, cache.get(p)]));
+      const todo = [...new Set(prompted.filter((p) => !mine.has(p)))];
       for (let i = 0; i < todo.length; i += batch) {
         const part = todo.slice(i, i + batch);
         const out = await oneAtATime(() => embed(part));
-        part.forEach((p, k) => cache.set(p, unit(Float32Array.from(out[k] || []))));
+        part.forEach((p, k) => { const v = unit(Float32Array.from(out[k] || [])); mine.set(p, v); cache.set(p, v); });
       }
       while (cache.size > MAX) cache.delete(cache.keys().next().value);
-      return prompted.map((p) => cache.get(p));
+      return prompted.map((p) => mine.get(p));
     },
     /** @param {'similar'|'search'} [kind] two sentences, or a sentence against an entry's row */
     score(a, b, kind = 'similar') {
