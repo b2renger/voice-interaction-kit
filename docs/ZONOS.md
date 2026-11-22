@@ -80,7 +80,7 @@ VIK can also talk to a Zonos server running on the computer, for example Zyphra'
 
 ## Good to know
 
-- **Not tried with the real engine inside VIK yet.** This voice was written from Zonos's published sources and API description, and tested with a stand-in for the engine (`tests/test-zonos.mjs`). The first real run is yours: please report what you see.
+- **Tried for real** on a Windows laptop with an RTX 3050 graphics card (November 2026): the engine loads in VIK's window and the voice speaks. The automated tests (`tests/test-zonos.mjs`) use a stand-in for the engine, so they do not hear it: after a change to this voice, or a new version of Zonos, listen again.
 - **Numbers and dates.** The in-browser engine does not spell out numbers, dates or abbreviations (Zonos's servers do). VIK sends the sentence as written: "12 h 30" or "3 €" may be read oddly. Write such things in words in fixed lines, and ask the persona to do the same.
 - **The sliders were tuned in English.** Zonos's notes say its steering directions may respond differently from one model version to another; listen before you trust a number.
 - **Speed.** The setting `localSpeed` does not apply to Zonos: use the `pace` slider.
