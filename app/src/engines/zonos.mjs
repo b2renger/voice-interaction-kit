@@ -157,6 +157,7 @@ export function createPageBridge(log = () => {}) {
           return;
         }
         let m; try { m = JSON.parse(data); } catch { return; }
+        if (!m || typeof m !== 'object') return;       // "null", a number: valid JSON, not a message
         if (m.type === 'state') {
           const state = ['loading', 'ready', 'failed'].includes(m.state) ? m.state : 'loading';
           if (state !== host.state) log(state === 'ready' ? '▸ Zonos voice: the engine is loaded in the studio window' : state === 'failed' ? `(Zonos voice: the engine did not load — ${String(m.error || 'no reason given')})` : '▸ Zonos voice: the engine is loading in the studio window…');
@@ -239,8 +240,9 @@ export function createZonosVoice(cfg = {}, log = () => {}) {
         const h = await getJson('/v2/health', num(cfg.timeoutMs, bridge ? 5000 : 1500));
         if (!h || h.status !== 'ok') throw new Error('its health check did not say "ok"');
         const [sp, doc] = await Promise.all([
-          getJson('/v2/speakers', 5000).then((j) => (Array.isArray(j && j.speakers) ? j.speakers : []), () => []),
-          getJson('/v2/controls', 5000).catch(() => null),          // 404: a server started without a steering bundle
+          // (only entries that are voices: a list with anything else in it must not stop the studio)
+          getJson('/v2/speakers', 5000).then((j) => (Array.isArray(j && j.speakers) ? j.speakers.filter((s) => s && typeof s === 'object' && (typeof s.id === 'string' || typeof s.id === 'number')) : []), () => []),
+          getJson('/v2/controls', 5000).then((d) => (d && typeof d === 'object' ? d : null), () => null),          // 404: a server started without a steering bundle
         ]);
         st.speakers = sp; st.doc = doc; st.ok = true; st.reason = '';
         if (!was) log(`▸ Zonos voice: ${bridge ? 'the engine in the studio window answers' : `server at ${url}`} (${sp.length} voice(s), ${designSliders(doc).length} design slider(s))`);

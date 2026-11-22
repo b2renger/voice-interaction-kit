@@ -77,6 +77,13 @@ For a new version: change what you want, commit, push, then tag `v1.0.1` (or `v1
 
 **The installed VIKs update themselves on Windows.** The release also carries `RELEASES` and `vik-<version>-full.nupkg`: a VIK installed with `VIK-Setup` finds them within the hour (through update.electronjs.org, a free service that reads public GitHub releases), downloads them and offers to restart. Leave both files in the release, under their names. A Mac VIK says a new version is out, with a link. The version number must go up (`v3.2.0` after `v3.1.0`): updates only go forward.
 
+**What that means: a release reaches every installed Windows VIK.** This is by design: students get fixes without doing anything. It also makes this repository the one thing those computers trust. VIK is not code-signed, so nothing but GitHub stands between a release and the computers that install it within the hour.
+
+- Protect the GitHub account that can publish here: two-factor sign-in on, and few people with write access.
+- Try a build before releasing it (Actions tab → **Release** → **Run workflow**, below): what is released is installed everywhere, and updates only go forward.
+- The release is published by a workflow of this repository (`.github/workflows/release.yml`), which uses an action written by someone else (`softprops/action-gh-release`) with the right to write releases. It is named by its version (`@v2`); naming it by an exact commit instead means a change to that action cannot reach a release unseen.
+- A computer that must not update itself: `"updates": false` in its `config.json`.
+
 To check a real Windows update without publishing anything: Actions tab → **Update test** → **Run workflow**. It builds two test versions, installs the first and checks that it updates itself to the second.
 
 To build the installers **without** publishing a release (to try them first): Actions tab → **Release** → **Run workflow**. The files appear under "Artifacts" on the run page.

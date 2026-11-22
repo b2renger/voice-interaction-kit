@@ -161,11 +161,22 @@ export async function startServer(o) {
     return [`127.0.0.1:${actualPort}`, `localhost:${actualPort}`, `[::1]:${actualPort}`].includes(h);
   }
 
+  /**
+   * A request that comes from this computer itself. When the server listens on the network ("host" in config.json,
+   * for clients on other computers), those computers get what a client gets: the conversation's events (/events),
+   * the pages and /health. The agents, the people, the conversation itself (/voice), the hub's brain and the Zonos
+   * bridge stay this computer's: a program elsewhere on the network does not say where it comes from, so nothing
+   * else would tell it from the studio.
+   */
+  const localPeer = (req) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(String((req.socket && req.socket.remoteAddress) || ''));
+  const ownOnly = (path) => path.startsWith('/api/') || path.startsWith('/zonos/') || path === '/farms' || path === '/models';
+
   const server = createServer((req, res) => {
     if (!hostAllowed(req)) { res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Use http://127.0.0.1 or http://localhost'); return; }
     let path;
     try { path = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); res.end('Invalid address'); return; }
     if (req.headers['access-control-request-private-network']) res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    if (ownOnly(path) && !localPeer(req)) { res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Only from the computer VIK runs on'); return; }
     if (path === '/' || path === '/index.html') return sendFile(res, join(APP_DIR, 'public', 'index.html'));
     if (path === '/voice-core.js') return sendFile(res, coreFile());
     if (path === '/health') {
@@ -174,7 +185,7 @@ export async function startServer(o) {
       const m = engine && engine.matcher ? engine.matcher() : null;
       res.end(JSON.stringify({ engine: engine ? engine.name : null, models: warm, error, port: actualPort, status: lastStatus, wsUrl, matcher: m ? m.name : 'Words', matcherModel: !!m,
         // the agents folder (its path holds the account's name): for the studio's own page, not for any website
-        ...(samePage(req) && !req.headers.origin ? { agentsDir: store.dir } : {}) }));
+        ...(samePage(req) && !req.headers.origin && localPeer(req) ? { agentsDir: store.dir } : {}) }));
       return;
     }
     if ((path.startsWith('/api/') || path === '/farms') && !samePage(req)) { res.writeHead(403); res.end(); return; }
@@ -185,7 +196,8 @@ export async function startServer(o) {
     }
     // the Zonos voice for the studio: can it speak, its voices, its design sliders, and whether its engine is here
     if (path === '/api/voice/zonos' && req.method === 'GET') {
-      zonos.probe(new URL(req.url || '/', 'http://x').searchParams.has('fresh')).then(() => json(res, 200, { ...zonos.describe(), engineFiles: zonosFiles.enginePresent() }));
+      zonos.probe(new URL(req.url || '/', 'http://x').searchParams.has('fresh')).then(() => json(res, 200, { ...zonos.describe(), engineFiles: zonosFiles.enginePresent() }))
+        .catch((e) => { log(`✖ Zonos voice: ${e.message}`); json(res, 200, { mode: zonos.mode, host: null, available: false, url: zonos.url, error: e.message, voices: [], sliders: [], engineFiles: zonosFiles.enginePresent() }); });
       return;
     }
     // its in-browser engine and its model (downloaded once), for the studio's own page only: another website
@@ -229,7 +241,8 @@ export async function startServer(o) {
   const ownOrigin = (origin) => [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`].includes(origin);
   const sockets = attachWebSocket(server, {
     path: /^\/(voice|brain|events|zonos)$/,
-    allowRequest: hostAllowed,
+    // another computer (the server listening on the network) may follow the conversation, nothing more
+    allowRequest: (req) => hostAllowed(req) && ((req.url || '').split('?')[0] === '/events' || localPeer(req)),
     allowOrigin: (origin, path) => {
       const ok = path === '/events' ? originAllowed(config.allowedOrigins, origin) : !origin || ownOrigin(origin);
       if (!ok) log(`✖ refused a connection to ${path} from the page ${origin}${path === '/events' ? ' (not in "allowedOrigins", config.json)' : ''}`);

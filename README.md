@@ -119,11 +119,13 @@ tests/                        the automated tests (npm test)
 
 ## What has been checked
 
-More than **800 automated checks** pass (`npm test` at the root, see [`tests/README.md`](tests/README.md)). They run without models and without a Gemini key, against faithful fakes: Gemini Live, the QVAC SDK (which refuses what the real one refuses), Electron, an LLM farm. They include an agent built entirely in the studio, in Chromium (persona, table, pattern, a try, a conversation that follows the pattern, a signal, an export), every page of the Guide and its links, and the whole tutorial done as a newcomer would.
+More than **1,000 automated checks** pass (`npm test` at the root, see [`tests/README.md`](tests/README.md)). They run without models and without a Gemini key, against faithful fakes: Gemini Live, the QVAC SDK (which refuses what the real one refuses), Electron, an LLM farm. They include an agent built entirely in the studio, in Chromium (persona, table, pattern, a try, a conversation that follows the pattern, a signal, an export), every page of the Guide and its links, and the whole tutorial done as a newcomer would.
 
 **Checked with the real models**, on a Windows computer with QVAC 0.21: Whisper, Qwen3 1.7B and Supertonic load from their files; **EmbeddingGemma 300M** downloads from Hugging Face and runs the decision model: 34 sentences on the example agents, in English and in French, all decided as intended, in about 20 ms each. Its score ranges were measured there.
 
 **The packaged Windows app** (3.0.0) boots, loads the four models and decides with EmbeddingGemma.
+
+**The Zonos voice** has spoken inside VIK on a Windows laptop with an RTX 3050 graphics card ([docs/ZONOS.md](docs/ZONOS.md)).
 
 **Not yet checked for real**: the Gemini API, the Mac installer, a real LlmOnLan farm and online services, the local models other than the defaults (Llama 3.2 above all), Smart Turn inside the packaged app. The [human test protocol](docs/HUMAN_TESTS.md) starts with these.
 

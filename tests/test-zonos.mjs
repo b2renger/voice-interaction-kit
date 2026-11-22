@@ -115,6 +115,21 @@ const fake = await startMockZonos();
   check(zonos.ok() && engine.info().voiceEngine === 'zonos', 'choosing the voice again (or a new Start) finds the server again');
 }
 {
+  // a server whose lists hold nonsense: what is a voice or a slider is kept, the rest is left out, nothing throws
+  const odd = createServer((req, res) => {
+    const body = req.url === '/v2/health' ? { status: 'ok' } : req.url === '/v2/speakers' ? { speakers: [null, 5, 'x', { id: {} }, { label: 'no id' }, { id: 'a', label: 'Ada' }] }
+      : { ui: { controls: [null, 5, { id: 'age', range: ['a', 'b'], map: 5 }, { id: 'deep', range: [0, 6], map: { '+': null } }], groups: 'x' }, directions: 7 };
+    res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(body));
+  });
+  await new Promise((r) => odd.listen(0, '127.0.0.1', r));
+  const z = createZonosVoice({ mode: 'server', url: `http://127.0.0.1:${odd.address().port}` }, log);
+  let threw = '';
+  let d = null;
+  try { await z.probe(true); d = z.describe(); designDoses('age 2, deep 3', { ui: { controls: [null, 5, { id: 'deep', range: [0, 6], map: { '+': null } }] }, directions: 7 }); } catch (e) { threw = e.message; }
+  check(!threw && d && d.available && same(d.voices, [{ id: 'a', label: 'Ada', default: false }]) && z.voiceId('') === 'a', 'lists with nonsense in them (a null voice, a slider without a range): the real entries are kept, nothing throws', threw || d);
+  odd.close();
+}
+{
   // no server at all
   const gone = createZonosVoice({ mode: 'server', url: 'http://127.0.0.1:9', timeoutMs: 300 }, log);
   const engine = withZonos(await createMockEngine({}), gone, log);
@@ -359,6 +374,13 @@ async function fakeWindow(port, { state = 'ready', error = '', progress = null }
   check(await until(() => w.aborted.length > 0, 3000), '[window] an interruption reaches the window: the sentence being spoken is aborted', w.aborted);
   fake.slow(false);
   await sleep(300);
+
+  // valid JSON that is not a message ("null", a number, a string) must not stop the server
+  for (const junk of ['null', '5', '"x"', '[]', '{}', '{"type":"head"}', '{"type":"end","id":null}']) w.ws.send(junk);
+  await sleep(200);
+  const tj = await c.turn('Toujours là ?');
+  check(tj && same(c.rates(tj), [44100]) && (await zapi(true)).available, '[window] nonsense from the window (the JSON "null", a number, a message without an id) is ignored: the server and the voice go on', c.rates(tj));
+
 
   // the window closes (the studio is reloaded): the default voice takes over, and a new window brings Zonos back
   await w.close();
