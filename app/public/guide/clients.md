@@ -25,7 +25,7 @@ Be clear about this before an installation or a class.
 
 - **Pages from the allowed sites.** By default: the pages of this computer, **cables.gl** and the **p5.js editor** (`allowedOrigins` in `config.json`). So any patch on cables.gl, and any sketch in the p5.js editor, opened in a browser of this computer, can connect while VIK is open, even one made by someone else.
 - **Programs of this computer.** A program (a script, a tool) does not say where it comes from: VIK cannot tell it from the studio. Any program you run, or another account of this computer, can connect, change the agents and follow a conversation. Use VIK on a computer you trust, as with any app.
-- **Nothing from another computer**, unless you set `"host"` in `config.json` to listen on the network. A web page cannot reach VIK by pretending to be this computer (the server only answers requests named `127.0.0.1` or `localhost`).
+- **Nothing from another computer**, unless you set `"host"` in `config.json` to listen on the network. Then any computer of that network can connect as a client: it follows the conversation and drives it, as described below, without a password. The agents, the people and the settings stay out of its reach: only this computer can read or change them. A web page cannot reach VIK by pretending to be this computer (the server only answers requests named `127.0.0.1` or `localhost`).
 
 **What a client gets:** while a conversation runs, everything said, the person's words and the agent's replies, and what the agent decided. **What it can do:** stop the conversation, interrupt the agent, type, choose, send signals and context.
 

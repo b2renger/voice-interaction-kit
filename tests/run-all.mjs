@@ -26,6 +26,7 @@ const SUITES = [
   { name: 'test-speakers', args: ['tests/test-speakers.mjs'] },
   { name: 'test-zonos', args: ['tests/test-zonos.mjs'] },
   { name: 'test-voices', args: ['tests/test-voices.mjs'] },
+  { name: 'test-network', args: ['tests/test-network.mjs'] },
   { name: 'test-gemini', args: ['tests/test-gemini.mjs'], browser: true },
   { name: 'test-hub', args: ['tests/test-hub.mjs'] },
   { name: 'test-local', args: ['tests/test-local.mjs'], browser: true },
