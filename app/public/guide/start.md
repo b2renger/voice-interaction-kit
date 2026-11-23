@@ -39,7 +39,7 @@ The quickest way in is the tutorial: in about ten minutes, you build a café age
 | [Knowledge](view:knowledge) | what it knows: tables, like a spreadsheet |
 | [Interactions](view:interactions) | how it decides: stages and patterns |
 | [Voice & timing](view:voice) | how it sounds, and when it takes its turn |
-| [Settings](view:settings) | this computer's settings: the engine and the models |
+| [Settings](view:settings) | the agent's engine and models, its people, OSC and clients |
 
 Your edits are saved a moment after you type, and **Save** (or Ctrl+S) saves them at once. Next to it, the top bar says **Saved** or **Unsaved changes**. **Start** and **Stop** stay at the top, so you can talk to the agent while you change it.
 

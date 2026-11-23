@@ -54,7 +54,7 @@ const VoiceCore = (function () {
 
   /** The local voice engines. QVAC's: Supertonic (preset voices), Chatterbox (multilingual, can clone a voice). And Zonos (a voice designed with sliders, spoken by a Zonos
    *  server on the computer; without one, the default voice speaks). */
-  const LOCAL_VOICE_ENGINES = ['supertonic', 'chatterbox', 'zonos'];   // (Parler: removed in 3.7.5)
+  const LOCAL_VOICE_ENGINES = ['supertonic', 'chatterbox', 'zonos'];   // (Parler: removed in 3.8.0)
 
   /** The moods an agent can show (set_mood tool / [[mood: …]] tag). */
   const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
@@ -79,6 +79,7 @@ const VoiceCore = (function () {
     localSpeed: 1,                    // speed of the local voice (0.5 – 2): Supertonic and Chatterbox
     zonosVoice: '',                   // Zonos only: one of its voices, by id or name ('' = its first)
     voiceDesign: '',                  // Zonos only: the voice designed, "age +1.5, deep 3", applied to each sentence
+    referenceAudio: '',               // Chatterbox only: the agent's recording of a voice to clone ('voices/<name>.wav'; '' = none)
     // — models (local) —
     localAsr: '',                     // local: speech recognition model, one of config.json's "choices" ('' = its default)
     localLlm: '',                     // local: language model, one of config.json's "choices" ('' = its default)
@@ -87,8 +88,8 @@ const VoiceCore = (function () {
     llmUrl: '',                       // the farm's or the service's OpenAI address (http://<host>:4000/v1)
     llmModel: '',                     // the model there
     llmKey: '',                       // its key or password, if it needs one
-    oscTo: '127.0.0.1:10000',         // local: where the patterns' OSC messages go, "host:port, host:port" (this computer)
-    oscIn: '',                        // local: the UDP port sensors and buttons send OSC to ('' = not listening; this computer)
+    oscTo: '127.0.0.1:10000',         // local: where the patterns' OSC messages go, "host:port, host:port" (the agent's)
+    oscIn: '',                        // local: the UDP port sensors and buttons send OSC to ('' = not listening)
     agent: '',                        // local: the agent (its folder name): its knowledge and its patterns decide (docs/DESIGN.md)
     // — turn-taking —
     endSilenceMs: 800,                // silence that ends a turn (patient ↔ impatient)
@@ -103,7 +104,7 @@ const VoiceCore = (function () {
                                       // ("mm-hm" → it carries on, "stop" → it stops and listens)
     listenWhileSpeaking: true,        // false = the mic is cut while the agent speaks (half-duplex)
     micMuted: false,
-    // — the microphone (this computer) —
+    // — the microphone (the agent's settings since 3.8.0; micMuted is this computer's) —
     micGain: 0,                       // dB, -12 to +24: applied to the mic before anything listens to it
     micGate: -80,                     // dBFS, -80 (off) to -10: quieter than this (after the gain), the agent hears
                                       // silence; the gate stays open MIC_GATE_HOLD_MS after the last loud block
@@ -145,7 +146,7 @@ const VoiceCore = (function () {
   const LOCAL_KEYS = ['name', 'persona', 'language', 'greeting', 'shortAnswers', 'creativity', 'localVoice',
     'localSpeed', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'interruptible', 'repairLine',
     'replyDelayMs', 'uiTools', 'turnDetection', 'interruptAfterMs', 'fillerLines', 'fillerAfterMs',
-    'localVoiceEngine', 'zonosVoice', 'voiceDesign', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'agent'];
+    'localVoiceEngine', 'zonosVoice', 'voiceDesign', 'referenceAudio', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'agent'];
 
   const GEMINI_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService';
   const IN_RATE = 16000;              // what both engines listen to

@@ -122,7 +122,7 @@ In **Talk**, **Why it answered** shows each decision as it happens: the pattern,
 
 ### 3.5 Sharing an agent
 
-**Manage → Export to a file** makes one `.vik.json` file: persona, knowledge, interactions (never the keys or this computer's settings). **Import a file…** opens it on another computer. An agent is also a folder of plain files (`persona.md`, `knowledge/*.csv`, `interactions.json`), in the studio's settings folder (**Files → Open agents folder**): they can be edited with any text editor or spreadsheet, and kept in git.
+**Manage → Export to a file** makes one `.vik.json` file: persona and settings, knowledge, interactions, voices, and the people only if you say so (never the keys). **Import a file…** opens it on another computer. An agent is also a folder of plain files (`persona.md`, `knowledge/*.csv`, `interactions.json`), in the studio's settings folder (**Files → Open agents folder**): they can be edited with any text editor or spreadsheet, and kept in git.
 
 ---
 
@@ -322,7 +322,7 @@ Each exercise builds on one or two edge cases. Suggested length: 1 hour to half 
    | about 6.5 s | | | |
 
    - **The delays.** First measure the natural wait with **Extra delay before replying** = 0 (the `Wait (ms)` output, or the felt wait in **Talk**). Then set **Extra delay before replying** to the target minus that natural wait. `Wait (ms)` is the number you report: it measures the real reply, never the filler.
-   - **The three conditions.** *Nothing*: **Filler lines** empty. *A sound*: your patch (cables.gl, p5.js) plays a sound and a thinking animation while the `State` is `thinking` (the closest to the study's "icon + sound"; VIK itself plays none since 3.7.5). *Spoken filler*: **Filler lines** = "Hmm, let's see…\|Let me think…\|Good question…", **Say a filler after** = 500, the patch silent.
+   - **The three conditions.** *Nothing*: **Filler lines** empty. *A sound*: your patch (cables.gl, p5.js) plays a sound and a thinking animation while the `State` is `thinking` (the closest to the study's "icon + sound"; VIK itself plays none since 3.8.0). *Spoken filler*: **Filler lines** = "Hmm, let's see…\|Let me think…\|Good question…", **Say a filler after** = 500, the patch silent.
    - **The participants** (other students) ask three questions in each condition, in a shuffled order. After each condition, a short questionnaire, from 1 to 5: "It answered quickly enough." "The wait felt natural." "I'd like to keep talking with it." And one open question: "How long did you wait, in seconds?" (the perceived wait).
    - **Compare with the study.** Does the experience drop after 4 s? Does the spoken filler beat the sound? Deliverable: the table, a chart, and one design rule.
 

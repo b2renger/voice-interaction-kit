@@ -22,7 +22,17 @@ Zonos starts from one of its ready-made voices and lets you move it: older or yo
 
 Zonos runs inside this window, on the computer's graphics card. The first time you choose it, its model is downloaded (about 1 GB) and kept on the computer: next to "Voice" you see "loading", then "ready". On a computer whose graphics card cannot run it, you see "cannot run here": the agent speaks with the default voice instead, and the conversation goes on. Keep this window open while Zonos speaks. Numbers and dates are read as written, so spell them out in fixed lines ("half past twelve", not "12:30"). More in the kit's `docs/ZONOS.md`.
 
-> **Cloning a voice needs consent.** A voice identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards.
+### Cloning a voice (Chatterbox)
+
+Chatterbox can imitate someone's voice from a short recording of it. With Chatterbox chosen, **Clone a voice**:
+
+1. Tick that the person agrees, and type whose voice it is.
+2. **Record**, and have them read the text shown, close to the microphone, in a quiet room (10 to 30 seconds; it stops by itself at 30). **Stop**. Or choose a WAV file of their voice.
+3. The voice is saved in the agent's **Saved voices** and the agent speaks with it at once: **Listen** to hear it.
+
+Chatterbox loads a voice once: switching to another reloads it. On Windows it runs on the processor, so a sentence takes about a minute: fine to try a voice, slow for a conversation. The recording is kept in the agent's folder (`voices/`), and an export carries it only if you say so.
+
+> **Cloning a voice needs consent.** A voice identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards (delete the saved voice, and its file in the agent's `voices` folder).
 
 ### Saved voices: several voices for one agent
 

@@ -176,7 +176,7 @@ function renderEditor() {
         known.includes(n) ? n : `${n} (not recorded here)`))) : '',
       h('p', { class: 'hint' }, known.length
         ? 'Recognized by their voice. Anyone else who asks for it (or someone not recognized): the agent says it won\'t, kindly.'
-        : 'Nobody is recorded on this computer yet: record each person in Settings → People.'));
+        : 'Nobody is recorded in this agent yet: record each person in Settings → People.'));
   }
 
   // — Then —

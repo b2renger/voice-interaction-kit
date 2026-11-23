@@ -12,7 +12,8 @@
 //   PUT    /api/agents/:id/tables/:table        {headers, rows}            (creates the table if needed)
 //   DELETE /api/agents/:id/tables/:table
 //   POST   /api/agents/:id/tables/:table/rename {to}
-//   GET    /api/agents/:id/export               the agent in one file (.vik.json)
+//   GET    /api/agents/:id/export               the agent in one file (.vik.json); ?people=1: with its people and recorded voices
+//   GET    /api/agents/:id/private              what ?people=1 would add: {people, recordedVoices}
 //   POST   /api/decide                          {agent, text, stage, focus}: what the agent would decide, and why
 //
 // Only the studio's own page may call it (see samePage in app-server.mjs). Answers are JSON; an error is
@@ -61,7 +62,11 @@ async function route(req, path, { store, decide }) {
   } else if (sub === 'voices' && m === 'PUT') {
     return store.saveVoices(id, await body(req));
   } else if (sub === 'export' && m === 'GET') {
-    return { ...store.exportBundle(id), __file: `${id}.vik.json` };
+    // ?people=1: with the voiceprints of its people and its recorded voices (the studio asks first)
+    const withPeople = new URL(req.url || '/', 'http://x').searchParams.get('people') === '1';
+    return { ...store.exportBundle(id, { withPeople }), __file: `${id}.vik.json` };
+  } else if (sub === 'private' && m === 'GET') {
+    return store.privateParts(id);
   } else if (sub === 'tables' && table) {
     if (!action && m === 'PUT') return store.saveTable(id, table, await body(req));
     if (!action && m === 'DELETE') return store.deleteTable(id, table);

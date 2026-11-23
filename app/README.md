@@ -23,7 +23,7 @@ One window, a few views. Edits are saved a moment after you type, **Save** (Ctrl
 | **Knowledge** | its tables, as a spreadsheet: one per kind of thing (artworks, dishes, departures). The first column is how people name an entry (other names after a `\|`); a cell that names an entry of another table links the two (shown in blue). Import a CSV from a spreadsheet, export one. "What it would look up" tries a sentence |
 | **Interactions** | its **stages** and **patterns**, "When … → Then …". When the person says something like these examples, mentions an entry of this table, when the conversation starts, when a client sends a signal, or when nothing else fits; then say a line (filled from the entry: `{price}`), let the language model answer (with an instruction), show choices, set a mood, send a signal to the clients, go to another stage. **Try a sentence** shows what the agent would decide, and why. **Confidence** sets how close a sentence must be for a pattern to fire |
 | **Voice & timing** | the voice, turn-taking, and what it does while it thinks |
-| **Settings** | this computer's settings: the engine, the language model, speech recognition, the decision model's state, the clients' address. They never travel with an agent |
+| **Settings** | the agent's settings: the engine, the language model, speech recognition, its people, OSC, the clients. They travel with the agent; keys and passwords stay on this computer |
 | **Guide** | the documentation, built in: eleven short pages for students, from getting started to troubleshooting, and the **tutorial**. Each view's intro links to its page |
 
 The menu **Manage** (next to the agent's name) creates, duplicates, exports, imports and deletes agents, and brings back the examples.
@@ -49,7 +49,7 @@ museum-guide/
 - **The examples** (museum guide, station kiosk, chef, gardener) are copied there on first launch, so they can be changed. **Manage → Add the example agents** brings back the ones deleted.
 - **Sharing:** **Manage → Export to a file** makes one `.vik.json` file (persona, knowledge, interactions); **Import a file…** opens it on another computer. The JSON files of the earlier "Voice Lab" app import too, and its personas become agents on first launch.
 - **Deleting** moves the folder to `agents/.trash`, from where it can be put back by hand.
-- **Safety:** an agent never carries this computer's settings: no engine, no language model, no address, no key. An agent from someone else cannot send the conversation elsewhere.
+- **An agent is a project:** its folder holds its settings (engine, models, language model, OSC, microphone, clients), its voices and its people, so it behaves the same on another computer. Never a key or a password. An export includes the people and the recorded voices only if you say so. Importing an agent that sends things elsewhere (a farm or a service, Gemini, OSC, clients allowed to start), VIK lists them and asks first.
 
 ## The decision model
 
@@ -178,7 +178,7 @@ Good to know:
 - With a farm or a service, the local language model is unloaded, which frees its memory.
 - **What goes there:** the persona, the knowledge entries found and the conversation, as text (never the sound). On a farm, over the local network; with an online service, to that company, under its terms.
 - When it is off, full, or refuses the key, each reply fails with a message that says so: choose another model.
-- The address, the model and the key are this computer's settings: never exported with an agent.
+- The address and the model are the agent's settings and travel with it (importing an agent that uses one, VIK asks first). The key stays on this computer, never exported.
 
 ## Downloading the models
 
@@ -203,7 +203,6 @@ The menu **Files → Open settings folder** creates a personal `config.json`, wh
   "decide": { "src": "EMBEDDINGGEMMA_300M_Q8_0", "calibration": { "similar": [0.55, 0.95], "search": [0.35, 0.7] } },
   "tts": {
     "src": "TTS_MULTILINGUAL_SUPERTONIC3_Q8_0", "voice": "F1", "speed": 1, "mode": "sentence",
-    "parler": { "src": "TTS_MINI_V1_EN_PARLER_TTS_Q8_0", "voice": "Laura" },
     "chatterbox": { "src": "TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0", "s3gen": "TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0", "referenceAudio": "" }
   }
 },
@@ -260,7 +259,7 @@ Choose one in **Voice & timing → Voice engine** (it belongs to the agent). A c
 | **Supertonic** (default) | 10 preset voices (F1–F5, M1–M5), speed | 31, including English and French | 127 MB | fast. Its makers archived the project in September 2026: it keeps working, but there will be no new voices |
 | **Chatterbox** | its default voice, speed, and **voice cloning** from a short recording | many, including English, French, Spanish, German, Italian (not Japanese or Chinese here) | about 345 MB + 788 MB, on first use | every output carries a watermark (Resemble AI's "Perth"), so it can be identified as synthetic |
 
-**Voice cloning (Chatterbox).** Put the path of a WAV file in `config.json`, under `models.tts.chatterbox.referenceAudio`, then restart the app.
+**Voice cloning (Chatterbox).** In **Voice & timing**, choose Chatterbox, then **Clone a voice**: tick the consent, type whose voice it is, and read the text shown aloud (10 to 30 seconds), or choose a WAV file. The recording is kept in the agent (`voices/<name>.wav`) and becomes one of its saved voices, in use at once. Chatterbox loads its voice once: another voice reloads it, and on Windows it runs on the processor, about a minute for each sentence. `models.tts.chatterbox.referenceAudio` in `config.json` stays the voice of an agent that has none.
 
 > **Consent first.** A voice is personal: it identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards. Never clone a public figure, a classmate who isn't there, or a teacher as a joke. The watermark does not make a clone harmless: it only helps detect it.
 

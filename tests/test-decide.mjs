@@ -465,26 +465,30 @@ const decider = createDecider({ store, matcher: () => words });
   room.ws.close();
   sensor.close(); fan.close();
 
-  // People recognized by their voice (Settings → People). A fake speaker model: the "voice" is the pitch of a tone.
-  process.env.VIK_SPEAKERS_FAKE = '1';
-  const tone = (hz, sec, amp = 0.3) => { const a = new Int16Array(Math.round(16000 * sec)); for (let i = 0; i < a.length; i++) a[i] = Math.round(amp * 32767 * Math.sin((2 * Math.PI * hz * i) / 16000)); return Buffer.from(a.buffer); };
-  const voice = (p, body) => fetch(`http://127.0.0.1:${srv.port}/api${p}`, { method: 'POST', body }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
-  const papa = await voice('/people?name=Papa', tone(200, 9));
-  const leo = await voice(`/people?name=${encodeURIComponent('Léo')}`, tone(500, 9));
-  const tooShort = await voice('/people?name=Zoe', tone(800, 3));
-  check(papa.person && papa.person.name === 'Papa' && leo.people && leo.people.map((p) => p.name).join() === 'Papa,Léo', 'people: two people recorded (POST /api/people, their voice as PCM)', leo);
-  check(tooShort.status === 400 && /^Only 3\.0 s of voice/.test(tooShort.error), 'people: a recording with too little voice is refused, and says why', tooShort);
-  const whoIs = await voice('/people/identify', tone(500, 2));
-  check(whoIs.name === 'Léo' && whoIs.score === 1, 'people: who is speaking? (POST /api/people/identify)', whoIs);
-  const cross = await fetch(`http://127.0.0.1:${srv.port}/api/people`, { headers: { origin: 'http://evil.example' } });
-  check(cross.status === 403, 'people: another website cannot read them', cross.status);
-
-  // the car: the parents change the route, the children can't; anyone asks for a cartoon
+  // the car: the parents change the route, the children can't; anyone asks for a cartoon. Its people: Papa, Maman, Léo
   const carOsc = await listener();
   const car = await api('/agents', { bundle: { vik: 'agent', id: 'car', persona: '---\nname: Nova\n---\nThe voice of a family car.', knowledge: {}, interactions: { version: 1, patterns: [
     { id: 'route', name: 'Change the route', when: { kind: 'says', examples: ['change the route', 'go to Lyon instead'] }, who: ['Papa', 'Maman'], then: [{ do: 'osc', address: '/car/route', value: '{said}' }, { do: 'say', text: 'Route changed, {speaker}.' }] },
     { id: 'cartoon', name: 'A cartoon', when: { kind: 'says', examples: ['play a cartoon', 'put on a video'] }, then: [{ do: 'signal', name: 'back-screen', value: 'cartoon' }, { do: 'say', text: 'Here it is, {speaker}.' }] },
   ] } } });
+  // People recognized by their voice (Settings → People). A fake speaker model: the "voice" is the pitch of a tone.
+  process.env.VIK_SPEAKERS_FAKE = '1';
+  const tone = (hz, sec, amp = 0.3) => { const a = new Int16Array(Math.round(16000 * sec)); for (let i = 0; i < a.length; i++) a[i] = Math.round(amp * 32767 * Math.sin((2 * Math.PI * hz * i) / 16000)); return Buffer.from(a.buffer); };
+  const voice = (p, body) => fetch(`http://127.0.0.1:${srv.port}/api${p}`, { method: 'POST', body }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  const papa = await voice('/people?agent=car&name=Papa', tone(200, 9));
+  const leo = await voice(`/people?agent=car&name=${encodeURIComponent('Léo')}`, tone(500, 9));
+  const tooShort = await voice('/people?agent=car&name=Zoe', tone(800, 3));
+  check(papa.person && papa.person.name === 'Papa' && leo.people && leo.people.map((p) => p.name).join() === 'Papa,Léo', 'people: two people recorded (POST /api/people, their voice as PCM)', leo);
+  check(tooShort.status === 400 && /^Only 3\.0 s of voice/.test(tooShort.error), 'people: a recording with too little voice is refused, and says why', tooShort);
+  const whoIs = await voice('/people/identify?agent=car', tone(500, 2));
+  check(whoIs.name === 'Léo' && whoIs.score === 1, 'people: who is speaking? (POST /api/people/identify)', whoIs);
+  const cross = await fetch(`http://127.0.0.1:${srv.port}/api/people?agent=car`, { headers: { origin: 'http://evil.example' } });
+  check(cross.status === 403, 'people: another website cannot read them', cross.status);
+  const elsewhere = await api('/people?agent=museum-guide');
+  const noAgent = await fetch(`http://127.0.0.1:${srv.port}/api/people`);
+  const unknown = await fetch(`http://127.0.0.1:${srv.port}/api/people?agent=nobody`);
+  check(elsewhere.people.length === 0 && noAgent.status === 400 && unknown.status === 404, 'people: they belong to the car (its people.json): another agent has nobody; no agent or an unknown one is refused', { elsewhere, noAgent: noAgent.status, unknown: unknown.status });
+
   const drive = await open({ agent: car.id, name: 'Nova', persona: 'A car.', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant', oscTo: `127.0.0.1:${carOsc.port}` });
   const typed = async (text, speaker) => {
     const k = drive.msgs.length;
@@ -531,7 +535,7 @@ const decider = createDecider({ store, matcher: () => words });
   await drive.after(k, 'bot.done');
   drive.ws.close();
   // nobody recorded any more: no "speaker", no name, and a pattern kept for some people can't fire
-  for (const p of (await api('/people')).people) await fetch(`http://127.0.0.1:${srv.port}/api/people/${p.id}`, { method: 'DELETE' });
+  for (const p of (await api('/people?agent=car')).people) await fetch(`http://127.0.0.1:${srv.port}/api/people/${p.id}?agent=car`, { method: 'DELETE' });
   const alone = await open({ agent: car.id, name: 'Nova', persona: 'A car.', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant' });
   k = alone.msgs.length;
   await (async (buf) => { for (let i = 0; i < buf.length; i += 3200) { alone.ws.send(buf.subarray(i, i + 3200)); await sleep(5); } })(Buffer.concat([tone(500, 1.5), tone(0, 1.5, 0)]));

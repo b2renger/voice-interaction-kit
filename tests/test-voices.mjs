@@ -25,10 +25,10 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   ] });
   check(v.version === 1 && v.voices.length === 2 && v.voices[0].id === 'the-old-sailor' && v.voices[0].name === 'The old sailor', 'a saved voice has a name and an id made from it; the same name twice, an empty name and junk are dropped', v.voices.map((x) => x.id));
   check(same(Object.keys(v.voices[0].settings), VOICE_KEYS) && v.voices[0].settings.localSpeed === 2 && !('apiKey' in v.voices[0].settings) && v.voices[1].settings.localVoiceEngine === 'supertonic' && v.voices[1].settings.localSpeed === 1.2,
-    'it holds the five voice settings and nothing else (no key, no persona); values are kept in range', v.voices[0].settings);
+    'it holds the six voice settings and nothing else (no key, no persona); values are kept in range', v.voices[0].settings);
   check(same(normalizeVoices(null), { version: 1, voices: [] }) && same(normalizeVoices([{ name: 'A' }]).voices.map((x) => x.id), ['a']) && normalizeVoices({ voices: Array.from({ length: 60 }, (_, i) => ({ name: `v${i}` })) }).voices.length === 40, 'nothing, a bare list, and too many voices (40 at most) are all handled');
-  check(same(voiceOf({ localVoiceEngine: 'chatterbox', localSpeed: 1.2, name: 'Ada', creativity: 2 }), { localVoiceEngine: 'chatterbox', localVoice: '', localSpeed: 1.2, zonosVoice: '', voiceDesign: '' }), 'voiceOf(settings): the voice part of an agent\'s settings');
-  check(same(voiceOf({ localVoiceEngine: 'parler', voiceDescription: 'A warm voice' }), { localVoiceEngine: 'supertonic', localVoice: '', localSpeed: 1, zonosVoice: '', voiceDesign: '' }), 'a voice saved with Parler (removed) becomes a Supertonic one; its description is dropped');
+  check(same(voiceOf({ localVoiceEngine: 'chatterbox', localSpeed: 1.2, name: 'Ada', creativity: 2 }), { localVoiceEngine: 'chatterbox', localVoice: '', localSpeed: 1.2, zonosVoice: '', voiceDesign: '', referenceAudio: '' }), 'voiceOf(settings): the voice part of an agent\'s settings');
+  check(same(voiceOf({ localVoiceEngine: 'parler', voiceDescription: 'A warm voice' }), { localVoiceEngine: 'supertonic', localVoice: '', localSpeed: 1, zonosVoice: '', voiceDesign: '', referenceAudio: '' }), 'a voice saved with Parler (removed) becomes a Supertonic one; its description is dropped');
   const it = normalizeInteractions({ stages: [{ id: 'main', name: 'Main' }], patterns: [{ name: 'P', when: { kind: 'says', examples: ['x'] }, then: [{ do: 'voice', voice: 'The Old Sailor' }, { do: 'voice' }, { do: 'voice', voice: 42 }] }] });
   check(same(it.patterns[0].then, [{ do: 'voice', voice: 'the-old-sailor' }, { do: 'voice', voice: '' }, { do: 'voice', voice: '42' }]), 'a pattern\'s "Change voice" keeps the voice\'s id (\'\' = the agent\'s own voice)', it.patterns[0].then);
 }
@@ -277,6 +277,25 @@ else {
   await page.click('.nav button[data-view="interactions"]');
   const gone = await page.evaluate(() => { const s = document.querySelector('#patternEditor select[aria-label="Voice"]'); return s ? s.options[s.selectedIndex].textContent : ''; });
   check(gone === 'sailor-here (deleted)', '[studio] …and the pattern shows that its voice was deleted', gone);
+
+  // Clone a voice (Chatterbox): consent and a name first, then the person's voice (here a WAV file) → a saved voice, in use
+  await page.click('.nav button[data-view="voice"]');
+  await page.selectOption('[data-k="localVoiceEngine"]', 'chatterbox');
+  await page.waitForSelector('.clone', { state: 'visible' });
+  const gated = await page.evaluate(() => document.querySelector('#cloneRecord').disabled && document.querySelector('#clonePick').disabled);
+  await page.check('#cloneConsent');
+  await page.fill('#cloneName', 'Léa');
+  const opened = await until(() => page.evaluate(() => !document.querySelector('#cloneRecord').disabled && !document.querySelector('#clonePick').disabled), 2000);
+  check(gated && opened && /^Le vent du nord/.test(await page.textContent('#cloneRead')), '[studio] Clone a voice (Chatterbox only): Record waits for the consent and a name; a text to read');
+  const wav = Buffer.alloc(44 + 16000 * 2 * 6);
+  wav.write('RIFF', 0); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVE', 8); wav.write('fmt ', 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(16000, 24); wav.writeUInt32LE(32000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(16000 * 2 * 6, 40);
+  await page.setInputFiles('#cloneFile', { name: 'lea.wav', mimeType: 'audio/wav', buffer: wav });
+  const cloned = await until(async () => { const a = await disk(); const v = a.voices.find((x) => x.id === 'lea'); return v && v.settings.referenceAudio === 'voices/lea.wav' && a.settings.referenceAudio === 'voices/lea.wav' && a.settings.localVoiceEngine === 'chatterbox' && a; }, 5000);
+  const l3 = await until(async () => { const l = await list(); return l.rows.some((r) => r.id === 'lea') && l; }, 3000);
+  const lea = l3 && l3.rows.find((r) => r.id === 'lea');
+  check(cloned && lea && lea.about === 'Chatterbox · a cloned voice' && lea.current && /Léa's voice is saved/.test(await page.textContent('#cloneStatus')),
+    '[studio] the file becomes "Léa", a saved voice of the agent (voices/lea.wav), described "a cloned voice", in use', { lea, status: await page.textContent('#cloneStatus') });
   check(!errors.length, '[studio] no page error', errors);
   await browser.close();
 }

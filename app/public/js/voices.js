@@ -8,8 +8,9 @@
 import { api } from './api.js';
 import { $, h, ask, toast } from './ui.js';
 import { state, settings, set, onChange, saveVoices } from './state.js';
+import { record, TEXTS } from './people.js';
 
-const KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'zonosVoice', 'voiceDesign'];
+const KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'zonosVoice', 'voiceDesign', 'referenceAudio'];
 const ENGINE = { supertonic: 'Supertonic', chatterbox: 'Chatterbox', zonos: 'Zonos' };
 let others = [];              // the voices of the other agents: [{agent, title, id, name, settings}]
 let push = () => {};
@@ -21,6 +22,7 @@ export function describeVoice(v) {
   const parts = [ENGINE[e] || e];
   if (e === 'supertonic') parts.push(s.localVoice || 'F1');
   if (e === 'zonos') { parts.push(s.zonosVoice || 'the first voice'); if (s.voiceDesign) parts.push(s.voiceDesign); }
+  if (e === 'chatterbox' && s.referenceAudio) parts.push('a cloned voice');
   if ((e === 'supertonic' || e === 'chatterbox') && Number(s.localSpeed) && Number(s.localSpeed) !== 1) parts.push(`speed ${s.localSpeed}`);
   return parts.join(' · ');
 }
@@ -72,7 +74,7 @@ async function listen(voiceSettings, language = $('#voiceLang').value, text = $(
   listening = true;
   note('Preparing the voice… (a voice used for the first time loads first)');
   try {
-    const blob = await api.testVoice({ ...current(), ...voiceSettings }, language, text);
+    const blob = await api.testVoice({ ...current(), ...voiceSettings, agent: state.agentId }, language, text);
     const audio = new Audio(URL.createObjectURL(blob));
     audio.volume = Math.max(0, Math.min(1, Number(settings().volume) || 1));
     note(`Listening (${language === 'fr' ? 'French' : 'English'}).`);
@@ -109,8 +111,58 @@ async function remove(voice) {
   if (await saveVoices(mine().filter((v) => v.id !== voice.id))) renderVoices();
 }
 
+// — Clone a voice (Chatterbox): a recording of someone's voice, with their consent, becomes one of the agent's voices —
+let cloning = null;          // the recording in progress: {stop}
+let opening = false;
+const cloneNote = (t) => { $('#cloneStatus').textContent = t; };
+function paintClone() {
+  const ok = $('#cloneConsent').checked && $('#cloneName').value.trim() && !(window.agent && window.agent.active);
+  $('#cloneRecord').disabled = !cloning && !ok;
+  $('#clonePick').disabled = !!cloning || !ok;
+  $('#cloneRecord').textContent = cloning ? 'Stop' : 'Record';
+  $('#cloneRead').textContent = TEXTS[$('#cloneTextLang').value] || TEXTS.en;
+}
+/** The recording, kept in the agent, then a saved voice that uses it (the agent speaks with it at once). */
+async function keepClone(data, format) {
+  const name = $('#cloneName').value.trim();
+  cloneNote('Saving the recording…');
+  try {
+    const { referenceAudio } = await api.saveVoiceAudio(state.agentId, name, data, format);
+    const list = mine().filter((v) => v.name.toLowerCase() !== name.toLowerCase());
+    list.push({ name, settings: { ...current(), localVoiceEngine: 'chatterbox', referenceAudio } });
+    const kept = await saveVoices(list);
+    const voice = kept && kept.find((v) => v.name.toLowerCase() === name.toLowerCase());
+    if (voice) use(voice);
+    cloneNote(`${name}'s voice is saved and the agent speaks with it. Listen to it above (Chatterbox first loads it: on Windows, about a minute).`);
+  } catch (e) { cloneNote(`Not saved: ${e.message}`); }
+}
+async function cloneRecord() {
+  if (cloning) {
+    const r = cloning; cloning = null; paintClone();
+    keepClone((await r.stop()).buffer, 'pcm');
+    return;
+  }
+  if (opening) return;
+  opening = true;
+  try {
+    cloning = await record((sec) => { cloneNote(`Recording… read the text aloud, close to the microphone. ${Math.floor(sec)} s`); if (sec >= 30 && cloning) cloneRecord(); });
+  } catch (e) { cloneNote(`No microphone: ${e.message}`); } finally { opening = false; }
+  paintClone();
+}
+
 /** pushSettings(delayMs): sends the settings to the conversation (main.js). */
 export function initVoices(pushSettings) {
+  for (const id of ['#cloneConsent', '#cloneName', '#cloneTextLang']) $(id).addEventListener('input', paintClone);
+  $('#cloneTextLang').addEventListener('change', paintClone);
+  $('#cloneRecord').addEventListener('click', () => cloneRecord());
+  $('#clonePick').addEventListener('click', () => $('#cloneFile').click());
+  $('#cloneFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (f) keepClone(await f.arrayBuffer(), 'wav');
+  });
+  if (window.agent) window.agent.on('state', paintClone);
+  paintClone();
   push = pushSettings;
   $('#voiceSave').addEventListener('click', () => save().catch((e) => toast(e.message, 'err')));
   $('#voiceListen').addEventListener('click', () => listen({}));

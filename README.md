@@ -49,7 +49,7 @@ Four example agents come with the app: a museum guide, a station kiosk, a chef w
   </tr>
 </table>
 
-**Saving and reopening.** Edits are saved a moment after you type, and **Save** (Ctrl+S) saves them at once; the top bar says whether all is saved. Each agent is a folder on the computer (its persona, its knowledge, its interactions). You reopen an agent by choosing it in the list at the top. The **Manage** menu next to it creates, duplicates, exports an agent to one file (`.vik.json`) to carry it to another computer, and imports such a file.
+**Saving and reopening.** Edits are saved a moment after you type, and **Save** (Ctrl+S) saves them at once; the top bar says whether all is saved. Each agent is a folder on the computer, a whole project: its persona and its settings, its knowledge, its interactions, its voices and the people it recognizes. You reopen an agent by choosing it in the list at the top. The **Manage** menu next to it creates, duplicates, exports an agent to one file (`.vik.json`) to carry it to another computer (the people and recorded voices only if you say so, keys never), and imports such a file.
 
 <p align="center"><img src="docs/screenshots/manage.png" alt="The Manage menu open next to the agent's name: New agent, Duplicate, Export to a file, Import a file, Add the example agents, Delete this agent" width="700"></p>
 

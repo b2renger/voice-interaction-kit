@@ -1,4 +1,4 @@
-// Settings: this computer's engine, models and language model (docs/DESIGN.md, 4), and what the server says
+// Settings: the agent's engine, models and language model (docs/DESIGN.md, 4), and what the server says
 // about itself (the decision model, the clients' address, the agents' folder).
 import { $, $$, h, toast } from './ui.js';
 import { api } from './api.js';

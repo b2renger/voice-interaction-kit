@@ -35,17 +35,26 @@ export const api = {
   saveTable: (id, table, data) => call('PUT', `/api/agents/${enc(id)}/tables/${enc(table)}`, data),
   deleteTable: (id, table) => call('DELETE', `/api/agents/${enc(id)}/tables/${enc(table)}`),
   renameTable: (id, table, to) => call('POST', `/api/agents/${enc(id)}/tables/${enc(table)}/rename`, { to }),
-  exportBundle: (id) => call('GET', `/api/agents/${enc(id)}/export`),
+  // withPeople: with the voiceprints of its people and its recorded voices (asked first: they identify real people)
+  exportBundle: (id, withPeople = false) => call('GET', `/api/agents/${enc(id)}/export${withPeople ? '?people=1' : ''}`),
+  privateParts: (id) => call('GET', `/api/agents/${enc(id)}/private`),
+  // Voice & timing → Clone a voice: the recording, kept in the agent (format: 'pcm' 16-bit 16 kHz, or 'wav')
+  async saveVoiceAudio(id, name, data, format) {
+    const r = await fetch(`/api/agents/${enc(id)}/voice-audio?name=${enc(name)}&format=${format}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: data });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) throw new Error((j && j.error) || `The server answered ${r.status}.`);
+    return j;
+  },
   decide: (q) => call('POST', '/api/decide', q),
   models: () => call('GET', '/models'),
   farms: (add) => call('GET', `/farms${add ? `?add=${enc(add)}` : ''}`),
   llmModels: (url, key) => call('POST', '/api/llm/models', { url, key }),
   health: () => call('GET', '/health'),
   zonos: (fresh) => call('GET', `/api/voice/zonos${fresh ? '?fresh' : ''}`),
-  // Settings → People: the people recognized by their voice (this computer's)
-  people: () => call('GET', '/api/people'),
-  addPerson: (name, pcm) => sendVoice(`/api/people?name=${enc(name)}`, pcm),
-  identify: (pcm) => sendVoice('/api/people/identify', pcm),
+  // Settings → People: the people an agent recognizes by their voice (they belong to the agent)
+  people: (agent) => call('GET', `/api/people?agent=${enc(agent)}`),
+  addPerson: (agent, name, pcm) => sendVoice(`/api/people?agent=${enc(agent)}&name=${enc(name)}`, pcm),
+  identify: (agent, pcm) => sendVoice(`/api/people/identify?agent=${enc(agent)}`, pcm),
   // the Updates window: this version, and new ones (app/electron/updates.cjs, through the server)
   // Settings → VIK folder (moved by the app)
   folder: () => call('GET', '/api/folder'),
@@ -61,5 +70,5 @@ export const api = {
   updates: () => call('GET', '/api/updates'),
   checkUpdates: () => call('POST', '/api/updates/check'),
   installUpdate: () => call('POST', '/api/updates/install'),
-  removePerson: (id) => call('DELETE', `/api/people/${enc(id)}`),
+  removePerson: (agent, id) => call('DELETE', `/api/people/${enc(id)}?agent=${enc(agent)}`),
 };

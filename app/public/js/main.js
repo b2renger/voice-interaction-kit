@@ -214,11 +214,15 @@ $('#agentMenuBtn').addEventListener('click', (e) => menu(e.currentTarget, [
   { label: 'Export to a file', run: async () => {
     flush();
     try {
-      const b = await api.exportBundle(state.agentId);
+      // its people and recorded voices identify real people: in the file only if you say so
+      const p = await api.privateParts(state.agentId);
+      const parts = [p.people ? `the voiceprints of ${p.people} ${p.people === 1 ? 'person' : 'people'}` : '', p.recordedVoices ? `${p.recordedVoices} recorded voice${p.recordedVoices === 1 ? '' : 's'} (cloning)` : ''].filter(Boolean);
+      const withPeople = parts.length > 0 && confirm(`Include ${parts.join(' and ')} in the file?\n\nThey identify real people: share this file only with their consent.\n\nOK: include them. Cancel: export without them.`);
+      const b = await api.exportBundle(state.agentId, withPeople);
       const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' })), download: `${state.agentId}.vik.json` });
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-      toast('Exported: persona, knowledge and interactions, without this computer\'s settings or keys.');
+      toast(`Exported: persona, knowledge, interactions, voices and settings${withPeople ? `, with ${parts.join(' and ')}` : ''}; never the keys.`);
     } catch (err) { toast(err.message, 'err'); }
   } },
   { label: 'Import a file…', run: () => $('#importFile').click() },
@@ -231,6 +235,28 @@ $('#agentMenuBtn').addEventListener('click', (e) => menu(e.currentTarget, [
     try { await api.remove(state.agentId); await loadAgents(''); } catch (err) { toast(err.message, 'err'); }
   } },
 ]));
+/**
+ * An agent imported from a file carries its settings, some of which send things elsewhere: its conversation sent to
+ * Gemini, its replies written by a farm or a service on another computer, OSC messages to another computer, a port
+ * listening to the network, clients allowed to open the microphone. Kept only if you say so; Cancel turns those off.
+ */
+const onThisComputer = (host) => /^(127\.|localhost(:|$)|\[?::1\]?(:|$))/i.test(String(host).trim());
+const urlOnThisComputer = (u) => { try { return onThisComputer(new URL(u).hostname); } catch { return false; } };
+async function trustImported(id) {
+  const a = await api.agent(id);
+  const s = a.settings || {};
+  const away = [
+    [s.engine === 'gemini', 'the conversation goes to Gemini Live (Google)', { engine: 'local' }],
+    [(s.llm === 'farm' || s.llm === 'service') && s.llmUrl && !urlOnThisComputer(s.llmUrl), `its replies are written by ${s.llmUrl}`, { llm: 'local', llmUrl: '', llmModel: '' }],
+    [String(s.oscTo || '').split(',').some((t) => t.trim() && !onThisComputer(t)), `OSC messages go to ${s.oscTo}`, { oscTo: '' }],
+    [!!s.oscIn, `it listens for OSC on port ${s.oscIn}, from the network`, { oscIn: '' }],
+    [s.clientsMayStart === true, 'clients (patches, pages) may start a conversation, and so the microphone', { clientsMayStart: false }],
+  ].filter(([on]) => on);
+  if (!away.length) return;
+  if (confirm(`"${s.title || s.name || id}" comes with settings that send things elsewhere:\n\n- ${away.map((x) => x[1]).join('\n- ')}\n\nKeep them?\n\nOK: keep them. Cancel: turn them off (VIK's own language model on this computer, no OSC there, only this window starts a conversation).`)) return;
+  await api.savePersona(id, { settings: Object.assign({ ...s }, ...away.map((x) => x[2])), body: a.body });
+}
+
 $('#importFile').addEventListener('change', async (e) => {
   const f = e.target.files[0];
   e.target.value = '';
@@ -238,6 +264,7 @@ $('#importFile').addEventListener('change', async (e) => {
   try {
     const bundle = JSON.parse(await f.text());
     const a = await api.create({ bundle });
+    await trustImported(a.id);
     await loadAgents(a.id);
     toast(`Imported "${a.title}".`);
   } catch (err) { toast(err instanceof SyntaxError ? 'This file is not an agent (not JSON).' : err.message, 'err'); }

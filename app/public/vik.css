@@ -455,3 +455,6 @@ a.btn { text-decoration: none; color: inherit; }
 .folder { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 10px; font-size: 13.5px; }
 .folder dt { color: var(--muted); }
 .folder dd { margin: 0; overflow-wrap: anywhere; }
+.clone { display: grid; gap: 8px; padding: 10px 0; border-top: 1px solid var(--rule); }
+.clone .row input[type=text] { flex: 1 1 220px; }
+.clone .row select { width: auto; }

@@ -15,19 +15,20 @@ const DEFAULTS = {
   interruptible: true, repairLine: '', replyDelayMs: 0, uiTools: true,
   turnDetection: 'silence', interruptAfterMs: 0, fillerLines: '', fillerAfterMs: 1200,
   localVoiceEngine: 'supertonic',
-  zonosVoice: '', voiceDesign: '',   // the Zonos voice: one of its voices (id or name), and its design ("age +1.5, deep 3")
+  zonosVoice: '', voiceDesign: '',
+  referenceAudio: '',                // Chatterbox: the agent's recording of a voice to clone ('voices/<name>.wav'; '' = its own)   // the Zonos voice: one of its voices (id or name), and its design ("age +1.5, deep 3")
   // the models (config.json "choices"; '' = the config's), or an LLM farm on the network instead of the local model
   // the language model: 'local' (QVAC: localLlm), or 'farm' / 'service' (llmUrl, llmModel, llmKey)
   localAsr: '', localLlm: '', llm: 'local', llmUrl: '', llmModel: '', llmKey: '',
-  oscTo: '127.0.0.1:10000',      // where the patterns' OSC messages go (this computer's setting): "host:port, host:port"
-  oscIn: '',                    // the UDP port sensors and buttons send OSC to (this computer's setting); '' = not listening
+  oscTo: '127.0.0.1:10000',      // where the patterns' OSC messages go (the agent's setting): "host:port, host:port"
+  oscIn: '',                    // the UDP port sensors and buttons send OSC to (the agent's setting); '' = not listening
   agent: '',                    // the agent (its folder name): its knowledge and its patterns (docs/DESIGN.md)
 };
 /** A conversation's settings: these, completed by the studio's (also what the models are prepared with before Start). */
 export const SESSION_DEFAULTS = DEFAULTS;
 const ASR_KEYS = ['language', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'localAsr'];
 const LLM_KEYS = ['localLlm', 'llm'];        // a change loads (or frees) the local language model
-// (Parler, removed in 3.7.5: an agent still set to it speaks with Supertonic)
+// (Parler, removed in 3.8.0: an agent still set to it speaks with Supertonic)
 const VOICE_ENGINES = ['supertonic', 'chatterbox', 'zonos'];
 const voiceEngine = (s) => (VOICE_ENGINES.includes(s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic');
 /** What the voice engine needs to speak, from the settings (a conversation's, or a voice tried in the studio). */
@@ -41,7 +42,7 @@ export function voiceParamsOf(s) {
 /** The settings a voice model is LOADED with (a change reloads it). */
 const TTS_KEYS = {
   supertonic: ['localVoiceEngine', 'language', 'localVoice', 'localSpeed'],
-  chatterbox: ['localVoiceEngine', 'language', 'localSpeed'],
+  chatterbox: ['localVoiceEngine', 'language', 'localSpeed', 'referenceAudio'],
   zonos: ['localVoiceEngine'],          // its voice and design go with each sentence; the switch checks its server
 };
 const TEXT_GRACE_MS = 2500;   // if the end of turn arrives before the text, wait for it up to this long
@@ -407,7 +408,9 @@ export class Session {
 
   /** The turn's audio is kept for Smart Turn, and to recognize who speaks (people recorded in Settings → People). */
   get keepsAudio() { return this.s.turnDetection === 'smart' || this.peopleOn; }
-  get peopleOn() { return !!(this.engine.people && this.engine.people.size); }
+  /** The people this agent recognizes by their voice (they belong to the agent: its people.json). */
+  get people() { return typeof this.engine.peopleFor === 'function' ? this.engine.peopleFor(String(this.s.agent || '')) : this.engine.people; }
+  get peopleOn() { return !!(this.people && this.people.size); }
 
   /**
    * Who said this turn: {name ('' someone not recognized), closest, score, short}, or null when nobody is recorded
@@ -420,7 +423,7 @@ export class Session {
       if (!(await model.ready())) return null;
       const v = voiced(audio);
       if (v.seconds < MIN_SECONDS) return { name: '', closest: '', score: null, short: true };
-      return { ...this.engine.people.identify(await model.embed(v.audio), v.seconds), short: false };
+      return { ...this.people.identify(await model.embed(v.audio), v.seconds), short: false };
     } catch (e) {
       this.log(`(who is speaking: ${e.message})`);
       return null;
@@ -1011,7 +1014,7 @@ export class Session {
   fillerKey(text) {
     const s = this.vs;
     return JSON.stringify([voiceEngine(s), s.localVoice, num(s.localSpeed, 1), s.language,
-      voiceEngine(s) === 'zonos' ? [String(s.zonosVoice || '').trim(), String(s.voiceDesign || '').trim()] : 0, text]);
+      voiceEngine(s) === 'zonos' ? [String(s.zonosVoice || '').trim(), String(s.voiceDesign || '').trim()] : voiceEngine(s) === 'chatterbox' ? String(s.referenceAudio || '') : 0, text]);
   }
 
   /** The audio of a filler in the current voice: from the cache, or synthesized now. */

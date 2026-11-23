@@ -118,7 +118,7 @@ function action(a) {
     // one of the languages (text.mjs); '' = back to the agent's own
     case 'language': return { do: 'language', language: Object.hasOwn(LANGUAGES, String(a.language)) ? String(a.language) : '' };
     case 'signal': return { do: 'signal', name: text(a.name, 80), value: text(a.value, 500) };
-    // where it goes is this computer's setting (oscTo), never the agent's: app/src/osc.mjs
+    // where it goes is the agent's setting oscTo: app/src/osc.mjs
     case 'osc': return { do: 'osc', address: oscAddress(a.address), value: text(a.value, 500) };
     case 'go': return { do: 'go', stage: slug(a.stage, '') };
     default: return null;

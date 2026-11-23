@@ -12,7 +12,7 @@
 // The local voice engines (setting localVoiceEngine), from QVAC 0.21's text-to-speech docs and schemas:
 //   supertonic  fast, 10 preset voices (F1–F5, M1–M5), 31 languages; voice, speed and language at load time.
 //   chatterbox  multilingual (not ja/zh here: they need extra tokenizer assets); a T3 model + an S3Gen companion,
-//               optional voice cloning from a WAV (referenceAudio in config.json). 24 kHz. Every output carries
+//               optional voice cloning from a WAV (an agent's recorded voice, or referenceAudio in config.json). 24 kHz. Every output carries
 //               Resemble's Perth watermark.
 // A fourth voice, Zonos (a voice designed with sliders), does not go through QVAC: engines/zonos.mjs wraps this
 // engine and speaks through a Zonos server. Here 'zonos' is an unknown voice engine, so Supertonic is prepared:
@@ -115,7 +115,7 @@ export function hideWorkerConsole(cp = childProcess, platform = process.platform
   cp.spawn = hidden;
 }
 
-// (Parler was one until 3.7.5: English only, and poor in French. An agent still set to it speaks with Supertonic.)
+// (Parler was one until 3.8.0: English only, and poor in French. An agent still set to it speaks with Supertonic.)
 export const VOICE_ENGINES = ['supertonic', 'chatterbox'];
 const SUPERTONIC_VOICES = ['F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5'];
 // Chatterbox multilingual languages, minus ja and zh (they need mecabDictSrc / cangjieTsvSrc)
@@ -405,7 +405,9 @@ export async function createQvacEngine(config, log) {
           ttsSpeed: speed,
           useGPU: bigVoiceOnGpu(C, M.tts),
         };
-        if (String(C.referenceAudio || '').trim()) ttsConfig.referenceAudioSrc = localPath(String(C.referenceAudio).trim());
+        // the voice to clone: the agent's recording (a saved voice; app-server.mjs gives its path), or config.json's
+        const reference = String(s.referenceAudioPath || C.referenceAudio || '').trim();
+        if (reference) ttsConfig.referenceAudioSrc = localPath(reference);
       } else {
         ttsSrc = String(M.tts.src);
         ttsConfig = {

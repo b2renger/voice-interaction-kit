@@ -71,7 +71,7 @@
             <button class="btn" id="interrupt" type="button" disabled>Interrupt</button>
           </div>
         </div>
-        <!-- this computer's microphone, adjusted while you talk (settings kept in this window, not in the agent) -->
+        <!-- the microphone, adjusted while you talk (the agent's settings: they travel with it) -->
         <details class="mic-panel" id="micPanel">
           <summary>Microphone</summary>
           <div class="grid2">
@@ -206,6 +206,22 @@
               <button type="button" class="btn" id="voiceSave">Save this voice…</button>
             </div>
             <p class="hint" id="voiceStatus" aria-live="polite"></p>
+            <div class="clone" data-voice="chatterbox">
+              <h3>Clone a voice</h3>
+              <p class="hint">Chatterbox imitates a voice from about ten seconds of clear speech. The recording is kept in this agent (an export carries it only if you say so). On Windows Chatterbox runs on the processor: about a minute for each sentence.</p>
+              <label class="check"><input type="checkbox" id="cloneConsent"> The person whose voice this is agrees to its use in this agent</label>
+              <div class="row">
+                <input type="text" id="cloneName" maxlength="60" placeholder="Whose voice: Léa" aria-label="Name of the voice">
+                <select id="cloneTextLang" aria-label="Text to read"><option value="fr">Text in French</option><option value="en">Text in English</option></select>
+              </div>
+              <blockquote class="read-text" id="cloneRead"></blockquote>
+              <div class="row">
+                <button type="button" class="btn" id="cloneRecord">Record</button>
+                <button type="button" class="btn quiet" id="clonePick">Or choose a WAV file…</button>
+              </div>
+              <p class="hint" id="cloneStatus" aria-live="polite"></p>
+              <input type="file" id="cloneFile" accept=".wav,audio/wav" class="sr" tabindex="-1">
+            </div>
             <h3>Saved voices</h3>
             <ul class="voice-list" id="voiceRows"></ul>
             <p class="hint" id="voiceAbout"></p>
@@ -243,7 +259,7 @@
     <!-- ===================== Settings ===================== -->
     <section class="view" id="view-settings" aria-label="Settings" hidden>
       <h1>Settings</h1>
-      <p class="lede">This computer's settings: they stay here and never travel with an agent. <a href="#guide/models" class="help" data-guide="models">Choosing the models</a></p>
+      <p class="lede">The settings of this agent: its engine and models, its people, its OSC, its clients. They travel with it, so the project behaves the same on another computer. Keys and passwords stay on this computer. <a href="#guide/files" class="help" data-guide="files#what-an-agent-carries">What an agent carries</a></p>
       <div class="group">
         <header><h2>Engine</h2></header>
         <div class="choice-cards">
@@ -297,7 +313,7 @@
         <header><h2>Microphone</h2><p>Its gain and its gate are in <a href="#talk" data-goto="talk" data-open="micPanel">Talk</a>, under the conversation: set them while you talk, with the level in front of you.</p></header>
       </div>
       <div class="group" data-show="local">
-        <header><h2>People</h2><p>The people the agent recognizes by their voice. Each one reads a short text once, with this microphone. The agent then knows who is speaking, and patterns can be kept for some of them (Interactions → Who). <a href="#guide/people" class="help" data-guide="people">Recognizing people</a></p></header>
+        <header><h2>People</h2><p>The people this agent recognizes by their voice (another agent has its own). Each one reads a short text once, with this microphone. The agent then knows who is speaking, and patterns can be kept for some of them (Interactions → Who). <a href="#guide/people" class="help" data-guide="people">Recognizing people</a></p></header>
         <ul class="people" id="peopleList"></ul>
         <p class="hint" id="peopleEmpty">Nobody yet: the agent doesn't know who is speaking.</p>
         <div class="grid2" style="margin-top:12px">
@@ -306,7 +322,7 @@
         </div>
         <blockquote class="read-text" id="readText"></blockquote>
         <div class="row"><button class="btn primary" id="recordPerson" type="button">Record</button><button class="btn" id="testPerson" type="button">Who is speaking?</button><span class="hint" id="recordStatus" aria-live="polite"></span></div>
-        <p class="hint">Ask each person first: their voiceprint is personal data. It stays on this computer (never in an agent), and Delete removes it. Record with the microphone of the conversation, in the room where it takes place.</p>
+        <p class="hint">Ask each person first: their voiceprint is personal data. It belongs to this agent; an export carries it only if you say so, and Delete removes it. Record with the microphone of the conversation, in the room where it takes place.</p>
       </div>
       <div class="group" data-show="gemini">
         <header><h2>Gemini Live</h2><p>The key stays in this window, on this computer.</p></header>

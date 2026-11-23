@@ -1,5 +1,6 @@
 // An agent's saved voices: <agent>/voices.json. A saved voice is a name and the voice settings that make it
-// (the voice engine, its voice, its speed, Zonos's voice and design): what "Voice" holds in
+// (the voice engine, its voice, its speed, Zonos's voice and design, Chatterbox's recording of the voice to
+// clone): what "Voice" holds in
 // Voice & timing, kept under a name. They are saved from that view, and used
 //   - there, to give the agent one of them as its own voice;
 //   - in a pattern, with the action "Change voice": the agent answers in that voice from then on, until another
@@ -8,7 +9,9 @@
 import { slug } from './interactions.mjs';
 
 /** The settings a saved voice holds (CONTRACT.md, the local voice). */
-export const VOICE_KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'zonosVoice', 'voiceDesign'];
+export const VOICE_KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'zonosVoice', 'voiceDesign', 'referenceAudio'];
+/** Chatterbox's recording of a voice to clone: a WAV in the agent's voices/ folder (agents.mjs VOICE_AUDIO). */
+const REFERENCE = /^voices\/[a-z0-9][a-z0-9-]{0,63}\.wav$/;
 const ENGINES = ['supertonic', 'chatterbox', 'zonos'];   // a voice saved with Parler (removed) becomes a Supertonic one
 const MAX_VOICES = 40;
 
@@ -21,6 +24,7 @@ function settings(raw) {
     localSpeed: Number.isFinite(speed) ? Math.min(2, Math.max(0.5, speed)) : 1,
     zonosVoice: String(s.zonosVoice || '').trim().slice(0, 120),
     voiceDesign: String(s.voiceDesign || '').trim().slice(0, 1000),
+    referenceAudio: REFERENCE.test(String(s.referenceAudio || '')) ? String(s.referenceAudio) : '',
   };
 }
 

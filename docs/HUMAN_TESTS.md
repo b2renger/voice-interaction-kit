@@ -83,7 +83,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 2. Quit the VIK, then open it again.
 3. **Manage → Import a file…** on another computer.
 
-**Expected:** 1. the file holds the persona, the knowledge and the interactions, but no key and no engine. 2. the key is still in **Settings → Gemini Live**: it is kept on this computer only. 3. the import brings no key: the other computer's settings stay as they were. The patch never holds the key either: the op has no key port.
+**Expected:** 1. the file holds the persona, the knowledge, the interactions and the agent's settings (`engine: gemini`), but no key. 2. the key is still in **Settings → Gemini Live**: it is kept on this computer only. 3. the import brings no key (type it there); since the agent uses Gemini, VIK asks first whether to keep that. The patch never holds the key either: the op has no key port.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
@@ -463,7 +463,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 ### F3 Nothing plays while it thinks
 1. In the studio, ask a question and listen while it thinks.
 
-**Expected:** no sound of VIK's own while it thinks (the thinking sound is gone since 3.7.5); only a spoken filler, if **Filler lines** has some.
+**Expected:** no sound of VIK's own while it thinks (the thinking sound is gone since 3.8.0); only a spoken filler, if **Filler lines** has some.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
@@ -837,7 +837,7 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 2. With each, ask the museum guide a free question ("what should I look at first?").
 3. Export the agent and open the file.
 
-**Expected:** 1–2. the reply comes from the chosen model; the felt wait changes accordingly; a wrong key, a full farm or a stopped Ollama gives a clear message. Hearing and the voice stay local. 3. the file holds no address, model or key.
+**Expected:** 1–2. the reply comes from the chosen model; the felt wait changes accordingly; a wrong key, a full farm or a stopped Ollama gives a clear message. Hearing and the voice stay local. 3. the file holds the farm's or the service's address and model, but no key.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
@@ -845,6 +845,23 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 1. Give a student 20 minutes, no explanation, with this task: "make the museum guide say the opening hours of your favourite museum, and greet visitors who come near".
 
 **Expected:** they find Interactions, change the line (or a pattern), and use a signal pattern, without help, or with one hint at most. Note where they hesitated.
+
+Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
+
+### S11 ★ An agent carried to another computer (R15, R17)
+1. On computer A, in one agent: choose a language model other than the default, set **Settings → OSC → Send to**, move the microphone's gain, record two people in **Settings → People**, and save a voice.
+2. **Manage → Export to a file**: say OK to including the people. Then export again and say Cancel.
+3. On computer B: **Manage → Import a file…** with the first file. Then open another agent of B.
+
+**Expected:** 2. the first file has `people` and the voices; the second has neither. 3. VIK lists what the agent sends elsewhere (OSC) and asks; with OK, the agent has A's model (downloaded if B lacks it), OSC, gain, voice and both people, and recognizes them. B's other agent keeps its own settings and people. No key came along.
+
+Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
+
+### S12 Cloning a voice (Chatterbox)
+1. With the consent of the person (yourself is fine): **Voice & timing**, Chatterbox, **Clone a voice**: tick the consent, type a name, **Record**, read the text, **Stop**.
+2. **Listen**, in French then in English. Start a conversation.
+
+**Expected:** 1. the voice appears in **Saved voices**, in use. 2. after Chatterbox loads it (on Windows, about a minute for each sentence), the agent sounds like the person, in both languages. Note how close it is, and how long it takes.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 

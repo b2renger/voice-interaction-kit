@@ -20,11 +20,16 @@ const MARKER = '.vik';
 const MAX_ROWS = 5000;
 const MAX_COLUMNS = 50;
 /**
- * This computer's settings: where the conversation goes (engine, language model, keys) and its devices. They never
- * come from an agent: an agent shared by someone else must not send the conversation (or a key) elsewhere.
+ * This computer's settings only: keys and passwords, the addresses of this computer, the microphone muted. They
+ * never come from an agent, nor go into one. Everything else is the agent's (a project reopened on another
+ * computer behaves the same): its language model, its OSC, its microphone and clients settings (since 3.8; the
+ * studio asks before using those of an imported agent).
  */
-export const MACHINE_KEYS = ['engine', 'apiKey', 'tokenUrl', 'geminiEndpoint', 'geminiModel', 'serverUrl', 'localAsr', 'localLlm',
-  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'llmFarm', 'llmFarmModel', 'llmFarmKey', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'micGain', 'micGate', 'micAutoGain', 'clientsMayStart', 'agent', 'persona', 'knowledge', 'id'];
+export const MACHINE_KEYS = ['apiKey', 'llmKey', 'llmFarmKey', 'tokenUrl', 'geminiEndpoint', 'serverUrl', 'micMuted', 'llmFarm', 'llmFarmModel',
+  'agent', 'persona', 'knowledge', 'id'];
+/** A voice recorded for cloning (Voice & timing → Clone a voice): a WAV in the agent's voices/ folder. */
+export const VOICE_AUDIO = /^voices\/[a-z0-9][a-z0-9-]{0,63}\.wav$/;
+const MAX_VOICE_AUDIO = 12e6;
 const agentOnly = (s) => Object.fromEntries(Object.entries(s || {}).filter(([k]) => !MACHINE_KEYS.includes(k)));
 
 /** "opening-hours" → "Opening hours" */
@@ -113,9 +118,19 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
   }
 
   /** Writes a whole agent (a new one, an import). */
-  function writeAgent(id, { persona, tables = [], interactions = {}, voices = null }) {
+  function writeAgent(id, { persona, tables = [], interactions = {}, voices = null, people = null, voiceAudio = null }) {
     const f = folder(id);
     mkdirSync(join(f, 'knowledge'), { recursive: true });
+    // the people it recognizes (their voiceprints), and the voices recorded for cloning: only from an export that
+    // carries them (the person who exported it said so)
+    if (people && typeof people === 'object' && Array.isArray(people.people)) atomicWrite(join(f, 'people.json'), `${JSON.stringify(people)}\n`);
+    for (const [rel, b64] of Object.entries(voiceAudio && typeof voiceAudio === 'object' ? voiceAudio : {})) {
+      if (!VOICE_AUDIO.test(rel) || typeof b64 !== 'string') continue;
+      const wav = Buffer.from(b64, 'base64');
+      if (wav.length > MAX_VOICE_AUDIO || wav.subarray(0, 4).toString() !== 'RIFF') continue;
+      mkdirSync(join(f, 'voices'), { recursive: true });
+      writeFileSync(join(f, rel), wav);
+    }
     atomicWrite(join(f, 'persona.md'), typeof persona === 'string' ? persona : writePersona(persona));
     for (const t of tables) atomicWrite(join(f, 'knowledge', `${tableId(t.id)}.csv`), typeof t.csv === 'string' ? t.csv : writeCsv(cleanTable(t)));
     atomicWrite(join(f, 'interactions.json'), `${JSON.stringify(normalizeInteractions(interactions), null, 2)}\n`);
@@ -211,17 +226,54 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
       renameSync(f, join(dir, '.trash', `${id}-${Date.now()}`));
       changed(id);
     },
-    /** One file holding the whole agent (.vik.json). */
-    exportBundle(id) {
+    /**
+     * One file holding the whole agent (.vik.json): persona and settings, knowledge, interactions, saved voices.
+     * withPeople: also the voiceprints of the people it recognizes and the voices recorded for cloning (they identify
+     * real people: the studio asks first).
+     */
+    exportBundle(id, { withPeople = false } = {}) {
       const f = must(id);
       const a = compiled(id);
+      let people = null;
+      try { people = withPeople ? JSON.parse(readText(join(f, 'people.json')) || 'null') : null; } catch { people = null; }
+      const voiceAudio = {};
+      if (withPeople) for (const v of a.voices) { const rel = v.settings.referenceAudio; if (rel && VOICE_AUDIO.test(rel) && existsSync(join(f, rel))) voiceAudio[rel] = readFileSync(join(f, rel)).toString('base64'); }
       return {
         vik: 'agent', version: 1, id,
         persona: readText(join(f, 'persona.md')),
         knowledge: Object.fromEntries(a.tables.map((t) => [t.id, writeCsv(t)])),
         interactions: a.interactions,
         ...(a.voices.length ? { voices: a.voices } : {}),
+        ...(people && Array.isArray(people.people) && people.people.length ? { people } : {}),
+        ...(Object.keys(voiceAudio).length ? { voiceAudio } : {}),
       };
+    },
+    /** What an export with the people would add: how many people, how many recorded voices. */
+    privateParts(id) {
+      const f = must(id);
+      let n = 0;
+      try { n = (JSON.parse(readText(join(f, 'people.json')) || '{}').people || []).length; } catch { n = 0; }
+      const voices = compiled(id).voices.filter((v) => v.settings.referenceAudio && existsSync(join(f, v.settings.referenceAudio))).length;
+      return { people: n, recordedVoices: voices };
+    },
+    /** The file of the people this agent recognizes by their voice (Settings → People). */
+    peopleFile: (id) => join(must(id), 'people.json'),
+    /** A voice recorded for cloning: kept as voices/<name>.wav; returns that path (the saved voice's referenceAudio). */
+    saveVoiceAudio(id, name, wav) {
+      const f = must(id);
+      if (!wav || wav.length < 44 || wav.subarray(0, 4).toString() !== 'RIFF' || wav.subarray(8, 12).toString() !== 'WAVE') throw httpError(400, 'This is not a WAV file.');
+      if (wav.length > MAX_VOICE_AUDIO) throw httpError(400, 'The recording is too long (at most about a minute).');
+      const rel = `voices/${slug(name, 'voice')}.wav`;
+      mkdirSync(join(f, 'voices'), { recursive: true });
+      atomicWrite(join(f, rel), wav);
+      changed(id);
+      return rel;
+    },
+    /** The absolute path of an agent's recorded voice, or '' (an unknown agent, a path that would leave its folder). */
+    voiceAudioPath(id, rel) {
+      if (!ID.test(String(id || '')) || !VOICE_AUDIO.test(String(rel || ''))) return '';
+      const p = join(dir, id, rel);
+      return existsSync(p) ? p : '';
     },
     importBundle,
     /** Copies the example agents that are not here yet. Returns the ids copied. */
@@ -246,7 +298,7 @@ export function createAgentStore({ dir, examples, legacy = [], log = () => {} })
       const title = String(p.settings.title || p.settings.name || b.id || 'Imported agent');
       const tables = Object.entries(b.knowledge && typeof b.knowledge === 'object' ? b.knowledge : {})
         .filter(([t]) => ID.test(slug(t, ''))).map(([t, csv]) => ({ id: slug(t, ''), ...parseCsv(String(csv)) }));
-      return writeAgent(newId(b.id || title), { persona: { settings: agentOnly(p.settings), body: p.body }, tables, interactions: b.interactions || {}, voices: b.voices });
+      return writeAgent(newId(b.id || title), { persona: { settings: agentOnly(p.settings), body: p.body }, tables, interactions: b.interactions || {}, voices: b.voices, people: b.people, voiceAudio: b.voiceAudio });
     }
     if (typeof b.persona === 'string' || typeof b.name === 'string') return writeAgent(newId(b.title || b.name || 'Imported agent'), fromLegacy(b, ''));
     throw httpError(400, 'This file is not an agent (no persona).');

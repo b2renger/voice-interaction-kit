@@ -7,7 +7,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { ROOT, check, summary, sleep, until } from './helpers.mjs';
 
@@ -16,10 +16,12 @@ const PORT = 19300 + Math.floor(Math.random() * 600);
 const report = join(tmpdir(), `fake-qvac-report-${PORT}.json`);
 const serverLog = [];
 const servers = [];
+const agentsOf = new Map();   // port → the server's agents folder (a temporary one)
 
 /** Starts a local server (simulated engine, or the QVAC adapter on the fake SDK) on a port. */
 function startServer(port, { env: extraEnv = {}, engine = mode, cwd, config } = {}) {
   const env = { ...process.env, VIK_AGENTS: mkdtempSync(join(tmpdir(), 'vik-agents-protocol-')), ...extraEnv };   // never the user's agents
+  agentsOf.set(port, env.VIK_AGENTS);
   const args = [join(ROOT, 'app', 'src', 'server.mjs'), '--port', String(port)];
   if (engine === 'mock') args.push('--mock');
   else {
@@ -199,7 +201,7 @@ if (mode === 'mock') {
   check(await waitFor('bot.done', (m) => sayText && m.turnId > sayText.turnId, 10000), '{type:"say"}: the conversation goes on');
 }
 
-// — the local voice engines: Supertonic, Chatterbox (Parler, removed in 3.7.5: an agent set to it gets Supertonic) —
+// — the local voice engines: Supertonic, Chatterbox (Parler, removed in 3.8.0: an agent set to it gets Supertonic) —
 if (mode === 'fake-qvac') {
   const turnAfter = async (prevId, text) => {
     send({ type: 'text', text });
@@ -214,7 +216,11 @@ if (mode === 'fake-qvac') {
   const p1 = await turnAfter(last, 'Describe the painting.');
   check(p1 && !has('error') && audio.filter((a) => a.turnId === p1.turnId).every((a) => a.rate === 44100) && audio.some((a) => a.turnId === p1.turnId),
     'an agent still set to Parler (removed): the conversation goes on with Supertonic (44.1 kHz), no error', has('error'));
-  send({ type: 'settings', settings: { localVoiceEngine: 'chatterbox' } });
+  // a voice cloned in the museum guide (Voice & timing → Clone a voice): its recording, kept in the agent
+  const clone = join(agentsOf.get(PORT), 'museum-guide', 'voices', 'lea.wav');
+  mkdirSync(join(agentsOf.get(PORT), 'museum-guide', 'voices'), { recursive: true });
+  writeFileSync(clone, Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVE'), Buffer.alloc(32 + 32000)]));
+  send({ type: 'settings', settings: { localVoiceEngine: 'chatterbox', agent: 'museum-guide', referenceAudio: 'voices/lea.wav' } });
   await sleep(500);
   const c1 = await turnAfter(p1 ? p1.turnId : last, 'Tell me more.');
   check(c1 && audio.filter((a) => a.turnId === c1.turnId).every((a) => a.rate === 24000) && audio.some((a) => a.turnId === c1.turnId), 'Chatterbox: the conversation goes on, audio at 24 kHz');
@@ -379,6 +385,8 @@ if (mode === 'fake-qvac') {
     const cbLoad = ttsLoads.find((c) => c.modelConfig.ttsEngine === 'chatterbox');
     check(cbLoad && cbLoad.src === 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0' && cbLoad.modelConfig.s3genModelSrc === 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0' && cbLoad.modelConfig.language === 'en',
       'Chatterbox: switching loads the T3 model with s3genModelSrc (S3Gen)', cbLoad);
+    check(cbLoad && typeof cbLoad.modelConfig.referenceAudioSrc === 'string' && cbLoad.modelConfig.referenceAudioSrc.replace(/\\/g, '/').endsWith('museum-guide/voices/lea.wav'),
+      'Chatterbox: a cloned voice loads with the agent\'s recording (referenceAudioSrc)', cbLoad && cbLoad.modelConfig.referenceAudioSrc);
     check(ttsCalls.every((c) => c.voice === undefined && c.description === undefined), 'no voice request carries a description or a template voice (Parler fields)');
     const whisperLoads = loads.filter((c) => c.modelType === 'whisper');
     check(whisperLoads.length === 2 && whisperLoads[1].modelConfig.vad_params.min_silence_duration_ms === 500, 'the end sensitivity reloads whisper (new detection), only once', whisperLoads.map((c) => c.modelConfig.vad_params.min_silence_duration_ms));

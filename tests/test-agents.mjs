@@ -77,7 +77,7 @@ let store = createAgentStore({ dir, examples, legacy: [legacy] });
   const ids = store.list().map((a) => a.id);
   check(['chef', 'gardener', 'museum-guide', 'old-one', 'station-kiosk'].every((x) => ids.includes(x)), 'store: first launch copies the examples and imports the old personas', ids);
   const old = store.get('old-one');
-  check(old.settings.name === 'Olga' && old.body === 'An old persona.' && !('apiKey' in old.settings) && !('engine' in old.settings), 'store: an old persona keeps its settings, never its key or its engine', old.settings);
+  check(old.settings.name === 'Olga' && old.body === 'An old persona.' && !('apiKey' in old.settings) && old.settings.engine === 'gemini', 'store: an old persona keeps its settings (its engine too), never its key', old.settings);
   const museum = store.get('museum-guide');
   check(museum.tables.map((t) => t.id).join() === 'artists,artworks' && museum.tables[1].rows.length === 6 && museum.interactions.patterns.length >= 5,
     'store: an agent comes with its tables and its patterns', museum.tables.map((t) => `${t.id}:${t.rows.length}`));
@@ -116,13 +116,16 @@ let store = createAgentStore({ dir, examples, legacy: [legacy] });
   const im = store.get(imported.id);
   check(imported.id === 'museum-guide-2' && im.tables.length === 2 && im.interactions.patterns.length === store.get('museum-guide').interactions.patterns.length,
     'store: imported back, the same agent', imported);
-  // an agent never decides where the conversation goes: no engine, language model, address or key from an agent
-  const sneaky = store.create({ bundle: { vik: 'agent', id: 'sneaky', persona: '---\nname: Sly\nllm: service\nllmUrl: https://evil.example/v1\nllmKey: stolen\noscTo: evil.example:9000\noscIn: 7777\nengine: gemini\nlocalVoice: M4\n---\n\nHi.', knowledge: {}, interactions: {} } });
+  // an agent is a project (3.8): it carries its engine, language model, address and OSC (the studio asks before using
+  // those of an imported agent), never a key or a password
+  const sneaky = store.create({ bundle: { vik: 'agent', id: 'sneaky', persona: '---\nname: Sly\nllm: service\nllmUrl: https://evil.example/v1\nllmKey: stolen\noscTo: evil.example:9000\noscIn: 7777\nengine: gemini\napiKey: AIza-stolen\nserverUrl: ws://evil\nlocalVoice: M4\n---\n\nHi.', knowledge: {}, interactions: {} } });
   const sly = store.get(sneaky.id);
-  check(sly.settings.localVoice === 'M4' && !['llm', 'llmUrl', 'llmKey', 'oscTo', 'oscIn', 'engine'].some((k) => k in sly.settings) && !/evil/.test(readFileSync(join(dir, sneaky.id, 'persona.md'), 'utf8')),
-    'store: an imported agent cannot set this computer\'s settings (language model, address, key, OSC destination, engine): they are dropped', sly.settings);
-  writeFileSync(join(dir, sneaky.id, 'persona.md'), '---\nname: Sly\nllmUrl: https://evil.example/v1\n---\n\nHi.');
-  check(!('llmUrl' in store.get(sneaky.id).settings), 'store: … nor a persona.md edited by hand');
+  const slyFile = readFileSync(join(dir, sneaky.id, 'persona.md'), 'utf8');
+  check(sly.settings.localVoice === 'M4' && sly.settings.llmUrl === 'https://evil.example/v1' && sly.settings.oscTo === 'evil.example:9000' && sly.settings.oscIn === 7777 && sly.settings.engine === 'gemini'
+    && !['llmKey', 'apiKey', 'serverUrl'].some((k) => k in sly.settings) && !/stolen|ws:\/\/evil/.test(slyFile),
+    'store: an imported agent carries its project settings (language model, address, OSC, engine), never a key, a password or this computer\'s address', sly.settings);
+  writeFileSync(join(dir, sneaky.id, 'persona.md'), '---\nname: Sly\nllmKey: stolen\napiKey: AIza-x\n---\n\nHi.');
+  check(!('llmKey' in store.get(sneaky.id).settings) && !('apiKey' in store.get(sneaky.id).settings), 'store: … nor a key from a persona.md edited by hand');
   store.savePersona(sneaky.id, { settings: { name: 'Sly', llmKey: 'x', apiKey: 'y' }, body: 'Hi.' });
   check(!/llmKey|apiKey/.test(readFileSync(join(dir, sneaky.id, 'persona.md'), 'utf8')), 'store: … nor the studio by mistake (keys are never written in an agent)');
   const legacyImport = store.create({ bundle: { name: 'Zed', persona: 'A JSON from the old export.', localVoice: 'M2', serverUrl: 'ws://evil' } });
@@ -131,6 +134,33 @@ let store = createAgentStore({ dir, examples, legacy: [legacy] });
   check(x.id === 'x' && existsSync(join(dir, 'bike-shop', 'knowledge', 'x.csv')), 'store: a table name cannot leave the folder ("../../x" → x.csv, in knowledge/)', x.id);
   check(fails(() => store.get('../etc')).status === 400 && fails(() => store.saveTable('bike-shop', '../..', { headers: ['a'], rows: [] })).status === 400 && fails(() => store.get('nobody')).status === 404,
     'store: agent names that leave the folder, and empty table names, are refused (400); unknown agents are 404');
+}
+// — an agent is a project: its people and the voices recorded for cloning travel with it, only when asked —
+{
+  const wavOf = (n) => { const b = Buffer.alloc(44 + n); b.write('RIFF', 0); b.writeUInt32LE(36 + n, 4); b.write('WAVE', 8); return b; };
+  const rel = store.saveVoiceAudio('bike-shop', 'Léa Martin', wavOf(3200));
+  check(rel === 'voices/lea-martin.wav' && existsSync(join(dir, 'bike-shop', 'voices', 'lea-martin.wav')), 'project: a voice recorded for cloning is kept in the agent, voices/<name>.wav', rel);
+  check(fails(() => store.saveVoiceAudio('bike-shop', 'x', Buffer.from('plain text, long enough to look like a file of some sort'))).status === 400, 'project: … only a WAV file');
+  check(store.voiceAudioPath('bike-shop', rel) === join(dir, 'bike-shop', 'voices', 'lea-martin.wav') && store.voiceAudioPath('bike-shop', 'voices/../persona.md') === ''
+    && store.voiceAudioPath('bike-shop', 'voices/nobody.wav') === '' && store.voiceAudioPath('../bike-shop', rel) === '',
+    'project: the recorded voice\'s path, for Chatterbox; none for a path that leaves the folder, a missing file, a bad agent name');
+  store.saveVoices('bike-shop', [{ name: 'Léa', settings: { localVoiceEngine: 'chatterbox', referenceAudio: rel } }, { name: 'Odd', settings: { localVoiceEngine: 'chatterbox', referenceAudio: '../../secret.wav' } }]);
+  const kept = store.get('bike-shop').voices;
+  check(kept[0].settings.referenceAudio === rel && kept[1].settings.referenceAudio === '', 'project: a saved voice keeps its recording; any other path is dropped', kept.map((v) => v.settings.referenceAudio));
+  const print = Array.from({ length: 512 }, (_, i) => Math.sin(i));
+  writeFileSync(store.peopleFile('bike-shop'), JSON.stringify({ version: 1, model: 'campplus-voxceleb', people: [{ id: 'a1', name: 'Léa', seconds: 12, voiceprint: print }] }));
+  check(store.peopleFile('bike-shop') === join(dir, 'bike-shop', 'people.json') && JSON.stringify(store.privateParts('bike-shop')) === '{"people":1,"recordedVoices":1}' && JSON.stringify(store.privateParts('chef')) === '{"people":0,"recordedVoices":0}',
+    'project: each agent has its own people.json; what an export could carry: 1 person, 1 recorded voice', store.privateParts('bike-shop'));
+  const plain = store.exportBundle('bike-shop');
+  const full = store.exportBundle('bike-shop', { withPeople: true });
+  check(!('people' in plain) && !('voiceAudio' in plain) && plain.voices.length === 2, 'project: an export without consent carries the saved voices, not the people nor the recording', Object.keys(plain));
+  check(full.people.people[0].name === 'Léa' && full.voiceAudio[rel] === wavOf(3200).toString('base64'), 'project: with consent, the people and the recording too', Object.keys(full));
+  const back = store.create({ bundle: full });
+  check(readFileSync(join(dir, back.id, rel)).equals(wavOf(3200)) && JSON.parse(readFileSync(join(dir, back.id, 'people.json'), 'utf8')).people[0].name === 'Léa' && store.get(back.id).voices[0].settings.referenceAudio === rel,
+    'project: imported, the agent recognizes the same people and speaks with the same recorded voice', back.id);
+  const evil = store.create({ bundle: { ...plain, id: 'evil', voiceAudio: { '../../evil.wav': wavOf(10).toString('base64'), 'voices/text.wav': Buffer.from('no').toString('base64') }, people: 'junk' } });
+  check(!existsSync(join(dir, '..', 'evil.wav')) && !existsSync(join(dir, evil.id, 'voices', 'text.wav')) && !existsSync(join(dir, evil.id, 'people.json')),
+    'project: an import cannot write outside its folder, nor a file that is not a WAV, nor people that are not a list');
 }
 
 // — the API, through the server —
@@ -161,6 +191,23 @@ let store = createAgentStore({ dir, examples, legacy: [legacy] });
   check(ex.status === 200 && ex.json.vik === 'agent' && /attachment; filename="cafe\.vik\.json"/.test(ex.headers.get('content-disposition') || ''), 'api: export downloads cafe.vik.json');
   const imp = await call('POST', '/agents', { bundle: ex.json });
   check(imp.json.id === 'cafe-2', 'api: import it back');
+  // Clone a voice: the studio's recording (PCM, 16 kHz) or a WAV file, kept in the agent
+  const upload = (q, data) => fetch(`${base}/agents/cafe/voice-audio?${q}`, { method: 'POST', body: data }).then(async (x) => ({ status: x.status, json: await x.json() }));
+  const pcm = await upload('name=Léa&format=pcm', Buffer.alloc(16000 * 2 * 6));
+  const short = await upload('name=Léa&format=pcm', Buffer.alloc(16000 * 2 * 2));
+  const notWav = await upload('name=Odd&format=wav', Buffer.from('just some text, not a sound file at all'));
+  const saved = readFileSync(join(adir, 'cafe', 'voices', 'lea.wav'));
+  check(pcm.status === 200 && pcm.json.referenceAudio === 'voices/lea.wav' && saved.subarray(0, 4).toString() === 'RIFF' && saved.readUInt32LE(24) === 16000 && saved.length === 44 + 16000 * 2 * 6,
+    'clone: the recording (PCM) is kept as voices/lea.wav, a 16 kHz WAV', pcm.json);
+  check(short.status === 400 && /5 seconds/.test(short.json.error) && notWav.status === 400 && /WAV/.test(notWav.json.error), 'clone: too short, or not a WAV: refused, and says why', [short.json, notWav.json]);
+  check((await upload('name=x&format=pcm', Buffer.alloc(10))).status === 400 && (await fetch(`${base}/agents/nobody/voice-audio?name=x&format=wav`, { method: 'POST', body: saved })).status === 404,
+    'clone: an unknown agent is 404');
+  await call('PUT', '/agents/cafe/voices', { voices: [{ name: 'Léa', settings: { localVoiceEngine: 'chatterbox', referenceAudio: 'voices/lea.wav' } }] });
+  const priv = await call('GET', '/agents/cafe/private');
+  const exPlain = await call('GET', '/agents/cafe/export');
+  const exFull = await call('GET', '/agents/cafe/export?people=1');
+  check(priv.json.recordedVoices === 1 && priv.json.people === 0 && !('voiceAudio' in exPlain.json) && exFull.json.voiceAudio['voices/lea.wav'] === saved.toString('base64'),
+    'export: GET …/private says what consent would add; ?people=1 adds the recorded voice', { priv: priv.json, plain: Object.keys(exPlain.json), full: Object.keys(exFull.json) });
   check((await call('DELETE', '/agents/cafe-2')).status === 200 && (await call('GET', '/agents/cafe-2')).status === 404, 'api: DELETE an agent');
   const bad = await call('PUT', '/agents/cafe/persona', undefined);
   const r = await fetch(`${base}/agents/cafe/persona`, { method: 'PUT', body: '{not json' });
@@ -210,6 +257,26 @@ let store = createAgentStore({ dir, examples, legacy: [legacy] });
   const t0 = Date.now();
   await Promise.race([srv.close(), new Promise((r) => setTimeout(r, 3000))]);
   check(opened && Date.now() - t0 < 1500, 'stop: the server closes at once with a socket still open', { opened, ms: Date.now() - t0 });
+}
+
+// — 3.8: the people recorded on this computer (one people.json) become each agent's, once —
+{
+  const { loadConfig } = await import(src('config.mjs'));
+  const { startServer } = await import(src('app-server.mjs'));
+  const adir = mkdtempSync(join(tmpdir(), 'vik-migrate-'));
+  const home = mkdtempSync(join(tmpdir(), 'vik-home-'));
+  const peopleFile = join(home, 'people.json');
+  const old = { version: 1, model: 'campplus-voxceleb', people: [{ id: 'p1', name: 'Léa', seconds: 10, voiceprint: Array.from({ length: 512 }, (_, i) => Math.cos(i)) }] };
+  writeFileSync(peopleFile, JSON.stringify(old));
+  // an agent that already has its own people keeps them
+  const pre = createAgentStore({ dir: adir, examples, legacy: [] });
+  writeFileSync(pre.peopleFile('chef'), JSON.stringify({ ...old, people: [{ ...old.people[0], id: 'p9', name: 'Chef Jo' }] }));
+  const srv = await startServer({ config: loadConfig(join(tmpdir(), 'none.json')), mock: true, port: 19600 + Math.floor(Math.random() * 90), agentsDir: adir, peopleFile, log: () => {} });
+  const ppl = async (agent) => (await (await fetch(`http://127.0.0.1:${srv.port}/api/people?agent=${agent}`)).json()).people.map((p) => p.name).join();
+  const [museum, chef] = [await ppl('museum-guide'), await ppl('chef')];
+  check(museum === 'Léa' && chef === 'Chef Jo' && !existsSync(peopleFile) && existsSync(`${peopleFile}.before-3.8`),
+    'migration: each agent gets the people of this computer (one that has its own keeps them); the old file is renamed, not deleted', { museum, chef });
+  await srv.close();
 }
 
 // — files written by people and other programs —
