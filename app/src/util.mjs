@@ -60,12 +60,19 @@ export function rmsS16(buf) {
 }
 
 /** The status line while a model loads: "Loading: language model 42 % (440/1057 MB) · waiting for data, 12 s". */
+/**
+ * The words of a model's progress. With a size, bytes arrive: "Downloading" (once, then the model stays on this
+ * computer). Without, it is read from this computer into memory: "Loading" — never a download.
+ */
 export function progressText(p) {
   if (!p) return '';
   const pct = typeof p.progress === 'number' ? ` ${Math.round(p.progress)} %` : '';
-  const mb = p.total ? ` (${(p.downloaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB)` : '';
-  const wait = p.waitS ? ` · ${p.progress >= 100 ? 'loading into memory' : 'waiting for data'}, ${p.waitS} s` : '';
-  return `Loading: ${p.stage}${pct}${mb}${wait}`;
+  if (p.total) {
+    const wait = p.waitS ? ` · ${p.progress >= 100 ? 'loading into memory' : 'waiting for data'}, ${p.waitS} s` : '';
+    return `Downloading: ${p.stage}${pct} (${(p.downloaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB)${wait}`;
+  }
+  const wait = p.waitS ? `, ${p.waitS} s` : '';
+  return `Loading from this computer: ${p.stage}${p.local ? pct : ''}${wait}`;   // local: a progress of its own (Zonos)
 }
 
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));

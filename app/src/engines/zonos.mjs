@@ -203,7 +203,8 @@ export function createPageBridge(log = () => {}) {
  * The Zonos voice of config.json ("models.tts.zonos": {mode, url, voice, token, speakerMode, options}).
  * @param {{mode?: string, url?: string, voice?: string, token?: string, speakerMode?: string, options?: object, timeoutMs?: number}} cfg
  */
-export function createZonosVoice(cfg = {}, log = () => {}) {
+/** @param {{downloading?: () => boolean}} [files] the model's files (zonos-files.mjs): is a part being downloaded? */
+export function createZonosVoice(cfg = {}, log = () => {}, { downloading = () => false } = {}) {
   const mode = cfg.mode === 'server' ? 'server' : 'web';
   const url = String(cfg.url || ZONOS_DEFAULT_URL).replace(/\/+$/, '');
   const bridge = mode === 'web' ? createPageBridge(log) : null;
@@ -324,7 +325,9 @@ export function createZonosVoice(cfg = {}, log = () => {}) {
       if (h.state === 'ready' || h.state === 'failed') return;
       if (h.state === 'none' && Date.now() - t0 > graceMs) return;
       if (Date.now() - t0 > maxMs) return;
-      if (h.state === 'loading' && onProgress) onProgress({ stage: 'Zonos voice', progress: h.total ? Math.min(100, (100 * h.loaded) / h.total) : 0, downloaded: h.loaded, total: h.total });
+      // bytes counted as a download only while some really come from the internet; otherwise read from this computer
+      const progress = h.total ? Math.min(100, (100 * h.loaded) / h.total) : 0;
+      if (h.state === 'loading' && onProgress) onProgress(downloading() ? { stage: 'Zonos voice', progress, downloaded: h.loaded, total: h.total } : { stage: 'Zonos voice', progress, local: true });
       await new Promise((r) => setTimeout(r, 200));
     }
   }

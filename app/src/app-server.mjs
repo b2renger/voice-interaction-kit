@@ -6,7 +6,7 @@ import { join, dirname, extname, isAbsolute } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { attachWebSocket } from './ws.mjs';
-import { Session } from './session.mjs';
+import { Session, SESSION_DEFAULTS, voiceParamsOf } from './session.mjs';
 import { createHub } from './hub.mjs';
 import { createFarmFinder } from './farm.mjs';
 import { remoteGenerate, remoteModels } from './llm.mjs';
@@ -65,8 +65,8 @@ export async function startServer(o) {
   let lastStatus = { text: 'Starting…', progress: null };
   const prepareLock = mutex();
   const zonosConfig = ((config.models || {}).tts || {}).zonos || {};
-  const zonos = createZonosVoice(zonosConfig, log);
   const zonosFiles = createZonosFiles(zonosConfig, APP_DIR, log);   // the in-browser engine and its model, for the window
+  const zonos = createZonosVoice(zonosConfig, log, { downloading: () => zonosFiles.downloading() });
   const sessions = new Set();
   const hub = createHub(log);
   const farms = createFarmFinder(log);
@@ -196,7 +196,7 @@ export async function startServer(o) {
     }
     // the Zonos voice for the studio: can it speak, its voices, its design sliders, and whether its engine is here
     if (path === '/api/voice/zonos' && req.method === 'GET') {
-      zonos.probe(new URL(req.url || '/', 'http://x').searchParams.has('fresh')).then(() => json(res, 200, { ...zonos.describe(), engineFiles: zonosFiles.enginePresent() }))
+      zonos.probe(new URL(req.url || '/', 'http://x').searchParams.has('fresh')).then(() => json(res, 200, { ...zonos.describe(), engineFiles: zonosFiles.enginePresent(), modelPresent: zonosFiles.modelPresent() }))
         .catch((e) => { log(`✖ Zonos voice: ${e.message}`); json(res, 200, { mode: zonos.mode, host: null, available: false, url: zonos.url, error: e.message, voices: [], sliders: [], engineFiles: zonosFiles.enginePresent() }); });
       return;
     }
@@ -208,6 +208,9 @@ export async function startServer(o) {
     }
     if (path.startsWith('/api/people') && handlePeople(req, res, path)) return;
     if (path.startsWith('/api/updates') && handleUpdates(req, res, path)) return;
+    if (path.startsWith('/api/folder') && handleFolder(req, res, path)) return;
+    if (path === '/api/prepare' && req.method === 'POST') { readJson(req).then(prepareFor).then((o) => json(res, 200, o), (e) => json(res, 200, { error: e.message })); return; }
+    if (path === '/api/voice/test' && req.method === 'POST') { readJson(req).then((q) => testVoice(q, res)).catch((e) => { if (!res.headersSent) json(res, 400, { error: e.message }); }); return; }
     if (handleApi(req, res, path, { store, decide: decideForStudio })) return;
     // The models offered for listening and thinking (config.json "choices"), and whether each is on this computer.
     if (path === '/models') {
@@ -344,10 +347,78 @@ export async function startServer(o) {
     return { print: await model.embed(v.audio), seconds: v.seconds };
   }
   /**
+   * The studio prepares the models of the agent it shows (POST /api/prepare {settings}): its language, its voice,
+   * its language model are loaded before Start, which then starts at once. Not while a conversation runs: its
+   * models are in use.
+   */
+  async function prepareFor(q) {
+    if (sessions.size) return { skipped: 'a conversation is running' };
+    await waitEngine();
+    const s = { ...SESSION_DEFAULTS, ...((q && q.settings) || {}) };
+    await prepareLock(() => engine.prepare(s, (p) => status(progressText(p), p.progress)));
+    status('', null);
+    return { ok: true };
+  }
+
+  /**
+   * Voice & timing → Listen (POST /api/voice/test {settings, language}): a sample sentence in this voice, as a WAV,
+   * without a conversation (one running uses the voice model: it would be taken from it).
+   */
+  const SAMPLES = {
+    en: 'Hello! This is how I sound. Do you like my voice?',
+    fr: 'Bonjour ! Voici ma voix. Est-ce qu\'elle te plaît ?',
+  };
+  async function testVoice(q, res) {
+    if (sessions.size) throw new Error('Stop the conversation to listen to a voice: the conversation uses the voice.');
+    await waitEngine();
+    const language = Object.hasOwn(SAMPLES, q && q.language) ? q.language : 'en';
+    const s = { ...SESSION_DEFAULTS, ...((q && q.settings) || {}), language };
+    await prepareLock(() => engine.prepare(s, (p) => status(progressText(p), p.progress)));
+    status('', null);
+    const tts = engine.speak(voiceParamsOf(s));
+    tts.write(SAMPLES[language]);
+    tts.end();
+    const parts = []; let rate = 24000; let n = 0;
+    for await (const f of tts.frames) { rate = f.sampleRate || rate; parts.push(f.pcm); n += f.pcm.length; }
+    if (!n) throw new Error('The voice said nothing.');
+    const wav = Buffer.alloc(44 + n * 2);
+    wav.write('RIFF', 0); wav.writeUInt32LE(36 + n * 2, 4); wav.write('WAVE', 8); wav.write('fmt ', 12);
+    wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24);
+    wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(n * 2, 40);
+    let o = 44;
+    for (const p of parts) { Buffer.from(p.buffer, p.byteOffset, p.byteLength).copy(wav, o); o += p.byteLength; }
+    res.writeHead(200, { 'content-type': 'audio/wav', 'cache-control': 'no-store' });
+    res.end(wav);
+  }
+
+  /**
    * The Updates window (app/public/js/updates.js): GET /api/updates (the state of app/electron/updates.cjs),
    * POST /api/updates/check, POST /api/updates/install (Windows: restart into the new version). Without the app
    * (the server alone, from the source code): this version, nothing to check.
    */
+  /**
+   * Settings → VIK folder (app/electron/folder.cjs, through the app): GET /api/folder (where the agents, the people
+   * and the models are; a move in progress), POST /api/folder/choose (the app asks for a folder), POST
+   * /api/folder/move {dir, asIs}. Without the app (the server alone): where they are, not movable from here.
+   */
+  function handleFolder(req, res, path) {
+    const f = typeof o.folder === 'function' ? o.folder() : null;
+    if (path === '/api/folder' && req.method === 'GET') {
+      json(res, 200, f ? f.state() : { movable: false, dir: '', agents: store.dir, people: o.peopleFile || '', models: '', holds: null, moving: null });
+      return true;
+    }
+    if (!f) { if (path.startsWith('/api/folder/')) { json(res, 400, { error: 'The VIK folder is moved from the VIK app (here: --agents, VIK_AGENTS).' }); return true; } return false; }
+    if (path === '/api/folder/choose' && req.method === 'POST') { f.choose().then((r) => json(res, 200, r), (e) => json(res, 400, { error: e.message })); return true; }
+    if (path === '/api/folder/move' && req.method === 'POST') {
+      readJson(req).then((q) => {
+        if (sessions.size) throw new Error('Stop the conversation first: VIK restarts in its new folder.');
+        return f.move(String((q && q.dir) || ''), { asIs: !!(q && q.asIs) });
+      }).then((r) => json(res, 200, { moving: r }), (e) => json(res, 400, { error: e.message }));
+      return true;
+    }
+    return false;
+  }
+
   function handleUpdates(req, res, path) {
     const u = typeof o.updates === 'function' ? o.updates() : null;
     const state = () => (u ? u.state() : { version: VERSION, mode: 'none', status: 'source', latest: '', page: 'https://github.com/b2renger/voice-interaction-kit/releases/latest', error: '', checkedAt: 0 });

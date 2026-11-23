@@ -15,7 +15,7 @@ class App extends EventEmitter {
   whenReady() { return Promise.resolve(); }
   getPath(n) { return n === 'userData' ? userData : n === 'appData' ? appData : os.tmpdir(); }
   requestSingleInstanceLock() { return true; }
-  relaunch(o) { state.relaunched = o; }
+  relaunch(o) { state.relaunched = o || { args: [] }; }
   exit(c) { state.exited = c; }
   quit() {
     state.quitCalled++;

@@ -38,7 +38,7 @@ const notFound = (res, text = 'Not found') => { res.writeHead(404, { 'content-ty
  */
 export function createZonosFiles(cfg = {}, appDir, log = () => {}) {
   const engineDir = resolve(appDir, String(cfg.engineDir || 'zonos-engine'));
-  const modelsDir = resolve(String(cfg.modelsDir || join(homedir(), '.qvac', 'models', 'zonos3-web')));
+  const modelsDir = resolve(String(cfg.modelsDir || join(process.env.SNAP_USER_COMMON || homedir(), '.qvac', 'models', 'zonos3-web')));
   const upstream = cfg.models === '' ? '' : String(cfg.models || ZONOS_MODELS_URL).replace(/\/*$/, '/');
   const downloads = new Map();      // rel → the download in progress (one at a time per file)
   let announced = false;
@@ -74,6 +74,10 @@ export function createZonosFiles(cfg = {}, appDir, log = () => {}) {
     engineDir, modelsDir, upstream,
     /** Is the engine in this copy of VIK? */
     enginePresent: () => existsSync(join(engineDir, 'engine.js')),
+    /** Is the model on this computer already (downloaded once)? Then loading it reads it from here. */
+    modelPresent: () => existsSync(join(modelsDir, 'backbone')),
+    /** Is a part of the model being downloaded right now? */
+    downloading: () => downloads.size > 0,
     /** Answers GET/HEAD /zonos/engine/… and /zonos/models/…; false when the path is not one of them. */
     handle(req, res, path) {
       if (req.method !== 'GET' && req.method !== 'HEAD') return false;

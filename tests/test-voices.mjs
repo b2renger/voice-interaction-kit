@@ -201,9 +201,21 @@ else {
   await page.selectOption('#agentSelect', other.id);
   await until(() => page.evaluate((x) => window.agent.settings.agent === x, other.id), 5000);
   await page.click('.nav button[data-view="voice"]');
-  const list = () => page.evaluate(() => ({ options: Array.from(document.querySelectorAll('#voiceList option')).map((o) => o.textContent), groups: Array.from(document.querySelectorAll('#voiceList optgroup')).map((g) => g.label), value: document.querySelector('#voiceList').value, about: document.querySelector('#voiceAbout').textContent, use: document.querySelector('#voiceUse').disabled, del: document.querySelector('#voiceDelete').disabled }));
-  const l0 = await until(async () => { const l = await list(); return l.groups.length === 1 && l; }, 4000);
-  check(l0 && l0.options[0] === 'None saved yet' && l0.groups[0] === 'From other agents' && l0.options.includes('Old sailor (Storyteller)') && l0.use && l0.del && /save it under a name/.test(l0.about), '[studio] an agent without saved voices: "None saved yet", and the voices of the other agents', l0);
+  // the saved voices, as a list: each row its name, its description, "in use", Listen / Use / Delete
+  const list = () => page.evaluate(() => ({
+    rows: Array.from(document.querySelectorAll('#voiceRows li[data-saved], #voiceRows li[data-other]')).map((li) => ({
+      id: li.dataset.saved || null, other: li.dataset.other != null, name: li.querySelector('b').textContent, about: li.querySelector('.what span').textContent,
+      current: li.classList.contains('current'), use: !li.querySelector('button:nth-of-type(2)').disabled, del: Array.from(li.querySelectorAll('button')).some((b) => b.textContent === 'Delete'),
+    })),
+    from: !!document.querySelector('#voiceRows li.from'),
+    about: document.querySelector('#voiceAbout').textContent,
+    persona: Array.from(document.querySelectorAll('#personaVoice option')).map((o) => o.textContent), personaValue: document.querySelector('#personaVoice').value,
+  }));
+  const row = (sel) => page.locator(`#voiceRows li${sel}`);
+  const l0 = await until(async () => { const l = await list(); return l.from && l; }, 4000);
+  const sailor0 = l0 && l0.rows.find((r) => r.name === 'Old sailor (Storyteller)');
+  check(l0 && !l0.rows.some((r) => !r.other) && /None saved yet/.test(l0.about) && sailor0 && sailor0.other && !sailor0.del,
+    '[studio] an agent without saved voices: "None saved yet", and the voices of the other agents, listed (no Delete)', l0);
 
   // save the voice as it is set
   await page.selectOption('#localVoices', 'M2');
@@ -211,25 +223,36 @@ else {
   await page.click('#voiceSave'); await askName('Deep narrator');
   const disk = () => fetch(`${url}/api/agents/${other.id}`).then((r) => r.json());
   check(await until(async () => { const a = await disk(); return a.voices.length === 1 && a.voices[0].id === 'deep-narrator' && a.voices[0].settings.localVoice === 'M2' && a.voices[0].settings.localVoiceEngine === 'supertonic'; }, 4000), '[studio] "Save this voice…": the voice as it is set, kept under the name typed (voices.json)');
-  const l1 = await list();
-  check(l1.value === 'deep-narrator' && l1.about === 'Supertonic · M2' && !l1.use && !l1.del && !l1.options.includes('None saved yet'), '[studio] it is in the list, chosen, and described: "Supertonic · M2"', l1);
+  const l1 = await until(async () => { const l = await list(); return l.rows.some((r) => r.id === 'deep-narrator') && l; }, 3000);
+  const deep = l1 && l1.rows.find((r) => r.id === 'deep-narrator');
+  check(deep && deep.about === 'Supertonic · M2' && deep.current && !deep.use && deep.del && !/None saved yet/.test(l1.about),
+    '[studio] it is in the list, described ("Supertonic · M2"), marked in use', l1);
+  check(l1.persona.some((o) => o === 'Deep narrator: Supertonic · M2') && l1.personaValue === 'deep-narrator', '[studio] Persona → Voice offers it, and shows it as the agent\'s voice', l1.persona);
 
   // use a voice of another agent: its settings become this agent's
-  await page.selectOption('#voiceList', { label: 'Old sailor (Storyteller)' });
-  const l2 = await list();
-  check(l2.about === 'Zonos · Gaspard · age +2, deep 3' && !l2.use && l2.del, '[studio] a voice of another agent: described, usable, not deletable from here', l2);
-  await page.click('#voiceUse');
+  await row(':has-text("Old sailor (Storyteller)")').locator('button', { hasText: 'Use' }).click();
   check(await until(async () => { const a = await disk(); return a.settings.localVoiceEngine === 'zonos' && a.settings.zonosVoice === 'Gaspard' && a.settings.voiceDesign === 'age +2, deep 3'; }, 4000)
     && (await page.evaluate(() => document.querySelector('[data-k="localVoiceEngine"]').value === 'zonos' && document.querySelector('[data-k="voiceDesign"]').value === 'age +2, deep 3')), '[studio] "Use": the agent now has that voice (the fields show it, persona.md has it)');
+  const l2 = await list();
+  check(l2.personaValue === '' && /^As set in Voice & timing: Zonos · Gaspard · age \+2, deep 3$/.test(l2.persona[0]), '[studio] Persona → Voice: a voice not saved here shows as "As set in Voice & timing"', l2.persona);
   await page.click('#voiceSave'); await askName('Sailor here');
   check(await until(async () => (await disk()).voices.length === 2, 4000), '[studio] …and it can be saved here under a name of its own');
   // saving under a name already taken replaces (after a question)
-  await page.selectOption('#voiceList', 'deep-narrator');
-  await page.click('#voiceUse');
+  await row('[data-saved="deep-narrator"]').locator('button', { hasText: 'Use' }).click();
   await until(async () => (await disk()).settings.localVoiceEngine === 'supertonic', 4000);
   await page.selectOption('#localVoices', 'F3');
   await page.click('#voiceSave'); await askName('deep narrator');
   check(await until(async () => { const a = await disk(); return a.voices.length === 2 && a.voices.find((v) => v.id === 'deep-narrator').settings.localVoice === 'F3'; }, 4000), '[studio] saving under a name already taken replaces that voice');
+  // Persona → Voice: choosing a saved voice gives it to the agent
+  await page.click('.nav button[data-view="persona"]');
+  await page.selectOption('#personaVoice', 'sailor-here');
+  check(await until(async () => (await disk()).settings.zonosVoice === 'Gaspard', 4000), '[studio] Persona → Voice: choosing "Sailor here" gives the agent that voice');
+  // Listen: a sentence in the voice as it is set, without a conversation
+  await page.click('.nav button[data-view="voice"]');
+  await page.selectOption('[data-k="localVoiceEngine"]', 'supertonic');
+  await page.selectOption('#voiceLang', 'fr');
+  await page.click('#voiceListen');
+  check(await until(async () => /^(Listening \(French\)\.)?$/.test(await page.textContent('#voiceStatus')) && !/Preparing/.test(await page.textContent('#voiceStatus')), 15000), '[studio] Listen: the voice says its sentence (in French)', await page.textContent('#voiceStatus'));
 
   // the pattern action
   await page.click('.nav button[data-view="interactions"]');
@@ -245,11 +268,10 @@ else {
 
   // deleting a voice a pattern uses: said before, and the pattern shows it
   await page.click('.nav button[data-view="voice"]');
-  await page.selectOption('#voiceList', 'sailor-here');
   let asked = '';
   page.removeAllListeners('dialog');
   page.on('dialog', (d) => { asked = d.message(); d.accept(); });
-  await page.click('#voiceDelete');
+  await page.locator('#voiceRows li[data-saved="sailor-here"]').locator('button', { hasText: 'Delete' }).click();
   check(await until(async () => (await disk()).voices.length === 1, 4000) && /These patterns change to it: Sailor mode/.test(asked), '[studio] deleting a voice a pattern changes to: the question names the pattern', asked);
   await page.click('.nav button[data-view="interactions"]');
   const gone = await page.evaluate(() => { const s = document.querySelector('#patternEditor select[aria-label="Voice"]'); return s ? s.options[s.selectedIndex].textContent : ''; });

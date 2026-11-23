@@ -12,7 +12,7 @@ cafe/
 
 ## Where they are
 
-In the studio's settings folder: the menu **Files → Open agents folder**. A file changed there by hand shows up when you come back to the studio's window.
+In the **VIK folder**: by default the studio's settings folder, or the folder chosen in [Settings](view:settings) → **VIK folder** (with the people recorded and the downloaded models; **Move…** takes them all to another folder or drive). The menu **Files → Open agents folder** opens it. A file changed there by hand shows up when you come back to the studio's window.
 
 ## The Manage menu
 

@@ -23,10 +23,20 @@ const DEFAULTS = {
   oscIn: '',                    // the UDP port sensors and buttons send OSC to (this computer's setting); '' = not listening
   agent: '',                    // the agent (its folder name): its knowledge and its patterns (docs/DESIGN.md)
 };
+/** A conversation's settings: these, completed by the studio's (also what the models are prepared with before Start). */
+export const SESSION_DEFAULTS = DEFAULTS;
 const ASR_KEYS = ['language', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'localAsr'];
 const LLM_KEYS = ['localLlm', 'llm'];        // a change loads (or frees) the local language model
 const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox', 'zonos'];
 const voiceEngine = (s) => (VOICE_ENGINES.includes(s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic');
+/** What the voice engine needs to speak, from the settings (a conversation's, or a voice tried in the studio). */
+export function voiceParamsOf(s) {
+  return {
+    voice: s.localVoice, speed: s.localSpeed, language: s.language,
+    engine: voiceEngine(s), description: String(s.voiceDescription || '').trim(),
+    zonosVoice: String(s.zonosVoice || '').trim(), design: String(s.voiceDesign || '').trim(),
+  };
+}
 /** The settings a voice model is LOADED with (a change reloads it). Parler's description is per request. */
 const TTS_KEYS = {
   supertonic: ['localVoiceEngine', 'language', 'localVoice', 'localSpeed'],
@@ -943,14 +953,7 @@ export class Session {
   }
 
   /** The voice settings of a synthesis. */
-  voiceParams() {
-    const s = this.vs;
-    return {
-      voice: s.localVoice, speed: s.localSpeed, language: s.language,
-      engine: voiceEngine(s), description: String(s.voiceDescription || '').trim(),
-      zonosVoice: String(s.zonosVoice || '').trim(), design: String(s.voiceDesign || '').trim(),
-    };
-  }
+  voiceParams() { return voiceParamsOf(this.vs); }
 
   /**
    * A pattern's "Change voice": from this reply on, the agent speaks with one of its saved voices (id), or with

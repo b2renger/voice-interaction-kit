@@ -18,8 +18,10 @@ Most problems show in the banner of [Talk](view:talk), in plain words. The menu 
 | what you see | what to do |
 |---|---|
 | no sound from the microphone (Mac) | System Settings → Privacy & Security → Microphone: allow VIK |
-| it reacts to the room (voices far away, music, a fan) | [Settings](view:settings) → **Microphone**: click **Start**, raise the **Gate** until the meter's bar stays grey when nobody speaks and turns blue when you speak. In a noisy room, untick **Automatic level** (it raises the noise when nobody speaks) and set the **Gain** |
-| it does not hear a quiet voice | [Settings](view:settings) → **Microphone**: raise the **Gain**, or lower the **Gate** |
+| it reacts to the room (voices far away, music, a fan) | [Talk](view:talk) → **Microphone**: click **Start**, raise the **Gate** until the meter's bar stays grey when nobody speaks and turns blue when you speak. In a noisy room, untick **Automatic level** (it raises the noise when nobody speaks) and set the **Gain** |
+| it does not hear a quiet voice | [Talk](view:talk) → **Microphone**: raise the **Gain**, or lower the **Gate** |
+| "Loading from this computer…" at each launch | the models are on this computer and are read into memory (the Zonos voice into the graphics card, about 1 GB): nothing is downloaded. VIK loads the open agent's models while you look at the studio, so that **Start** starts at once. "Downloading" only appears the first time a model is used |
+| the models take too much room on this drive | [Settings](view:settings) → **VIK folder** → **Move…**: the agents, the people and the models go to another folder or drive, and VIK restarts there |
 | the agent cuts itself off | it hears itself through the speakers: use headphones, or untick **Listens while speaking** in [Voice & timing](view:voice) |
 | it cuts you off while you hesitate | raise **End-of-turn silence**, or use the Smart Turn model (see [Voice and timing](voice.md#turn-taking-when-have-you-finished)) |
 | it stops for a "mm-hm" | set **Talk over it this long to interrupt** to 600 ms |

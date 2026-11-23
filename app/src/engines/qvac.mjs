@@ -31,7 +31,9 @@ import { AsyncQueue, clamp, num } from '../util.mjs';
 import { modelMatcher } from '../agent/matcher.mjs';
 
 const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const MODELS_DIR = join(homedir(), '.qvac', 'models');   // QVAC's download folder (qvac.config.json sets no cacheDirectory)
+// QVAC's download folder: <home>/.qvac/models. Its worker takes that home from SNAP_USER_COMMON when it is set,
+// which VIK does for a VIK folder chosen in Settings (app/electron/folder.cjs); otherwise the user's home folder.
+const modelsDir = () => join(process.env.SNAP_USER_COMMON || homedir(), '.qvac', 'models');
 
 /**
  * A catalogue model already on this computer: its path, or null. QVAC names a download "<hash>_<file name>",
@@ -45,8 +47,8 @@ function cachedFile(c) {
   const name = fileOf(c);
   if (!name || !c.expectedSize) return null;
   try {
-    for (const f of readdirSync(MODELS_DIR)) {
-      if ((f === name || f.endsWith(`_${name}`)) && statSync(join(MODELS_DIR, f)).size === c.expectedSize) return join(MODELS_DIR, f);
+    for (const f of readdirSync(modelsDir())) {
+      if ((f === name || f.endsWith(`_${name}`)) && statSync(join(modelsDir(), f)).size === c.expectedSize) return join(modelsDir(), f);
     }
   } catch { /* nothing downloaded yet */ }
   return null;
@@ -58,8 +60,8 @@ function cachedFile(c) {
  * SHA-256, or it is deleted. Gives up when nothing arrives for stallS seconds. Returns its path.
  */
 export async function downloadFromMirror(c, url, onProgress = () => {}, stallS = 90) {
-  mkdirSync(MODELS_DIR, { recursive: true });
-  const dest = join(MODELS_DIR, `mirror_${fileOf(c)}`);
+  mkdirSync(modelsDir(), { recursive: true });
+  const dest = join(modelsDir(), `mirror_${fileOf(c)}`);
   const part = `${dest}.part`;
   const ac = new AbortController();
   let lastAt = Date.now();

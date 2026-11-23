@@ -126,7 +126,7 @@ export function initMicMeter(agent) {
   let shown = -120;
   const frame = () => {
     requestAnimationFrame(frame);
-    if ($('#view-settings').hidden) return;
+    if (!meter.offsetParent) return;                           // drawn while it shows (Talk, its Microphone panel open)
     const m = agent.mic(); const s = settings();
     shown = m.db > shown ? m.db : shown - 1.2;                 // fast up, slow down: readable
     const off = Number(s.micGate) <= -80;

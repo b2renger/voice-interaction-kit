@@ -52,7 +52,9 @@ function words(info) {
   if (host.state === 'failed') return ['cannot run here', `Zonos cannot run on this computer: ${host.error}. The default voice speaks instead.`];
   if (host.state === 'ready' && info.available) return ['ready', designing];
   const pct = host.total ? ` ${Math.floor((100 * host.loaded) / host.total)} %` : '';
-  return [`loading${pct}`, `Loading the Zonos voice${host.total ? ` (${mb(host.loaded)} of ${mb(host.total)})` : ''}… The first time, its model is downloaded: about 1 GB. Until it is ready, the default voice speaks.`];
+  // its model is on this computer after the first time: it is then read from here into the graphics card, at each launch
+  if (info.modelPresent) return [`loading${pct}`, `Loading the Zonos voice from this computer into the graphics card${host.total ? ` (${mb(host.loaded)} of ${mb(host.total)})` : ''}: this takes a moment each time VIK opens, nothing is downloaded. Until it is ready, the default voice speaks.`];
+  return [`downloading${pct}`, `Downloading the Zonos voice${host.total ? ` (${mb(host.loaded)} of ${mb(host.total)})` : ''}: about 1 GB, once; it then stays on this computer. Until it is ready, the default voice speaks.`];
 }
 
 let last = { mode: 'web', available: false, url: '', voices: [], sliders: [] };

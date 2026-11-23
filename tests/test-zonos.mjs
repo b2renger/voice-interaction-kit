@@ -353,8 +353,9 @@ async function fakeWindow(port, { state = 'ready', error = '', progress = null }
   const w = await fakeWindow(port, { progress: { loaded: 250000000, total: 1000000000 } });
   c = await connect(port);
   c.send({ type: 'start', settings: { name: 'Test', persona: 'You are a test robot.', language: 'fr', greeting: '', localVoiceEngine: 'zonos', zonosVoice: 'Gaspard', voiceDesign: 'age +1.5, deep 3' } });
-  const loading = await c.waitFor('status', (m) => /^Loading: Zonos voice 25 % \(250\/1000 MB\)/.test(m.text), 4000);
-  check(!!loading && !c.has('ready'), '[window] the engine is loading: Start waits, the status says "Loading: Zonos voice 25 % (250/1000 MB)"', c.msgs.filter((m) => m.type === 'status').map((m) => m.text));
+  const loading = await c.waitFor('status', (m) => /^Loading from this computer: Zonos voice 25 %/.test(m.text), 4000);
+  check(!!loading && !c.has('ready') && !c.msgs.some((m) => m.type === 'status' && /Download/.test(m.text)),
+    '[window] the engine is loading: Start waits, the status says "Loading from this computer: Zonos voice 25 %" (nothing downloads: not "Downloading")', c.msgs.filter((m) => m.type === 'status').map((m) => m.text));
   check((await zapi(true)).host.state === 'loading' && /still loading/.test((await zapi()).error), '[window] the studio is told it is loading');
   w.say({ type: 'state', state: 'ready' });
   ready = await c.waitFor('ready', undefined, 5000);
@@ -520,8 +521,14 @@ if (playwright) {
   let page = await open('?slow=1600');
   check((await zapi()).host.state === 'none' && (await page.evaluate(() => !window.__zonos)), '[studio window] with another voice engine, the Zonos engine is not loaded');
   await page.selectOption('[data-k="localVoiceEngine"]', 'zonos');
-  const loading = await until(async () => { const u = await ui(page); return /^loading \d+ %$/.test(u.state) && /Loading the Zonos voice \(\d+ MB of 1000 MB\)…/.test(u.help) && u; }, 4000);
-  check(!!loading, '[studio window] Zonos chosen: the engine loads in the window, "loading 40 %" and the megabytes show', await ui(page));
+  // the words depend on whether the model is on this computer already (read from here) or not (downloaded once)
+  const present = (await zapi()).modelPresent;
+  const loading = await until(async () => {
+    const u = await ui(page);
+    return (present ? /^loading \d+ %$/.test(u.state) && /^Loading the Zonos voice from this computer into the graphics card \(\d+ MB of 1000 MB\): .*nothing is downloaded/.test(u.help)
+      : /^downloading \d+ %$/.test(u.state) && /^Downloading the Zonos voice \(\d+ MB of 1000 MB\): about 1 GB, once/.test(u.help)) && u;
+  }, 4000);
+  check(!!loading, `[studio window] Zonos chosen: the engine loads in the window, its progress and megabytes show, as ${present ? 'a load from this computer (the model is here)' : 'a download (once)'}`, await ui(page));
   check(await until(async () => (await ui(page)).state === 'ready' && (await ui(page)).sliders === 4, 8000), '[studio window] then "ready", with the engine\'s voices and sliders', await ui(page));
   const st = await page.evaluate(() => ({ inits: window.__zonos.inits, base: window.__zonos.opts.base, cache: window.__zonos.opts.cache, shard: window.__zonos.shardBytes, optional: window.__zonos.optional }));
   check(st.inits === 1 && st.base === `${url}/zonos/models/` && st.cache === false && st.shard === 300000 && st.optional === 404, '[studio window] the engine was given the app\'s own models address (no second copy in the browser), and read its model through it', st);

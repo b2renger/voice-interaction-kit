@@ -17,6 +17,7 @@ const SUITES = [
   { name: 'test-agents', args: ['tests/test-agents.mjs'] },
   { name: 'test-decide', args: ['tests/test-decide.mjs'] },
   { name: 'test-session', args: ['tests/test-session.mjs'] },
+  { name: 'test-folder', args: ['tests/test-folder.mjs'] },
   { name: 'test-guide', args: ['tests/test-guide.mjs'] },
   { name: 'test-models', args: ['tests/test-models.mjs'] },
   { name: 'test-farm', args: ['tests/test-farm.mjs'] },
