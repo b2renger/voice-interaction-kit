@@ -292,7 +292,7 @@ await browser.close();
   await browser2.close();
 }
 
-// =========================== 3b. the microphone: gain and gate (Settings, Microphone) ==================
+// =========================== 3b. the microphone: gain and gate (Talk, its Microphone panel) ============
 // The fake mic loops: 1 s of room noise, 1.5 s of speech, 6 s of noise. With the browser's automatic level (on by
 // default), the speech peaks around -7 dBFS: at -12 dB of gain, around -19, under a gate at -10.
 {
@@ -307,8 +307,11 @@ await browser.close();
     const t = setInterval(() => { const m = window.agent.mic(); max = Math.max(max, m.db); if (m.open) opened = true; else closed = true; }, 20);
     setTimeout(() => { clearInterval(t); res({ max, opened, closed }); }, ms);
   }), ms);
+  // the microphone is set in Talk, while talking: Settings → Microphone links there and opens its panel
   await page.click('.nav button[data-view="settings"]');
-  check(/Click Start/.test(await page.textContent('#micMeterText')), 'mic: the meter asks for Start while the mic is closed');
+  await page.click('#view-settings [data-goto="talk"]');
+  check(await page.evaluate(() => !document.querySelector('#view-talk').hidden && document.querySelector('#micPanel').open), 'mic: Settings → Microphone opens Talk, its Microphone panel open');
+  check(await until(async () => /Click Start/.test(await page.textContent('#micMeterText')), 2000), 'mic: the meter asks for Start while the mic is closed');
   await setField(page, 'micGain', -12);
   await setField(page, 'micGate', -10);                    // above the voice: the agent hears nothing
   await page.click('#start');
@@ -586,6 +589,13 @@ await browser.close();
   await page.click('.nav button[data-view="persona"]');
   await page.check('[data-k="freeTalk"]');
   await until(async () => (await disk('bike-shop')).settings.freeTalk === true, 4000);
+  // Settings → VIK folder: where the agents are; the server alone cannot move them (the app does)
+  {
+    await page.click('.nav button[data-view="settings"]');
+    const f = await until(async () => { const t = await page.textContent('#folderWhere'); return /Agents/.test(t) && t; }, 3000);
+    check(f && f.includes(await page.evaluate(() => fetch('/api/folder').then((r) => r.json()).then((j) => j.agents))) && await page.isHidden('#folderMove')
+      && /npm run server/.test(await page.textContent('#folderStatus')), 'VIK folder: Settings shows where the agents are; run by itself, the server does not offer to move them', f);
+  }
   // the Updates window: this version (Settings → Version), and what the app's updater says (here: the server alone)
   {
     const version = JSON.parse(readFileSync(join(ROOT, 'app', 'package.json'), 'utf8')).version;

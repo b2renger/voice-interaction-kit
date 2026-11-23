@@ -47,6 +47,17 @@ export const api = {
   addPerson: (name, pcm) => sendVoice(`/api/people?name=${enc(name)}`, pcm),
   identify: (pcm) => sendVoice('/api/people/identify', pcm),
   // the Updates window: this version, and new ones (app/electron/updates.cjs, through the server)
+  // Settings → VIK folder (moved by the app)
+  folder: () => call('GET', '/api/folder'),
+  chooseFolder: () => call('POST', '/api/folder/choose'),
+  moveFolder: (dir, asIs) => call('POST', '/api/folder/move', { dir, asIs: !!asIs }),
+  // the models of the agent shown, loaded before Start; a voice tried (a WAV)
+  prepare: (settings) => call('POST', '/api/prepare', { settings }),
+  async testVoice(settings, language) {
+    const r = await fetch('/api/voice/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings, language }) });
+    if (!r.ok) { const j = await r.json().catch(() => null); throw new Error((j && j.error) || `The server answered ${r.status}.`); }
+    return r.blob();
+  },
   updates: () => call('GET', '/api/updates'),
   checkUpdates: () => call('POST', '/api/updates/check'),
   installUpdate: () => call('POST', '/api/updates/install'),

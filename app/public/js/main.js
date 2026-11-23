@@ -9,6 +9,7 @@ import { initInteractions, renderInteractions } from './interactions.js';
 import { initSettings, initMicMeter, initOscIn, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
 import { initPeople } from './people.js';
 import { initUpdates } from './updates.js';
+import { initFolder } from './folder.js';
 import { initGuide, renderGuide, openGuide, refreshGuideTour } from './guide.js';
 import { initTour, startTour, tourCard } from './tour.js';
 import { initZonos } from './zonos.js';
@@ -27,6 +28,7 @@ initMicMeter(agent);
 initOscIn(agent);
 initPeople(agent);
 initUpdates();
+initFolder();
 initZonos((ms) => pushSettings(ms));
 initVoices((ms) => pushSettings(ms));
 
@@ -95,6 +97,14 @@ function show(view) {
   try { localStorage.setItem('vik.view', view); } catch { /* no storage */ }
 }
 for (const b of $$('.nav button[data-view]')) b.addEventListener('click', () => show(b.dataset.view));
+// a link to another view in a view's text (Settings → Microphone → Talk), opening a panel there if it names one
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('[data-goto]');
+  if (!a) return;
+  e.preventDefault();
+  show(a.dataset.goto);
+  if (a.dataset.open) $(`#${a.dataset.open}`).open = true;
+});
 
 // ———————————————————————————— the settings fields ————————————————————————————
 const FMT = {
@@ -134,6 +144,19 @@ for (const el of $$('[data-k]')) {
   if (live) el.addEventListener('change', () => { if (pushTimer) pushSettings(0); });   // released: right away
 }
 
+// The models of the agent shown are loaded a moment after it opens (its language, its voice, its language model),
+// so that Start starts at once instead of loading them then. Not during a conversation: it has its own.
+const MODEL_KEYS = ['language', 'localAsr', 'localLlm', 'llm', 'localVoiceEngine', 'localVoice', 'localSpeed', 'endSilenceMs', 'startSensitivity', 'endSensitivity'];
+let prepareTimer = 0;
+function prepareModels() {
+  clearTimeout(prepareTimer);
+  prepareTimer = setTimeout(() => {
+    const s = settings();
+    if (s.engine !== 'local' || agent.active || agent.state === 'connecting') return;
+    api.prepare(Object.fromEntries(VoiceCore.LOCAL_KEYS.map((k) => [k, s[k]]))).catch(() => { /* the server says it at Start */ });
+  }, 1500);
+}
+
 onChange((what, detail) => {
   if (what === 'agent') {
     paintFields();
@@ -142,8 +165,10 @@ onChange((what, detail) => {
     pushSettings(0);
     hub.info();
     $('#agentSelect').value = state.agentId;
+    prepareModels();
   } else if (what === 'setting') {
     paintFields();
+    if (MODEL_KEYS.includes(detail)) prepareModels();
     if (detail === 'name') hub.info();
     if (detail === 'name' || detail === 'title') refreshAgentTitle();
     if (['tables', 'interactions'].includes(detail) && settings().engine === 'gemini') pushSettings(600);

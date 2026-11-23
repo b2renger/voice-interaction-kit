@@ -152,9 +152,21 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 16
 .design { grid-column: 1 / -1; display: grid; gap: 12px; }
 .design[hidden] { display: none; }
 /* the saved voices (Voice & timing): a list, its buttons, and what the chosen one is */
-.voices { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(260px, 1fr) auto; gap: 8px 16px; align-items: end; padding-top: 6px; }
+.voices { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 6px; }
 .voices[hidden] { display: none; }
-.voices .hint { grid-column: 1 / -1; margin: 0; }
+.voices .hint { margin: 0; }
+.voices .listen { align-items: center; flex-wrap: wrap; }
+.voices .listen select { width: auto; }
+.voices h3 { font-size: 14px; margin-top: 8px; }
+.voice-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.voice-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.voice-list li.from { color: var(--muted); font-size: 12.5px; padding-top: 14px; border-bottom: 0; }
+.voice-list .what { display: grid; gap: 2px; min-width: 0; }
+.voice-list .what span { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.voice-list .what em { font-style: normal; font-size: 12px; color: var(--accent); }
+.voice-list .row { flex-wrap: nowrap; }
+.persona-voice { display: grid; gap: 4px; }
+.persona-voice .hint { margin: 0; }
 #zonosDesign { display: grid; gap: 16px; }
 .design-group h3 { color: var(--muted); }
 /* (auto-fill: a group with a single slider keeps the width of the others) */
@@ -207,6 +219,10 @@ button.link { background: none; border: 0; padding: 0; font: inherit; color: var
 .say select { width: auto; max-width: 30%; }
 .talk-tools { display: flex; gap: 8px; width: min(720px, 100%); justify-content: space-between; align-items: center; }
 .talk-tools select { width: auto; }
+.mic-panel { width: min(720px, 100%); border-top: 1px solid var(--rule); padding-top: 8px; }
+.mic-panel summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
+.mic-panel[open] summary { margin-bottom: 10px; }
+.mic-panel .check { margin-top: 8px; }
 .talk-tools .metrics { display: flex; gap: 22px; color: var(--muted); font-size: 12.5px; }
 .talk-tools .metrics b { display: block; color: var(--ink); font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
 
@@ -435,3 +451,6 @@ a.btn { text-decoration: none; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+.folder { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 10px; font-size: 13.5px; }
+.folder dt { color: var(--muted); }
+.folder dd { margin: 0; overflow-wrap: anywhere; }

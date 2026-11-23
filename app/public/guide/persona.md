@@ -39,6 +39,7 @@ You don't need to put the facts in the persona: prices, opening hours and lists 
 
 ## The options
 
+- **Voice.** The agent's voice, chosen among its saved voices; **Listen** says a sentence in it. Voices are designed and saved in [Voice & timing](voice.md#saved-voices-several-voices-for-one-agent); a pattern can change the voice during a conversation (**Change voice**, in [Interactions](interactions.md)).
 - **Short answers, one question at a time.** Almost always better when spoken.
 - **Can show choices and a mood by itself.** The language model can then add buttons to the screen and set a mood. Patterns can do it too, see [Interactions](interactions.md).
 - **Creativity.** Low: predictable and steady. High: surprising, sometimes off topic.

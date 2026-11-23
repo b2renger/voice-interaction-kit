@@ -27,9 +27,13 @@ Zonos runs inside this window, on the computer's graphics card. The first time y
 
 ### Saved voices: several voices for one agent
 
-Under the voice, **Save this voice…** keeps the voice as it is set (its engine, its voice, its speed or its design) under a name: "the old sailor", "the child", "calm". The list holds the agent's saved voices, and those of the other agents on this computer.
+**Listen** says a sentence in the voice as it is set, **in French** or **in English**: move a slider or pick another voice, then listen again, without starting a conversation. The first time a voice is used, it loads first (a few seconds; a voice never used on this computer is downloaded once). Not during a conversation: stop it first.
 
-- **Use** gives the agent the voice chosen in the list: it becomes its own voice.
+**Save this voice…** keeps the voice as it is set (its engine, its voice, its speed or its design) under a name: "the old sailor", "the child", "calm". **Saved voices** lists them, each with what it is ("Zonos · Gaspard · age +1.5"), the one the agent speaks with marked **in use**, and the voices saved in the other agents of this computer.
+
+- **Listen** says the sentence in that saved voice.
+- **Use** gives the agent that voice: it becomes its own voice. The [Persona](view:persona) offers the same choice, under **Voice**.
+- **Delete** removes it (a voice of another agent is deleted from that agent).
 - In a pattern, the action **Change voice** makes the agent answer in a saved voice from that reply on: a storyteller who becomes the wolf when you ask for the wolf, a guide who whispers in the last room. The change lasts until another pattern changes the voice again, or gives the agent "its own voice" back. A new conversation always starts in the agent's own voice.
 - A voice of the same engine changes at once. A voice of another engine has to be loaded first ("Changing voice…"), which takes a moment: for a quick back-and-forth between characters, save voices of the same engine.
 
@@ -42,7 +46,7 @@ The agent has to guess when you have finished speaking. Too early, and it cuts o
 - **End-of-turn silence**: the silence that ends a turn. 300 ms makes an impatient agent; 2,000 ms a patient but slow one.
 - **End of turn**: silence only, or **silence and the Smart Turn model**, which also listens to how your sentence ends (its intonation). With Smart Turn, set the silence to 2,000 ms: the agent replies quickly to a finished sentence, and still waits during an "um…".
 - **Start-of-speech** and **end-of-speech sensitivity**: how easily it hears that you started, and how quickly it decides you stopped.
-- **The microphone itself** (a quiet mic, a noisy room): its **gain** and its **gate** are in [Settings](view:settings), under **Microphone**, with a level meter.
+- **The microphone itself** (a quiet mic, a noisy room): its **gain** and its **gate** are in [Talk](view:talk), under the conversation (**Microphone**), with a level meter: set them while you talk.
 
 ## Interruptions
 

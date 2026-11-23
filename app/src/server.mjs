@@ -7,6 +7,7 @@
 // folder (the tests), a temporary one: never the user's.
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { loadConfig } from './config.mjs';
 import { startServer, APP_DIR } from './app-server.mjs';
@@ -24,13 +25,20 @@ function appDataDir() {
   return join(process.env.XDG_CONFIG_HOME || join(home, '.config'), 'VIK');
 }
 
+// the app's VIK folder (Settings → VIK folder, app/electron/folder.cjs), unless --agents / VIK_AGENTS says otherwise;
+// a chosen folder also holds the models (QVAC's worker takes their home from SNAP_USER_COMMON)
+const overridden = !!(args.agents || process.env.VIK_AGENTS);
+const { readPointer, layoutOf } = createRequire(import.meta.url)('../electron/folder.cjs');
+const place = layoutOf(overridden ? '' : readPointer(appDataDir()).dir, appDataDir());
+if (place.dir) process.env.SNAP_USER_COMMON = place.dir;
+
 let srv;
 try {
   srv = await startServer({
     config,
-    agentsDir: resolve(String(args.agents || process.env.VIK_AGENTS || join(appDataDir(), 'agents'))),
+    agentsDir: resolve(String(args.agents || process.env.VIK_AGENTS || place.agents)),
     peopleFile: args.people || process.env.VIK_PEOPLE ? resolve(String(args.people || process.env.VIK_PEOPLE))
-      : args.agents || process.env.VIK_AGENTS ? undefined : join(appDataDir(), 'people.json'),
+      : overridden ? undefined : place.people,
     mock: !!args.mock || process.env.VOICE_ENGINE === 'mock',
     port: Number(args.port || process.env.PORT || config.port || 8790),
     host: String(args.host || process.env.HOST || config.host || '127.0.0.1'),

@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
 const { setupUpdates, updateMode } = require('./updates.cjs');
+const folder = require('./folder.cjs');
 
 const APP_DIR = path.join(__dirname, '..');
 const MOCK = process.argv.includes('--mock') || process.env.VOICE_ENGINE === 'mock';
@@ -61,8 +62,21 @@ function log(m) {
 /** The settings: the app's own, completed by the user's (settings folder). */
 function userDir() { return app.getPath('userData'); }
 function userConfigPath() { return path.join(userDir(), 'config.json'); }
-function agentsDir() { return path.join(userDir(), 'agents'); }
-function modelsDir() { return path.join(os.homedir(), '.qvac', 'models'); }
+/**
+ * The VIK folder (Settings → VIK folder, electron/folder.cjs): the agents, the people, the models. Read once per
+ * launch; a chosen folder is also the home QVAC's worker keeps its models in (SNAP_USER_COMMON).
+ */
+let place = null;
+function where() {
+  if (!place) {
+    const p = folder.readPointer(userDir());
+    place = folder.layoutOf(p.dir, userDir());
+    if (p.dir) process.env.SNAP_USER_COMMON = p.dir;
+  }
+  return place;
+}
+function agentsDir() { return where().agents; }
+function modelsDir() { return where().models; }
 function openModelsFolder() { fs.mkdirSync(modelsDir(), { recursive: true }); shell.openPath(modelsDir()); }
 /** The settings folder of the app's earlier name ("Voice Lab"): its personas become agents, its config.json is kept. */
 function oldUserDir() { return path.join(app.getPath('appData'), 'Voice Lab'); }
@@ -253,8 +267,59 @@ function showLog() {
   dialog.showMessageBox(win, { type: 'info', message: 'Server log', detail: logLines.slice(-40).join('\n') || '(empty)' });
 }
 
+/**
+ * Settings → VIK folder, for the studio (through the server: /api/folder). Moving copies the agents, the people
+ * and the models to the folder chosen, then VIK restarts there; the next launch removes the old copies.
+ */
+let moving = null;            // {phase: 'copying'|'done'|'failed', copied, bytes, file, error}
+const folderApi = {
+  state() { const l = where(); return { movable: true, dir: l.dir, agents: l.agents, people: l.people, models: l.models, holds: folder.contentOf(l), moving }; },
+  async choose() {
+    const r = await dialog.showOpenDialog(win, { title: 'The VIK folder: agents, people, models', properties: ['openDirectory', 'createDirectory'] });
+    if (r.canceled || !r.filePaths || !r.filePaths[0]) return { cancelled: true };
+    const dir = r.filePaths[0];
+    return { dir, holds: folder.contentOf(folder.layoutOf(dir, userDir())) };
+  },
+  /** dir '' = back to the usual places; asIs: a folder that already holds agents, used without copying anything. */
+  move(dir, { asIs = false } = {}) {
+    if (moving && moving.phase === 'copying') throw new Error('A move is already running.');
+    const from = where();
+    const to = folder.layoutOf(String(dir || ''), userDir());
+    const restart = () => setTimeout(() => { app.relaunch(); app.quit(); }, 1200);
+    if (asIs) {
+      if (!to.dir) throw new Error('Choose a folder.');
+      folder.writePointer(userDir(), { dir: to.dir });
+      log(`▸ VIK folder: ${to.dir}, used as it is; VIK restarts there`);
+      moving = { phase: 'done', copied: 0, bytes: 0, file: '' };
+      restart();
+      return moving;
+    }
+    const held = folder.contentOf(to);
+    if (to.dir && (held.agents || held.people)) throw new Error('This folder already holds agents: use it as it is, or choose an empty folder.');
+    const plan = folder.planMove(from, to);                  // refuses the same place, too little room, no writing
+    moving = { phase: 'copying', copied: 0, bytes: plan.bytes, file: '' };
+    log(`▸ VIK folder: moving to ${to.dir || 'the usual places'} (${(plan.bytes / 1e9).toFixed(1)} GB to copy)`);
+    folder.copyAll(plan, (p) => { moving = { phase: 'copying', ...p }; })
+      .then(() => {
+        folder.writePointer(userDir(), { dir: to.dir, previous: from.dir });
+        moving = { phase: 'done', copied: plan.bytes, bytes: plan.bytes, file: '' };
+        log('▸ VIK folder: copied; VIK restarts there');
+        restart();
+      }, (e) => { moving = { phase: 'failed', error: e.message }; log(`✖ VIK folder: ${e.message} (nothing changed)`); });
+    return moving;
+  },
+};
+
 async function start() {
   adoptOldConfig();
+  where();                      // the VIK folder first: QVAC's worker, started with the server, takes its models' home from it
+  // a move finished last time: the old copies go, now that nothing uses them (only those found again here)
+  const pointer = folder.readPointer(userDir());
+  if (pointer.previous != null) {
+    const r = folder.removeOld(folder.layoutOf(pointer.previous, userDir()), where());
+    log(`▸ VIK folder: now ${where().dir || 'the usual places'}; ${r.removed} old files removed${r.kept ? `, ${r.kept} kept (not found here)` : ''}`);
+    folder.writePointer(userDir(), { dir: pointer.dir });
+  }
   const config = await loadAppConfig();
   const { startServer } = await import(pathToFileURL(path.join(APP_DIR, 'src', 'app-server.mjs')).href);
   try {
@@ -263,7 +328,8 @@ async function start() {
       mock: MOCK,
       log,
       agentsDir: agentsDir(),
-      peopleFile: path.join(userDir(), 'people.json'),      // the people recognized by their voice (Settings → People)
+      peopleFile: where().people,                          // the people recognized by their voice (Settings → People)
+      folder: () => folderApi,                              // Settings → VIK folder
       updates: () => updates,                                 // new versions, for the studio's Updates window
       // the personas of earlier versions become agents (first launch only)
       legacyDirs: [path.join(oldUserDir(), 'personas'), path.join(userDir(), 'personas')],

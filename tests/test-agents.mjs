@@ -168,6 +168,25 @@ let store = createAgentStore({ dir, examples, legacy: [legacy] });
   check((await call('GET', '/nothing')).status === 404 && (await call('GET', '/agents/Bad%20Name')).status === 400, 'api: unknown route 404, bad name 400');
   const foreign = await fetch(`${base}/agents`, { headers: { origin: 'https://evil.example' } });
   check(foreign.status === 403, 'api: a request from another website is refused', foreign.status);
+  // Voice & timing → Listen: a sentence in a voice, as a WAV, without a conversation; the models prepared before Start
+  const wavOf = (language) => fetch(`http://127.0.0.1:${srv.port}/api/voice/test`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings: { localVoiceEngine: 'supertonic', localVoice: 'M2' }, language }) });
+  const wav = await wavOf('fr');
+  const bytes = Buffer.from(await wav.arrayBuffer());
+  check(wav.status === 200 && wav.headers.get('content-type') === 'audio/wav' && bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WAVE' && bytes.length > 44 + 2000,
+    'listen: POST /api/voice/test answers a WAV of the voice saying its sentence', { status: wav.status, type: wav.headers.get('content-type'), bytes: bytes.length });
+  const prep = await (await fetch(`http://127.0.0.1:${srv.port}/api/prepare`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings: { language: 'fr' } }) })).json();
+  check(prep.ok === true, 'prepare: POST /api/prepare loads the models of the agent shown, before Start', prep);
+  const talk = new WebSocket(`ws://127.0.0.1:${srv.port}/voice`);
+  await new Promise((r) => { talk.onopen = r; });
+  const readyNow = new Promise((r) => { talk.onmessage = (e) => { if (typeof e.data === 'string' && JSON.parse(e.data).type === 'ready') r(); }; });
+  talk.send(JSON.stringify({ type: 'start', settings: { language: 'en' } }));
+  await readyNow;
+  const during = await wavOf('en');
+  const prepDuring = await (await fetch(`http://127.0.0.1:${srv.port}/api/prepare`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings: { language: 'fr' } }) })).json();
+  check(during.status === 400 && /Stop the conversation/.test((await during.json()).error) && prepDuring.skipped,
+    'listen and prepare: not during a conversation (it uses the voice and the models)', prepDuring);
+  talk.close();
+  await new Promise((r) => setTimeout(r, 200));
   // DNS rebinding: a page whose own name points at this computer keeps that name in the Host header
   const { request } = await import('node:http');
   const asHost = (host, path, headers = {}) => new Promise((resolve) => {

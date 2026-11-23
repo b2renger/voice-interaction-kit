@@ -71,6 +71,16 @@
             <button class="btn" id="interrupt" type="button" disabled>Interrupt</button>
           </div>
         </div>
+        <!-- this computer's microphone, adjusted while you talk (settings kept in this window, not in the agent) -->
+        <details class="mic-panel" id="micPanel">
+          <summary>Microphone</summary>
+          <div class="grid2">
+            <label class="field" style="align-content:start"><span>Gain <output data-out="micGain"></output></span><input type="range" min="-12" max="24" step="1" data-k="micGain"></label>
+            <label class="field"><span>Gate <output data-out="micGate"></output></span><input type="range" min="-80" max="-10" step="1" data-k="micGate"><span class="mic-meter" id="micMeter" aria-hidden="true"><span class="lvl"></span><span class="thr"></span></span><span class="hint" id="micMeterText">Click Start to see the microphone.</span></label>
+          </div>
+          <label class="check"><input type="checkbox" data-k="micAutoGain"> Automatic level (the browser's)</label>
+          <p class="hint">Quieter than the gate, the agent hears silence: raise it until the room's noise stays under the line, and a voice goes over it. In a noisy room, untick the automatic level, which raises the noise when nobody speaks, and set the gain yourself (it applies at the next Start).</p>
+        </details>
       </div>
       <aside class="trace" aria-label="Why it answered">
         <h2>Why it answered</h2>
@@ -101,6 +111,10 @@
           <label class="field"><span>Persona</span><textarea id="personaBody" data-k="persona" spellcheck="true"></textarea></label>
         </div>
         <aside class="stack">
+          <div class="persona-voice" data-show="local">
+            <label class="field"><span>Voice</span><select id="personaVoice" aria-label="The agent's voice"></select></label>
+            <p class="hint"><button type="button" class="link" id="personaListen">Listen</button> · <a href="#voice" data-goto="voice">Design a voice</a> (Voice &amp; timing). A pattern can change it during a conversation (Interactions, “Change voice”).</p>
+          </div>
           <label class="check"><input type="checkbox" data-k="shortAnswers"> Short answers, one question at a time</label>
           <label class="check"><input type="checkbox" data-k="uiTools"> Can show choices and a mood by itself</label>
           <label class="check"><input type="checkbox" data-k="freeTalk"> Talks about anything</label>
@@ -185,12 +199,15 @@
           <label class="field" data-show="gemini"><span>Way of speaking, asked of Gemini</span><input type="text" data-k="speakingStyle" placeholder="slow, calm, with a smile"></label>
           <label class="field"><span>Volume <output data-out="volume"></output></span><input type="range" min="0" max="2" step="0.05" data-k="volume"></label>
           <div class="voices" data-show="local">
-            <label class="field"><span>Saved voices <span>the voice above, kept under a name</span></span><select id="voiceList"><option value="">None saved yet</option></select></label>
-            <div class="row">
+            <div class="row listen">
+              <span>Hear the voice as it is set</span>
+              <select id="voiceLang" aria-label="Language of the sentence heard"><option value="fr">in French</option><option value="en">in English</option></select>
+              <button type="button" class="btn" id="voiceListen">Listen</button>
               <button type="button" class="btn" id="voiceSave">Save this voice…</button>
-              <button type="button" class="btn" id="voiceUse" title="Give the agent this voice">Use</button>
-              <button type="button" class="btn quiet danger" id="voiceDelete">Delete</button>
             </div>
+            <p class="hint" id="voiceStatus" aria-live="polite"></p>
+            <h3>Saved voices</h3>
+            <ul class="voice-list" id="voiceRows"></ul>
             <p class="hint" id="voiceAbout"></p>
           </div>
         </div>
@@ -278,13 +295,7 @@
         </div>
       </div>
       <div class="group">
-        <header><h2>Microphone</h2><p>How loud the microphone is, and how loud a sound must be for the agent to hear it.</p></header>
-        <div class="grid2">
-          <label class="field" style="align-content:start"><span>Gain <output data-out="micGain"></output></span><input type="range" min="-12" max="24" step="1" data-k="micGain"></label>
-          <label class="field"><span>Gate <output data-out="micGate"></output></span><input type="range" min="-80" max="-10" step="1" data-k="micGate"><span class="mic-meter" id="micMeter" aria-hidden="true"><span class="lvl"></span><span class="thr"></span></span><span class="hint" id="micMeterText">Click Start to see the microphone.</span></label>
-        </div>
-        <label class="check" style="margin-top:8px"><input type="checkbox" data-k="micAutoGain"> Automatic level (the browser's)</label>
-        <p class="hint">Quieter than the gate, the agent hears silence: raise it until the room's noise stays under the line, and a voice goes over it. In a noisy room, untick the automatic level, which raises the noise when nobody speaks, and set the gain yourself (it applies at the next Start).</p>
+        <header><h2>Microphone</h2><p>Its gain and its gate are in <a href="#talk" data-goto="talk" data-open="micPanel">Talk</a>, under the conversation: set them while you talk, with the level in front of you.</p></header>
       </div>
       <div class="group" data-show="local">
         <header><h2>People</h2><p>The people the agent recognizes by their voice. Each one reads a short text once, with this microphone. The agent then knows who is speaking, and patterns can be kept for some of them (Interactions → Who). <a href="#guide/people" class="help" data-guide="people">Recognizing people</a></p></header>
@@ -324,6 +335,15 @@
         <header><h2>Local server</h2></header>
         <label class="field" style="max-width:420px"><span>Address of the voice server</span><input type="text" data-k="serverUrl"></label>
         <p class="hint" style="margin-top:8px" id="agentsDir"></p>
+      </div>
+      <div class="group" data-show="local">
+        <header><h2>VIK folder</h2><p>Where VIK keeps the agents, the people recorded and the downloaded models (several GB). Move it to another drive, or to a folder of your own.</p></header>
+        <dl class="folder" id="folderWhere"></dl>
+        <div class="row">
+          <button type="button" class="btn" id="folderMove">Move…</button>
+          <button type="button" class="btn quiet" id="folderBack" hidden>Back to the usual places</button>
+        </div>
+        <p class="hint" id="folderStatus" aria-live="polite"></p>
       </div>
       <div class="group">
         <header><h2>Version</h2></header>

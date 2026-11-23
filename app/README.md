@@ -92,7 +92,7 @@ You also need:
 
 - **On Windows**: an up-to-date graphics driver. QVAC needs **Vulkan 1.4**, even without a dedicated graphics card; recent NVIDIA, AMD and Intel drivers have it.
 - **On Mac**: 16 GB of memory is comfortable. With 8 GB, choose lighter models (see "Choosing the models").
-- **About 2 GB of disk space** for the models, in `~/.qvac/models` (menu **Files → Open models folder**). Add about 1.2 GB for Parler and 1.1 GB for Chatterbox.
+- **About 2 GB of disk space** for the models, in `~/.qvac/models` (menu **Files → Open models folder**), or in the VIK folder chosen in **Settings → VIK folder** (**Move…** takes the agents, the people and the models to another folder or drive, then VIK restarts there). Add about 1.2 GB for Parler and 1.1 GB for Chatterbox.
 
 On first launch, the banner follows the model download. When it says "The models are ready", click **Start** and talk.
 
@@ -233,7 +233,7 @@ A change in `config.json` takes effect when you restart the app.
 | End of turn | "silence only", or "silence and the Smart Turn model" (see below) |
 | Start-of-speech sensitivity | Silero detector threshold (0.45 for "high", 0.6 for "low") |
 | End-of-speech sensitivity | silence that splits a sentence (300 or 500 ms) |
-| Microphone gain, gate (Settings) | in the window, before anything listens: the gain multiplies the mic; under the gate's threshold (dBFS, after the gain) the agent hears silence, from 300 ms after the last loud sound. Both engines get the same sound |
+| Microphone gain, gate (Talk → Microphone) | in the window, before anything listens: the gain multiplies the mic; under the gate's threshold (dBFS, after the gain) the agent hears silence, from 300 ms after the last loud sound. Both engines get the same sound |
 | Can be interrupted | as soon as Silero hears someone over the agent's voice, generation and voice are cancelled (with "Talk over it this long" at 0) |
 | Talk over it this long to interrupt | above 0, the agent's voice drops to 30 % within 80 ms, and the app waits up to 1.5 s for the transcript. A backchannel ("mm-hm", "yeah", "d'accord") or a noise: the voice comes back, and your words are not a turn. A stop phrase ("stop", "wait", "attends", "chut"): the agent stops and listens. Anything else, or talking longer than this: a real interruption |
 | Away after, said once when the person stays silent | after this much silence while listening, the `user.away` event; the line is said as written, once |

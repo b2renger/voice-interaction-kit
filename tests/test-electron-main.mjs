@@ -4,7 +4,8 @@
 //   node tests/test-electron-main.mjs
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { ROOT, check, summary, until, sleep } from './helpers.mjs';
 
 // require('electron') always gets the stub, even when app/node_modules has the real package
@@ -17,6 +18,11 @@ Module._resolveFilename = function (request, ...rest) {
   return resolveFilename.call(this, request === 'electron' ? ELECTRON_STUB : request, ...rest);
 };
 process.argv.push('--mock');
+// a home of its own: the VIK folder test moves "the models" (<home>/.qvac/models), never the user's
+const fakeHome = mkdtempSync(join(tmpdir(), 'vik-home-'));
+mkdirSync(join(fakeHome, '.qvac', 'models'), { recursive: true });
+writeFileSync(join(fakeHome, '.qvac', 'models', 'whisper-test.bin'), 'w'.repeat(4096));
+process.env.USERPROFILE = fakeHome; process.env.HOME = fakeHome;
 // the settings folder of the earlier "Voice Lab" app: personas (one with a knowledge file) and a config.json
 {
   const old = join(require(ELECTRON_STUB).app.getPath('appData'), 'Voice Lab');
@@ -132,6 +138,23 @@ check(win.openHandler({ url: 'https://cables.gl' }).action === 'deny', 'external
   win.close();
   await until(() => win.destroyed, 2000);
   check(win.scripts.slice(before).some((js) => /vikSaveBeforeClose/.test(js)) && win.destroyed, 'closing the window saves the edits first (window.vikSaveBeforeClose), then it closes', win.scripts.slice(before));
+}
+
+// Settings → VIK folder: where things are, then a move (copied, chosen, VIK restarts there)
+{
+  const userData = require('electron').app.getPath('userData');
+  const where = await (await fetch(`${base}/api/folder`)).json();
+  check(where.movable && where.dir === '' && where.agents === join(userData, 'agents') && where.models === join(fakeHome, '.qvac', 'models') && where.holds.agents > 0 && where.holds.models === 4096,
+    'VIK folder: the usual places (agents in the settings folder, models in <home>/.qvac/models), and what they hold', where);
+  const D = mkdtempSync(join(tmpdir(), 'vik-moved-'));
+  st.relaunched = null;
+  const r = await fetch(`${base}/api/folder/move`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dir: D }) });
+  check(r.status === 200, 'VIK folder: a move starts', await r.clone().text());
+  check(await until(() => st.relaunched, 5000) && existsSync(join(D, 'agents', 'station-kiosk', 'persona.md')) && existsSync(join(D, '.qvac', 'models', 'whisper-test.bin')),
+    'VIK folder: the agents and the models are copied, then VIK restarts', st.relaunched);
+  const pointer = JSON.parse(readFileSync(join(userData, 'folder.json'), 'utf8'));
+  check(pointer.dir === D && pointer.previous === '' && existsSync(join(fakeHome, '.qvac', 'models', 'whisper-test.bin')),
+    'VIK folder: folder.json names the new folder and the one left (its copies go at the next launch, not before)', pointer);
 }
 
 // quitting closes the server
