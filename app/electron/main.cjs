@@ -328,7 +328,7 @@ async function start() {
       mock: MOCK,
       log,
       agentsDir: agentsDir(),
-      peopleFile: where().people,                          // the people recognized by their voice (Settings → People)
+      peopleFile: where().people,                          // before 3.8, the people of this computer: copied into each agent once
       folder: () => folderApi,                              // Settings → VIK folder
       updates: () => updates,                                 // new versions, for the studio's Updates window
       // the personas of earlier versions become agents (first launch only)

@@ -20,8 +20,8 @@ It has **one studio and several clients**:
 ```
  microphone ─► HEAR ─────────► DECIDE ─────────────────────► REPLY ──────────────────► SPEAK ─► speakers
               Whisper          the decision model:            a line, as written, or     the local voice
-              (local)          the patterns you wrote,        a language model: on this  (Supertonic, Parler,
-                               the knowledge you gave         computer, an LLM farm on   Chatterbox)
+              (local)          the patterns you wrote,        a language model: on this  (Supertonic,
+                               the knowledge you gave         computer, an LLM farm on   Chatterbox, Zonos)
                                (local, always)                the network, or a service
 ```
 
@@ -49,7 +49,7 @@ Four example agents come with the app: a museum guide, a station kiosk, a chef w
   </tr>
 </table>
 
-**Saving and reopening.** Edits are saved a moment after you type, and **Save** (Ctrl+S) saves them at once; the top bar says whether all is saved. Each agent is a folder on the computer (its persona, its knowledge, its interactions). You reopen an agent by choosing it in the list at the top. The **Manage** menu next to it creates, duplicates, exports an agent to one file (`.vik.json`) to carry it to another computer, and imports such a file.
+**Saving and reopening.** Edits are saved a moment after you type, and **Save** (Ctrl+S) saves them at once; the top bar says whether all is saved. Each agent is a folder on the computer, a whole project: its persona and its settings, its knowledge, its interactions, its voices and the people it recognizes. You reopen an agent by choosing it in the list at the top. The **Manage** menu next to it creates, duplicates, exports an agent to one file (`.vik.json`) to carry it to another computer (the people and recorded voices only if you say so, keys never), and imports such a file.
 
 <p align="center"><img src="docs/screenshots/manage.png" alt="The Manage menu open next to the agent's name: New agent, Duplicate, Export to a file, Import a file, Add the example agents, Delete this agent" width="700"></p>
 
@@ -70,10 +70,10 @@ Four example agents come with the app: a museum guide, a station kiosk, a chef w
 | **What makes it react?** | patterns "when a client sends this signal", or "when an OSC message arrives" (an Arduino's sensor going above a value): the agent knows the live values, and speaks at the next pause | Send signal (from cables, p5.js, a page) |
 | **Who is speaking?** | Settings → People: each person reads a text once, the agent knows them by their voice; a pattern can be kept for some of them ("Who": the parents change the route, the children can't), `{speaker}` in a line says their name | the `speaker` event |
 | **Which language?** | Persona: the agent's language; Talk: a switch for the conversation's; a pattern "Change language" (its lines are then translated) | — |
-| **Which voice?** | Voice & timing: 10 Supertonic voices, a voice described in words (Parler), Chatterbox, a voice designed with sliders (Zonos, on the graphics card: [docs/ZONOS.md](docs/ZONOS.md)); 30 Gemini voices | Voice level |
+| **Which voice?** | Voice & timing: 10 Supertonic voices, Chatterbox, a voice designed with sliders (Zonos, on the graphics card: [docs/ZONOS.md](docs/ZONOS.md)); 30 Gemini voices | Voice level |
 | **When have you finished speaking?** | end-of-turn silence, sensitivities, the Smart Turn model | Hearing, On user end, Mic level, Turn probability |
 | **Can you interrupt it?** | interruptible, listen while speaking, talk over it this long (a "mm-hm" lets it carry on) | On interruption, On interruption pending / cancelled |
-| **What happens while it thinks?** | reply delay, thinking sound, filler lines | Thinking, On filler, Wait (ms) |
+| **What happens while it thinks?** | reply delay, filler lines | Thinking, On filler, Wait (ms) |
 | **How smart, how fast?** | Settings: the language model (5 local sizes, an LLM farm, a service), speech recognition (4 Whisper sizes) | Wait (ms), Turn timing |
 | **What if it didn't understand, or nobody speaks?** | repair line, away after, reprompt line | On not understood, On away |
 

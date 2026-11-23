@@ -16,11 +16,11 @@ Without `--strict`, a browser suite that can't find Playwright is reported as "s
 |---|---|---|
 | `node tests/test-text.mjs` | sentence splitting, cleanup for the voice, the `[[choices: …]]` tags, the same prompt on the browser side and the server side, and the Gemini tools as text or as an array, and the mic's gain and gate (block by block) | Node |
 | `node tests/test-protocol.mjs` | the local server protocol (simulated engine): turns, audio, typed text, interruption, voice change, Smart Turn (with a fake verdict), the voice dipping for a backchannel, stop phrases, spoken fillers | Node 22+ |
-| `node tests/test-protocol.mjs fake-qvac` | the same, with the QVAC adapter connected to a fake SDK that checks the options passed to QVAC, including the Parler and Chatterbox voices | Node 22+ |
-| `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final; the models offered in the window (`choices`), and that nothing else loads; an LLM farm frees the local model; on Windows, QVAC's worker starts without a console window; the voices from the mirror over HTTPS (size and SHA-256 checked; a wrong or silent mirror falls back to peer to peer), and a file put in the models folder by hand; Parler and Chatterbox on the CPU on Windows | Node 22+ |
+| `node tests/test-protocol.mjs fake-qvac` | the same, with the QVAC adapter connected to a fake SDK that checks the options passed to QVAC, including the Chatterbox voice and a voice cloned in an agent, and an agent still set to Parler (removed) speaking with Supertonic | Node 22+ |
+| `node tests/test-models.mjs` | the models on this computer (QVAC adapter, fake SDK): a download is found by name and size and loaded from its file; "Download all models" downloads only the missing ones and gives up on a peer-to-peer download that receives nothing; a failed warm-up is not final; the models offered in the window (`choices`), and that nothing else loads; an LLM farm frees the local model; on Windows, QVAC's worker starts without a console window; the voices from the mirror over HTTPS (size and SHA-256 checked; a wrong or silent mirror falls back to peer to peer), and a file put in the models folder by hand; Chatterbox on the CPU on Windows | Node 22+ |
 | `node tests/test-agents.mjs` | the agents on disk (`app/src/agent/`): `persona.md` (front matter + markdown), CSV tables (separators, quotes, Excel's UTF-8 mark), `interactions.json` (normalized), the store (examples on first launch, old personas imported, trash, copy, export/import, hand edits seen, names that cannot leave the folder), and the studio's API through the server (a request named for another site refused, `/health` without the agents folder for websites, a quick stop with sockets open); files written by people and other programs (semicolons in a title, 200 000 rows, a BOM, `menu.CSV`, stages named as written) | Node 22+ |
 | `node tests/test-folder.mjs` | the VIK folder (`app/electron/folder.cjs`): the usual places and a chosen folder (agents, people, models), the choice kept in `folder.json`, a move (what it copies, what it refuses, its progress, nothing copied twice), the old copies removed at the next launch (only those found at the new place) | Node 22+ |
-| `node tests/test-session.mjs` | a conversation when things go wrong (`app/src/session.mjs`, the simulated engine): text typed too early, a model chosen during the first loading, a reload or a language that cannot load (the agent keeps hearing), a reply that fails (the turn ends, the next works), a closed conversation, OSC in from anything on the network | Node 22+ |
+| `node tests/test-session.mjs` | a conversation when things go wrong (`app/src/session.mjs`, the simulated engine): text typed too early, a model chosen during the first loading, a reload or a language that cannot load (the agent keeps hearing), a reply that fails (the turn ends, the next works), a closed conversation, OSC in from anything on the network; the voice kept at a steady level (a quiet sentence raised, a loud one lowered, silence untouched, no clipping) | Node 22+ |
 | `node tests/test-decide.mjs` | the decision model (`app/src/agent/`): knowledge (links, other names, placeholders), the words matcher, the decider on the example agents (patterns, stages, `otherwise`, free answers, the entry in focus, confidence, ambiguity, signals, an agent that talks about anything or keeps to its subject, and its fixed line in a conversation, a name inside another: Paris Nord), the model matcher (prompts, batches, cache, two big calls at once), and conversations that follow the decisions (lines filled from rows, signals out and in, `answer` with the entry and its links sent to a fake farm, `start` patterns), and OSC out (the action, its value typed by its look, the destinations of this computer, the bytes, a conversation that sends it to two listeners), the conversation's language (a pattern, a client, translated lines), OSC in (the bytes and bundles, thresholds with their margin, the live data the model reads, a conversation with a fake Arduino that waits for a pause), and people recognized by their voice (a fake speaker model, the voice a pitch: recorded through the API, who is speaking, a family car whose route is kept for the parents, by typing and by voice, a voice too short to tell) | Node 22+ |
 | `node tests/test-speakers.mjs` | recognizing people (`app/src/speakers/`): the filter banks against Kaldi's (fixtures from `tests/tools/make_speaker_fixtures.py`, kaldi-native-fbank), the voice without its silences, `people.json` (add, the same name again, delete, another model), the line that goes up with the length of the voice, and the real model on three LibriSpeech clips (`tests/fixtures/voices/`) when onnxruntime-node is installed | Node 22+ |
 | `node tests/test-guide.mjs` | the studio's built-in guide: its markdown reader (`app/public/js/markdown.js`: headings, lists, tips, code, tables with `\|` in cells, italics that leave `snake_case` alone, HTML kept as text), its pages (each listed in `pages.json`, one title, no link that leads nowhere: pages, sections, views, the tutorial, websites), the views' help links, and the tutorial's steps pointing at elements that exist | Node |
@@ -41,12 +41,12 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 
 | suite | passed | skipped |
 |---|---|---|
-| test-text | 43 | 0 |
-| test-protocol (simulated engine) | 49 | 0 |
-| test-protocol fake-qvac | 46 | 0 |
-| test-agents | 63 | 0 |
-| test-decide | 105 | 0 |
-| test-session | 11 | 0 |
+| test-text | 45 | 0 |
+| test-protocol (simulated engine) | 48 | 0 |
+| test-protocol fake-qvac | 43 | 0 |
+| test-agents | 78 | 0 |
+| test-decide | 106 | 0 |
+| test-session | 15 | 0 |
 | test-folder | 13 | 0 |
 | test-guide | 26 | 0 |
 | test-models | 49 | 0 |
@@ -56,14 +56,14 @@ Playwright: `npm install` at the root of the kit (it is a development dependency
 | test-smart-turn | 41 | 1 |
 | test-speakers | 26 | 0 |
 | test-zonos | 127 | 0 |
-| test-voices | 45 | 0 |
+| test-voices | 48 | 0 |
 | test-network | 9 | 0 |
 | test-gemini | 89 | 0 |
 | test-hub | 23 | 0 |
-| test-local | 178 | 0 |
-| **total** | **1054** | **1** |
+| test-local | 182 | 0 |
+| **total** | **1079** | **1** |
 
-test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (1039 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
+test-smart-turn's count is with Python 3, numpy and onnxruntime installed (as on GitHub): without them, its Python reference checks are skipped, and it counts 26 (1064 in all). Its one skipped check is the real Smart Turn prediction through `onnxruntime-node`, when that package cannot be installed (`npm install` in `app` adds it).
 
 **Checked with the real QVAC** (not in the automated suites, which use fakes): on Windows, with QVAC 0.21, the default models load from their files, and EmbeddingGemma 300M decides as intended on the example agents (34 sentences, English and French). Its score ranges (`models.decide.calibration`) were measured there; check them again after a QVAC upgrade.
 
@@ -87,7 +87,7 @@ The Python tools are in `tools/`: `make_smart_turn_fixtures.py` makes the refere
 - `cables-shim.js` + `op-harness.html`: a fake cables, which runs `VoiceAgent.op.js` the way cables does (the code is the body of a class constructor, in strict mode);
 - `core-harness.html` + `fixtures/core-ports.js`: the same fake cables running `common/voice-core.js` behind the ports of the former op (which ran Gemini itself), so `test-gemini.mjs` can drive the Gemini engine port by port;
 - `mock-gemini.mjs`: a fake Gemini Live server (setup, audio, transcripts, tools, interruption, `goAway`). It is as strict as the real one: an unknown field closes the session, and any `clientContent` cuts off the current reply. It can also make a startup hang (key `silent-key`) and hand out ephemeral tokens (`POST /token`);
-- `fake-qvac-sdk.mjs`: a fake `@qvac/sdk` (same functions and same data as version 0.21). Like QVAC, it accepts only one recognition stream at a time per model, released shortly after it closes. It checks the Parler and Chatterbox calls against QVAC 0.21's docs and schemas;
+- `fake-qvac-sdk.mjs`: a fake `@qvac/sdk` (same functions and same data as version 0.21). Like QVAC, it accepts only one recognition stream at a time per model, released shortly after it closes. It checks the voice calls (Parler's too, which VIK no longer makes) against QVAC 0.21's docs and schemas;
 - `fixtures/zonos-engine/engine.js`: a fake of Zonos's in-browser engine (the same two exports as the real `engine.js`, no WebGPU), loaded by the studio's page in the tests.
 - `mock-zonos.mjs`: a fake Zonos server (ZONOS3-Mini's HTTP API: health, voices, design sliders, `/v2/generate`). As strict as the real one's schema: an unknown field is a 422, an unknown voice, language or control a 400.
 - `electron-stub/`: a fake `electron` module.

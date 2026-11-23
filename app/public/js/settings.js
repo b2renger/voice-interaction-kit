@@ -1,4 +1,4 @@
-// Settings: this computer's engine, models and language model (docs/DESIGN.md, 4), and what the server says
+// Settings: the agent's engine, models and language model (docs/DESIGN.md, 4), and what the server says
 // about itself (the decision model, the clients' address, the agents' folder).
 import { $, $$, h, toast } from './ui.js';
 import { api } from './api.js';
@@ -41,7 +41,7 @@ export function modelsInUse() {
   let brain = short('#llmLocal') || 'the local model';
   if (s.llm === 'farm') { const f = farms.find((x) => x.url === s.llmUrl); brain = `LLM farm ${f ? f.name : s.llmUrl} (${s.llmModel})`; }
   if (s.llm === 'service') { let host = s.llmUrl; try { host = new URL(s.llmUrl).host; } catch { /* as typed */ } brain = `${s.llmModel} at ${host}`; }
-  const voice = { supertonic: 'Supertonic', parler: 'Parler', chatterbox: 'Chatterbox', zonos: 'Zonos' }[s.localVoiceEngine] || 'Supertonic';
+  const voice = { supertonic: 'Supertonic', chatterbox: 'Chatterbox', zonos: 'Zonos' }[s.localVoiceEngine] || 'Supertonic';
   return [short('#asrModels'), brain, voice].filter(Boolean).join(', ');
 }
 

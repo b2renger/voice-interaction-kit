@@ -1,7 +1,7 @@
 // The VIK server, as a module: the studio page and its API (the agents), /voice (the local engine), /brain and
 // /events (the hub). Used by the Electron app (electron/main.cjs) and by the command line (src/server.mjs).
 import { createServer } from 'node:http';
-import { readFileSync, existsSync, statSync, mkdtempSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, statSync, mkdtempSync } from 'node:fs';
 import { join, dirname, extname, isAbsolute } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +14,7 @@ import { createAgentStore } from './agent/agents.mjs';
 import { createDecider } from './agent/decide.mjs';
 import { wordsMatcher } from './agent/matcher.mjs';
 import { handleApi } from './api.mjs';
-import { mutex, progressText } from './util.mjs';
+import { mutex, progressText, createLeveler } from './util.mjs';
 import { createZonosVoice, withZonos } from './engines/zonos.mjs';
 import { createZonosFiles } from './engines/zonos-files.mjs';
 import { createPeople, voiced, ENROL_SECONDS, MIN_SECONDS } from './speakers/speakers.mjs';
@@ -39,7 +39,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
  *   onStatus?: (s: {text: string, progress: number|null}) => void,
  *   agentsDir?: string, legacyDirs?: string[], peopleFile?: string}} o
  *   agentsDir: where the agents live (default: a new temporary folder, with the examples: for the tests);
- *   peopleFile: the people recognized by their voice, this computer's (default: in a new temporary folder);
+ *   peopleFile: before 3.8, the people of this computer (one file): copied into each agent once, then renamed;
  *   legacyDirs: folders of persona JSON files from earlier versions, imported on first launch.
  * @returns {Promise<{port: number, url: string, wsUrl: string, engineName: () => string|null, ready: Promise<void>, close: () => Promise<void>}>}
  */
@@ -70,8 +70,32 @@ export async function startServer(o) {
   const sessions = new Set();
   const hub = createHub(log);
   const farms = createFarmFinder(log);
-  // the people recognized by their voice (Settings → People): this computer's, never an agent's
-  const people = createPeople({ file: o.peopleFile || join(mkdtempSync(join(tmpdir(), 'vik-people-')), 'people.json'), log });
+  // the people recognized by their voice (Settings → People): each agent's own (its people.json), since 3.8
+  const peopleStores = new Map();
+  /** The people an agent recognizes; null for no agent (strict: an error instead, for the API). */
+  function peopleFor(id, strict = false) {
+    try {
+      const file = store.peopleFile(String(id || ''));
+      if (!peopleStores.has(file)) peopleStores.set(file, createPeople({ file, log }));
+      return peopleStores.get(file);
+    } catch (e) { if (strict) throw e; return null; }
+  }
+  // before 3.8 they were this computer's (one people.json): each agent gets a copy, once, so that nobody is lost
+  if (o.peopleFile && existsSync(o.peopleFile)) {
+    try {
+      const old = JSON.parse(readFileSync(o.peopleFile, 'utf8'));
+      if (old && Array.isArray(old.people) && old.people.length) {
+        for (const a of store.list()) { const f = store.peopleFile(a.id); if (!existsSync(f)) writeFileSync(f, `${JSON.stringify(old)}\n`); }
+        log(`▸ people: the ${old.people.length} people recorded on this computer now belong to each agent (Settings → People)`);
+      }
+      renameSync(o.peopleFile, `${o.peopleFile}.before-3.8`);
+    } catch (e) { log(`(people of this computer: ${e.message})`); }
+  }
+  /** Chatterbox's recording of a voice to clone, as a file for the engine (the agent's voices/<name>.wav). */
+  const withReference = (s) => {
+    const p = s && s.referenceAudio ? store.voiceAudioPath(String(s.agent || ''), String(s.referenceAudio)) : '';
+    return p ? { ...s, referenceAudioPath: p } : s;
+  };
   const status = (text, progress) => {
     lastStatus = { text, progress: progress == null ? null : progress };
     for (const s of sessions) s.status(text, progress);
@@ -207,6 +231,8 @@ export async function startServer(o) {
       if (zonosFiles.handle(req, res, path)) return;
     }
     if (path.startsWith('/api/people') && handlePeople(req, res, path)) return;
+    const va = /^\/api\/agents\/([a-z0-9][a-z0-9-]{0,63})\/voice-audio$/.exec(path);
+    if (va && req.method === 'POST') { saveVoiceAudio(req, res, va[1]); return; }
     if (path.startsWith('/api/updates') && handleUpdates(req, res, path)) return;
     if (path.startsWith('/api/folder') && handleFolder(req, res, path)) return;
     if (path === '/api/prepare' && req.method === 'POST') { readJson(req).then(prepareFor).then((o) => json(res, 200, o), (e) => json(res, 200, { error: e.message })); return; }
@@ -260,7 +286,7 @@ export async function startServer(o) {
       for (const s of sessions) { s.error('replaced', 'Another page opened a conversation, so this one is stopping.'); s.close('replaced'); }
       const session = new Session(ws, {
         info: () => (engine ? engine.info() : {}),
-        prepare: async (s, p) => { await waitEngine(); await engine.prepare(s, p); warmupError = null; },
+        prepare: async (s, p) => { await waitEngine(); await engine.prepare(withReference(s), p); warmupError = null; },
         openAsr: (x, cb) => engine.openAsr(x, cb),
         // an LLM farm or a service chosen (llm): the reply comes from it, the rest stays on this computer
         generate: (x) => (x.remote ? remoteGenerate({ ...x, maxTokens: config.models.llm.maxTokens || 320 }) : engine.generate(x)),
@@ -268,7 +294,7 @@ export async function startServer(o) {
         decider,
         newConversation: () => { if (engine && engine.newConversation) engine.newConversation(); },
         smartTurn: () => getSmartTurn(),
-        people,                                    // Settings → People: who is recognized by their voice
+        peopleFor,                                 // Settings → People: who the agent recognizes by their voice
         speakerModel: () => getSpeakers(),
       }, prepareLock, log);
       sessions.add(session);
@@ -355,14 +381,15 @@ export async function startServer(o) {
     if (sessions.size) return { skipped: 'a conversation is running' };
     await waitEngine();
     const s = { ...SESSION_DEFAULTS, ...((q && q.settings) || {}) };
-    await prepareLock(() => engine.prepare(s, (p) => status(progressText(p), p.progress)));
+    await prepareLock(() => engine.prepare(withReference(s), (p) => status(progressText(p), p.progress)));
     status('', null);
     return { ok: true };
   }
 
   /**
-   * Voice & timing → Listen (POST /api/voice/test {settings, language}): a sample sentence in this voice, as a WAV,
-   * without a conversation (one running uses the voice model: it would be taken from it).
+   * Voice & timing → Listen (POST /api/voice/test {settings, language, text}): the text typed (or a sample
+   * sentence) in this voice, as a WAV, without a conversation (one running uses the voice model: it would be taken
+   * from it).
    */
   const SAMPLES = {
     en: 'Hello! This is how I sound. Do you like my voice?',
@@ -373,13 +400,14 @@ export async function startServer(o) {
     await waitEngine();
     const language = Object.hasOwn(SAMPLES, q && q.language) ? q.language : 'en';
     const s = { ...SESSION_DEFAULTS, ...((q && q.settings) || {}), language };
-    await prepareLock(() => engine.prepare(s, (p) => status(progressText(p), p.progress)));
+    await prepareLock(() => engine.prepare(withReference(s), (p) => status(progressText(p), p.progress)));
     status('', null);
     const tts = engine.speak(voiceParamsOf(s));
-    tts.write(SAMPLES[language]);
+    tts.write(String((q && q.text) || '').replace(/\s+/g, ' ').trim().slice(0, 400) || SAMPLES[language]);
     tts.end();
     const parts = []; let rate = 24000; let n = 0;
-    for await (const f of tts.frames) { rate = f.sampleRate || rate; parts.push(f.pcm); n += f.pcm.length; }
+    const level = createLeveler();                   // as in a conversation: the voice at a steady level
+    for await (const f of tts.frames) { rate = f.sampleRate || rate; const p = level(f.pcm, rate, !!f.text); parts.push(p); n += p.length; }
     if (!n) throw new Error('The voice said nothing.');
     const wav = Buffer.alloc(44 + n * 2);
     wav.write('RIFF', 0); wav.writeUInt32LE(36 + n * 2, 4); wav.write('WAVE', 8); wav.write('fmt ', 12);
@@ -428,9 +456,42 @@ export async function startServer(o) {
     return false;
   }
 
-  /** GET /api/people, POST /api/people?name= (a recording), POST /api/people/identify (a recording), DELETE /api/people/<id>. */
+  /**
+   * Voice & timing → Clone a voice: POST /api/agents/<id>/voice-audio?name=&format=pcm|wav, the recording of the
+   * voice (the studio's: 16-bit PCM at 16 kHz; or a WAV file chosen). Kept as the agent's voices/<name>.wav:
+   * answers {referenceAudio} for the saved voice.
+   */
+  function saveVoiceAudio(req, res, id) {
+    const q = new URL(req.url || '/', 'http://x').searchParams;
+    const parts = []; let n = 0; let over = false;
+    req.on('data', (c) => { n += c.length; if (n > 12e6) over = true; else parts.push(c); });
+    req.on('end', () => {
+      try {
+        if (over) throw Object.assign(new Error('The recording is too long (at most about a minute).'), { status: 400 });
+        let wav = Buffer.concat(parts);
+        if (q.get('format') === 'pcm') {
+          if (wav.length < 16000 * 2 * 5) throw Object.assign(new Error('Record at least 5 seconds of the voice.'), { status: 400 });
+          const head = Buffer.alloc(44);
+          head.write('RIFF', 0); head.writeUInt32LE(36 + wav.length, 4); head.write('WAVE', 8); head.write('fmt ', 12);
+          head.writeUInt32LE(16, 16); head.writeUInt16LE(1, 20); head.writeUInt16LE(1, 22); head.writeUInt32LE(16000, 24);
+          head.writeUInt32LE(32000, 28); head.writeUInt16LE(2, 32); head.writeUInt16LE(16, 34); head.write('data', 36); head.writeUInt32LE(wav.length, 40);
+          wav = Buffer.concat([head, wav]);
+        }
+        const rel = store.saveVoiceAudio(id, q.get('name') || 'voice', wav);
+        log(`▸ voice recorded for cloning: ${id}/${rel}`);
+        json(res, 200, { referenceAudio: rel });
+      } catch (e) { json(res, e.status || 400, { error: e.message }); }
+    });
+  }
+
+  /**
+   * An agent's people (Settings → People): GET /api/people?agent=, POST /api/people?agent=&name= (a recording),
+   * POST /api/people/identify?agent= (a recording), DELETE /api/people/<id>?agent=.
+   */
   function handlePeople(req, res, path) {
     const fail = (e) => json(res, 400, { error: e.message });
+    let people;
+    try { people = peopleFor(new URL(req.url || '/', 'http://x').searchParams.get('agent') || '', true); } catch (e) { json(res, e.status || 400, { error: e.message }); return true; }
     if (path === '/api/people' && req.method === 'GET') { json(res, 200, { people: people.list() }); return true; }
     if (path === '/api/people' && req.method === 'POST') {
       const name = new URL(req.url || '/', 'http://x').searchParams.get('name') || '';

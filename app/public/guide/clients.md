@@ -47,7 +47,7 @@ A pattern's **Send OSC** action sends a message to the software and devices that
 
 - **The message** belongs to the pattern: an address and a value. Both can be filled from the entry found: the address `/vik/{name}`, one address per entry (`/vik/Grove`), or the value `{name}`. Or they are fixed (`/arduino/fan`, `1`). A number is sent as a number, anything else as text. Empty: no value.
 - **What triggers it** is the pattern's **When**: a sentence ("show me the forest"), an entry mentioned (a scene of a **Scenes** table), a client's signal, the start of the conversation.
-- **Where it goes** is set in [Settings](view:settings), under **OSC**: one or more `address:port`, separated by commas. It is this computer's setting, so an agent shared by someone else cannot send your conversation elsewhere. ArtLux on this computer: `127.0.0.1:10000`.
+- **Where it goes** is set in [Settings](view:settings), under **OSC**: one or more `address:port`, separated by commas. It is one of the agent's settings and travels with it; importing an agent that sends OSC somewhere, VIK asks first ([What an agent carries](files.md#what-an-agent-carries)). ArtLux on this computer: `127.0.0.1:10000`.
 
 In [Talk](view:talk), "Why it answered" shows each message sent, and where it went. Type a sentence there to try a pattern without speaking.
 

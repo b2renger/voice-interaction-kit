@@ -2,7 +2,7 @@
 // Protocol: see CONTRACT.md ("Local engine"). Incoming audio: 16-bit PCM, mono, 16 kHz, in binary frames.
 // Outgoing audio: binary frames [u32 sample rate][u32 turn id][16-bit mono PCM].
 import { ReplyParser, systemPrompt, translatePrompt, LANGUAGES, heardNothing, speakable, trimHistory, classifyInterjection, refusalLine, outsideLine } from './text.mjs';
-import { delay, clamp, num, progressText } from './util.mjs';
+import { delay, clamp, num, progressText, createLeveler } from './util.mjs';
 import { fill } from './agent/knowledge.mjs';
 import { knowledgePrompt } from './agent/decide.mjs';
 import { VOICE_KEYS } from './agent/voices.mjs';
@@ -14,38 +14,37 @@ const DEFAULTS = {
   localVoice: 'F1', localSpeed: 1, endSilenceMs: 800, startSensitivity: 'high', endSensitivity: 'high',
   interruptible: true, repairLine: '', replyDelayMs: 0, uiTools: true,
   turnDetection: 'silence', interruptAfterMs: 0, fillerLines: '', fillerAfterMs: 1200,
-  localVoiceEngine: 'supertonic', voiceDescription: '',
-  zonosVoice: '', voiceDesign: '',   // the Zonos voice: one of its voices (id or name), and its design ("age +1.5, deep 3")
+  localVoiceEngine: 'supertonic',
+  zonosVoice: '', voiceDesign: '',
+  referenceAudio: '',                // Chatterbox: the agent's recording of a voice to clone ('voices/<name>.wav'; '' = its own)   // the Zonos voice: one of its voices (id or name), and its design ("age +1.5, deep 3")
   // the models (config.json "choices"; '' = the config's), or an LLM farm on the network instead of the local model
   // the language model: 'local' (QVAC: localLlm), or 'farm' / 'service' (llmUrl, llmModel, llmKey)
   localAsr: '', localLlm: '', llm: 'local', llmUrl: '', llmModel: '', llmKey: '',
-  oscTo: '127.0.0.1:10000',      // where the patterns' OSC messages go (this computer's setting): "host:port, host:port"
-  oscIn: '',                    // the UDP port sensors and buttons send OSC to (this computer's setting); '' = not listening
+  oscTo: '127.0.0.1:10000',      // where the patterns' OSC messages go (the agent's setting): "host:port, host:port"
+  oscIn: '',                    // the UDP port sensors and buttons send OSC to (the agent's setting); '' = not listening
   agent: '',                    // the agent (its folder name): its knowledge and its patterns (docs/DESIGN.md)
 };
 /** A conversation's settings: these, completed by the studio's (also what the models are prepared with before Start). */
 export const SESSION_DEFAULTS = DEFAULTS;
 const ASR_KEYS = ['language', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'localAsr'];
 const LLM_KEYS = ['localLlm', 'llm'];        // a change loads (or frees) the local language model
-const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox', 'zonos'];
+// (Parler, removed in 3.8.0: an agent still set to it speaks with Supertonic)
+const VOICE_ENGINES = ['supertonic', 'chatterbox', 'zonos'];
 const voiceEngine = (s) => (VOICE_ENGINES.includes(s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic');
 /** What the voice engine needs to speak, from the settings (a conversation's, or a voice tried in the studio). */
 export function voiceParamsOf(s) {
   return {
     voice: s.localVoice, speed: s.localSpeed, language: s.language,
-    engine: voiceEngine(s), description: String(s.voiceDescription || '').trim(),
+    engine: voiceEngine(s),
     zonosVoice: String(s.zonosVoice || '').trim(), design: String(s.voiceDesign || '').trim(),
   };
 }
-/** The settings a voice model is LOADED with (a change reloads it). Parler's description is per request. */
+/** The settings a voice model is LOADED with (a change reloads it). */
 const TTS_KEYS = {
   supertonic: ['localVoiceEngine', 'language', 'localVoice', 'localSpeed'],
-  parler: ['localVoiceEngine'],
-  chatterbox: ['localVoiceEngine', 'language', 'localSpeed'],
+  chatterbox: ['localVoiceEngine', 'language', 'localSpeed', 'referenceAudio'],
   zonos: ['localVoiceEngine'],          // its voice and design go with each sentence; the switch checks its server
 };
-export const PARLER_ENGLISH_ONLY = 'Parler only speaks English: replies will sound English-accented.';
-const parlerNotEnglish = (s) => voiceEngine(s) === 'parler' && (s.language || 'en') !== 'en';
 const TEXT_GRACE_MS = 2500;   // if the end of turn arrives before the text, wait for it up to this long
 // Smart Turn (turnDetection 'smart'): the audio of the turn, from a little before its first speech
 const IN_RATE = 16000;
@@ -182,7 +181,6 @@ export class Session {
     this.oscValues.clear();                           // the values of another conversation are old news
     this.listenOsc();
     this.log(`▸ conversation opened (${this.s.name || 'agent'}, voice ${voiceEngine(this.s)}${voiceEngine(this.s) === 'supertonic' ? ' ' + this.s.localVoice : ''}, ${this.s.language}${remoteOf(this.s) ? `, ${this.s.llm === 'farm' ? 'LLM farm' : 'service'} ${this.s.llmUrl} ${this.s.llmModel}` : ''})`);
-    if (parlerNotEnglish(this.s)) this.status(PARLER_ENGLISH_ONLY, null);
     this.voiceFallbackNote();
     this.useTurnDetection();
     // the agent: its first stage, then its "start" pattern if it has one, otherwise the greeting
@@ -254,7 +252,6 @@ export class Session {
       if (this.closed) return;
       this.status('', null);
     }
-    if (parlerNotEnglish(this.vs) && (!parlerNotEnglish(prev) || changed(['language']))) this.status(PARLER_ENGLISH_ONLY, null);
     if (changed(['localVoiceEngine'])) this.voiceFallbackNote();
     if (asrChanged && !this.closed && !this.asr) this.openAsr();
     if (changed(['turnDetection'])) this.useTurnDetection();
@@ -411,7 +408,9 @@ export class Session {
 
   /** The turn's audio is kept for Smart Turn, and to recognize who speaks (people recorded in Settings → People). */
   get keepsAudio() { return this.s.turnDetection === 'smart' || this.peopleOn; }
-  get peopleOn() { return !!(this.engine.people && this.engine.people.size); }
+  /** The people this agent recognizes by their voice (they belong to the agent: its people.json). */
+  get people() { return typeof this.engine.peopleFor === 'function' ? this.engine.peopleFor(String(this.s.agent || '')) : this.engine.people; }
+  get peopleOn() { return !!(this.people && this.people.size); }
 
   /**
    * Who said this turn: {name ('' someone not recognized), closest, score, short}, or null when nobody is recorded
@@ -424,7 +423,7 @@ export class Session {
       if (!(await model.ready())) return null;
       const v = voiced(audio);
       if (v.seconds < MIN_SECONDS) return { name: '', closest: '', score: null, short: true };
-      return { ...this.engine.people.identify(await model.embed(v.audio), v.seconds), short: false };
+      return { ...this.people.identify(await model.embed(v.audio), v.seconds), short: false };
     } catch (e) {
       this.log(`(who is speaking: ${e.message})`);
       return null;
@@ -623,13 +622,14 @@ export class Session {
     const tts = this.engine.speak(this.voiceParams());
     bot.tts = tts;
     let index = 0;
+    const level = createLeveler();                    // the voice at a steady level, sentence after sentence
     const pump = (async () => {
       try {
         for await (const f of tts.frames) {
           if (abort.signal.aborted) break;
           if (ms.firstAudio == null) ms.firstAudio = Date.now() - t0;
           if (f.text) { bot.said.push(f.text); this.send({ type: 'bot.sentence', text: f.text, index: index++, turnId: id }); }
-          this.sendAudio(id, f.sampleRate, f.pcm);
+          this.sendAudio(id, f.sampleRate, level(f.pcm, f.sampleRate, !!f.text));
           bot.phase = 'speaking';
         }
       } catch (e) { if (!abort.signal.aborted) this.error('tts', `Voice: ${e.message}`); }
@@ -859,11 +859,12 @@ export class Session {
     this.send({ type: 'bot.text', text, turnId: id });
     (async () => {
       let index = 0;
+      const level = createLeveler();
       try {
         for await (const f of tts.frames) {
           if (abort.signal.aborted) return;
           if (f.text) this.send({ type: 'bot.sentence', text: f.text, index: index++, turnId: id });
-          this.sendAudio(id, f.sampleRate, f.pcm);
+          this.sendAudio(id, f.sampleRate, level(f.pcm, f.sampleRate, !!f.text));
         }
       } catch (e) { this.error('tts', `Voice: ${e.message}`); }
       if (abort.signal.aborted) return;
@@ -932,7 +933,6 @@ export class Session {
     }
     if (this.closed) return;
     this.status('', null);
-    if (parlerNotEnglish(after)) this.status(PARLER_ENGLISH_ONLY, null);
     if (asrChanged && !this.asr) this.openAsr();
   }
 
@@ -976,8 +976,7 @@ export class Session {
       await this.lock(() => this.engine.prepare(after, (p) => this.status(progressText(p), p.progress)));
       if (this.closed) return;
       this.status('', null);
-      if (parlerNotEnglish(after)) this.status(PARLER_ENGLISH_ONLY, null);
-      this.voiceFallbackNote();
+        this.voiceFallbackNote();
     }
     this.warmFillers();
   }
@@ -1007,14 +1006,15 @@ export class Session {
     if (!clip || !waiting()) return;                  // the reply's voice is already there: no filler
     this.send({ type: 'bot.filler', text, turnId: bot.id });
     const frame = Math.round(clip.rate * 0.25);       // all at once: never mixed with the reply's frames
-    for (let i = 0; i < clip.pcm.length; i += frame) this.sendAudio(FILLER_TURN_ID, clip.rate, clip.pcm.subarray(i, i + frame));
+    const pcm = createLeveler()(clip.pcm, clip.rate);  // at the voice's level too (the whole short clip at once)
+    for (let i = 0; i < pcm.length; i += frame) this.sendAudio(FILLER_TURN_ID, clip.rate, pcm.subarray(i, i + frame));
     this.log(`▸ filler (turn ${bot.id}): "${text}"`);
   }
 
   fillerKey(text) {
     const s = this.vs;
-    return JSON.stringify([voiceEngine(s), s.localVoice, num(s.localSpeed, 1), s.language, String(s.voiceDescription || '').trim(),
-      voiceEngine(s) === 'zonos' ? [String(s.zonosVoice || '').trim(), String(s.voiceDesign || '').trim()] : 0, text]);
+    return JSON.stringify([voiceEngine(s), s.localVoice, num(s.localSpeed, 1), s.language,
+      voiceEngine(s) === 'zonos' ? [String(s.zonosVoice || '').trim(), String(s.voiceDesign || '').trim()] : voiceEngine(s) === 'chatterbox' ? String(s.referenceAudio || '') : 0, text]);
   }
 
   /** The audio of a filler in the current voice: from the cache, or synthesized now. */

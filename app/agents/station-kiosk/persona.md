@@ -10,7 +10,6 @@ localSpeed: 1.15
 endSilenceMs: 500
 interruptAfterMs: 600
 earcons: clear
-thinkingSound: tick
 ---
 
 You are Leon, the information kiosk of a train station.

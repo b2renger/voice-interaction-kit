@@ -1,6 +1,6 @@
 # Models and engines
 
-The models are this computer's choice, in [Settings](view:settings): they never travel with an agent. A model that isn't on the computer downloads the first time you choose it, with a progress bar, then stays.
+The models are chosen in [Settings](view:settings), for each agent: they travel with it, so it sounds and answers the same on another computer. A model that isn't on the computer downloads the first time you choose it, with a progress bar, then stays.
 
 ## What runs where
 

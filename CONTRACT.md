@@ -74,11 +74,11 @@ Every event has the shape `{type, state, t, …data}`: `t` is the time in millis
 
 ## The settings
 
-They are set in the studio. Clients don't change them. Most belong to the **agent** and are saved in its `persona.md`; those marked **(this computer)** belong to the computer: they are kept in the studio, never in an agent, never exported, and an imported agent cannot set them.
+They are set in the studio. Clients don't change them. They belong to the **agent** and are saved in its `persona.md`, so that an agent reopened on another computer behaves the same: since 3.8.0 the engine, the models, the language model, OSC, the microphone and the clients' settings are always written there (an agent of an earlier version gets those last used on the computer, the first time it is opened). Those marked **(this computer)** are keys, passwords and this computer's own addresses: they are kept in the studio, never in an agent, never exported, and an imported agent cannot set them. Importing an agent whose settings send something elsewhere (`engine: gemini`, a farm or a service on another computer, `oscTo` with another computer's address, `oscIn`, `clientsMayStart`), the studio lists them first; Cancel turns those off (`local`, empty, no).
 
 | key | default | what it changes | Gemini | local |
 |---|---|---|---|---|
-| `engine` (this computer) | `local` in the studio | the engine: `local` (VIK hears, decides, speaks) or `gemini` (Gemini Live does it all) | | |
+| `engine` | `local` in the studio | the engine: `local` (VIK hears, decides, speaks) or `gemini` (Gemini Live does it all) | | |
 | `agent` | empty | the agent (its folder name): its knowledge and its patterns decide | — | the decision model |
 | `name`, `persona` | Ada, a museum guide | who the agent is | system prompt | system prompt |
 | `language` | `en` | the agent's language: the one its persona, knowledge and lines are written in, and the one each conversation starts in. In another conversation language (local engine), its fixed lines are translated by the language model | in the prompt (Gemini picks on its own) | Whisper + voice + prompt |
@@ -88,16 +88,16 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `creativity` | 1 | 0 calm → 2 unpredictable | `temperature` | `temp` × 0.7 |
 | `speakingStyle` | empty | way of speaking ("slow, calm") | prompt | — |
 | `geminiVoice` | Kore | one of the 30 Gemini voices | `voiceName` | — |
-| `localVoiceEngine` | `supertonic` | the local voice engine: `supertonic` (10 preset voices), `parler` (a voice described in words, English only), `chatterbox` (multilingual, can clone a voice) or `zonos` (a voice designed with sliders, spoken by Zonos's engine in the studio's window, on the graphics card: [`docs/ZONOS.md`](docs/ZONOS.md); when it cannot speak, the default voice does and a status says so) | — | voice reload (`zonos`: waits for its engine to load) |
+| `localVoiceEngine` | `supertonic` | the local voice engine: `supertonic` (10 preset voices), `chatterbox` (multilingual, can clone a voice: `referenceAudio`) or `zonos` (a voice designed with sliders, spoken by Zonos's engine in the studio's window, on the graphics card: [`docs/ZONOS.md`](docs/ZONOS.md); when it cannot speak, the default voice does and a status says so) | — | voice reload (`zonos`: waits for its engine to load) |
 | `localVoice`, `localSpeed` | F1, 1 | Supertonic voice (F1–F5, M1–M5); speed (Supertonic and Chatterbox) | — | voice reload |
-| `voiceDescription` | empty | Parler only: the voice described in words ("A warm, low-pitched female voice…"). Empty = Parler's template voice | — | sent with each sentence (no reload) |
+| `referenceAudio` | empty | Chatterbox only: the voice it imitates, a recording kept in the agent, `voices/<name>.wav` (Voice & timing → Clone a voice). Empty or anything else: `models.tts.chatterbox.referenceAudio` in `config.json`, else Chatterbox's own voice | — | voice reload |
 | `zonosVoice` | empty | Zonos only: one of its voices, by its name ("Gaspard") or its id. Empty = `voice` in `config.json`, else the first default voice | — | sent with each sentence (no reload) |
 | `voiceDesign` | empty | Zonos only: the voice designed, as a line of slider names and values: "age +1.5, deep 3, gender -1" (the sliders Zonos lists; a raw `<set>.<direction>` dose is sent as written). Unknown names are left out | — | sent with each sentence (no reload) |
-| `localAsr`, `localLlm` (this computer) | empty (= `src` in `config.json`) | the speech recognition and local language models: a QVAC name among the `choices` in `config.json` (any other value = the default) | — | model reload |
-| `llm` (this computer) | `local` | who writes the replies: `local` (`localLlm`), `farm` (an [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm on the network) or `service` (any OpenAI-compatible address: Ollama, LM Studio, OpenAI, Gemini, Mistral, OpenRouter) | — | switching loads or frees the local model |
-| `llmUrl`, `llmModel`, `llmKey` (this computer) | empty | the farm's or the service's OpenAI address (`http://<host>:4000/v1`), the model there, its key or password | — | sent with each reply |
-| `oscTo` (this computer) | `127.0.0.1:10000` | where the patterns' "Send OSC" messages go: one or more `host:port`, separated by commas (an agent never sets it) | — | applies to the next message |
-| `oscIn` (this computer) | empty | the UDP port sensors and buttons send OSC to, on every network interface, during a conversation. Empty: not listening (an agent never sets it). A port already taken gives the error `osc` | — | listens again at once |
+| `localAsr`, `localLlm` | empty (= `src` in `config.json`) | the speech recognition and local language models: a QVAC name among the `choices` in `config.json` (any other value = the default) | — | model reload |
+| `llm` | `local` | who writes the replies: `local` (`localLlm`), `farm` (an [LlmOnLan](https://github.com/b2renger/LlmOnLan) farm on the network) or `service` (any OpenAI-compatible address: Ollama, LM Studio, OpenAI, Gemini, Mistral, OpenRouter) | — | switching loads or frees the local model |
+| `llmUrl`, `llmModel`; `llmKey` (this computer) | empty | the farm's or the service's OpenAI address (`http://<host>:4000/v1`), the model there; its key or password | — | sent with each reply |
+| `oscTo` | `127.0.0.1:10000` | where the patterns' "Send OSC" messages go: one or more `host:port`, separated by commas | — | applies to the next message |
+| `oscIn` | empty | the UDP port sensors and buttons send OSC to, on every network interface, during a conversation. Empty: not listening. A port already taken gives the error `osc` | — | listens again at once |
 | `endSilenceMs` | 800 | silence that ends a turn | `silenceDurationMs` | Whisper end of turn (with Smart Turn: the longest wait) |
 | `turnDetection` | `silence` | how the end of turn is decided: `silence` (the end silence alone) or `smart` (silence + the Smart Turn model: a sentence that sounds finished ends the turn at once) | — | Smart Turn model |
 | `startSensitivity` | `high` | how easily the start of speech is detected | `startOfSpeechSensitivity` | Silero VAD threshold |
@@ -105,23 +105,22 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `prefixPaddingMs` | 20 | minimum speech before a start counts | `prefixPaddingMs` | — |
 | `interruptible` | yes | can you interrupt it? | `activityHandling` | cancels the reply |
 | `interruptAfterMs` | 0 | 0 = any speech over the agent stops it at once. Above 0 (up to 2,000 ms), its voice dips first, and it only stops if the person keeps talking this long. A backchannel ("mm-hm") or a noise lets it carry on; a stop phrase ("stop") makes it stop and listen | — | server |
-| `listenWhileSpeaking` (this computer) | yes | the mic stays open while it speaks (untick with speakers) | browser | browser |
+| `listenWhileSpeaking` | yes | the mic stays open while it speaks (untick with speakers) | browser | browser |
 | `micMuted` (this computer) | no | mic muted | browser | browser |
-| `micGain` (this computer) | 0 | the mic's gain in dB (-12 to +24), before anything listens to it | browser | browser |
-| `micGate` (this computer) | -80 (off) | the gate's threshold in dBFS (-80 = off, to -10): quieter than this, after the gain, the agent hears silence; it closes 300 ms after the last loud sound | browser | browser |
-| `micAutoGain` (this computer) | yes | the browser's automatic level (`autoGainControl`); untick it to set the gain yourself in a noisy room. At the next Start | browser | browser |
+| `micGain` | 0 | the mic's gain in dB (-12 to +24), before anything listens to it | browser | browser |
+| `micGate` | -80 (off) | the gate's threshold in dBFS (-80 = off, to -10): quieter than this, after the gain, the agent hears silence; it closes 300 ms after the last loud sound | browser | browser |
+| `micAutoGain` | yes | the browser's automatic level (`autoGainControl`); untick it to set the gain yourself in a noisy room. At the next Start | browser | browser |
 | `awayAfterMs` | 0 (never) | silence while listening before `user.away` (up to 3,600,000 ms) | browser | browser |
 | `repromptLine` | empty | what the agent says **once** when the person stays silent (at the first `user.away`) | asked of the model, in its own words | said as written |
 | `replyDelayMs` | 0 | delay added before the voice | browser | server |
 | `earcons` | `soft` | small interface sounds (`off`, `soft`, `clear`) | browser | browser |
-| `thinkingSound` | `off` | sound while thinking (`off`, `tick`, `hum`) | browser | browser |
 | `repairLine` | empty | what it says when it understood nothing | — | server |
 | `fillerLines` | empty (off) | short phrases said while it thinks, separated by `\|` (up to 20): "Hmm, let me see…\|Good question…" | — | server |
 | `fillerAfterMs` | 1200 | say a filler if the reply's voice has not started this long after the end of the person's turn (0 = never; up to 30,000) | — | server |
-| `volume`, `playVoice` (this computer) | 1, yes | volume, play through speakers | browser | browser |
+| `volume`, `playVoice` | 1, yes | volume, play through speakers | browser | browser |
 | `uiTools` | yes | it can show choices and a mood | `show_choices`, `set_mood` tools | `[[choices: …]]`, `[[mood: …]]` tags |
 | `extraTools` | empty | extra tools (JSON) | function declarations | — |
-| `geminiModel`, `apiKey`, `tokenUrl`, `geminiEndpoint` (this computer) | gemini-3.8-live | connection to Gemini | | |
+| `geminiModel`; `apiKey`, `tokenUrl`, `geminiEndpoint` (this computer) | gemini-3.8-live | connection to Gemini: the model; the key or the token server | | |
 | `serverUrl` (this computer) | the studio's own server | address of the local backend | | |
 | `title` | the name | the agent's name in the studio's list (persona.md only) | | |
 
@@ -138,13 +137,13 @@ Allowed pages: those served from this computer (`http://localhost:*`, `http://12
 - `{type:'hello', app, name, engine, state, stage, language, userText, botText, question, choices, mood, status, levels}`: on connecting, and again when the studio opens or closes, or when the agent's name or engine changes. It is everything a client needs to draw the conversation as it is now. `app` is `false` when no studio is connected (the server runs on its own, `npm run server`, with no lab page open): nothing happens until one opens;
 - every event of the table above, as it is: `{type, state, t, …data}`;
 - `{type:'levels', user, bot}`: the mic and the voice, from 0 to 1, about 30 times a second while they move;
-- `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the studio is closed), `bad-command`, or `start-refused` (this computer does not let clients start a conversation).
+- `{type:'error', code, message, fatal:false}` when a command is refused: `no-app` (the studio is closed), `bad-command`, or `start-refused` (the agent does not let clients start a conversation).
 
 **The client sends** (JSON):
 
 | command | what it does |
 |---|---|
-| `{type:'start'}` | starts the conversation, like the studio's Start button, if this computer allows it (the studio's **Settings → Clients → Clients may start a conversation**, off at first; the setting `clientsMayStart` of that computer): otherwise refused, with `{type:'error', code:'start-refused'}` to every client. Nothing happens during a conversation |
+| `{type:'start'}` | starts the conversation, like the studio's Start button, if the agent allows it (the studio's **Settings → Clients → Clients may start a conversation**, off at first; the agent's setting `clientsMayStart`): otherwise refused, with `{type:'error', code:'start-refused'}` to every client. Nothing happens during a conversation |
 | `{type:'stop'}` | stops it |
 | `{type:'interrupt'}` | cuts the agent's reply |
 | `{type:'text', text}` | a typed message: the agent replies to it |
@@ -179,7 +178,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
 
 - as JSON:
   - `{type:'status', text, progress}`;
-  - `{type:'ready', engine, voices, models, voiceEngine}`: `voices` is empty (`[]`) for Parler, Chatterbox and Zonos. With `localVoiceEngine: 'zonos'` and a Zonos that cannot speak (not installed, no WebGPU, the studio's window closed), `voiceEngine` is the default voice's, `voiceFallback` holds the reason, and a `status` says "Zonos voice unavailable (…): the default voice speaks instead.";
+  - `{type:'ready', engine, voices, models, voiceEngine}`: `voices` is empty (`[]`) for Chatterbox and Zonos. With `localVoiceEngine: 'zonos'` and a Zonos that cannot speak (not installed, no WebGPU, the studio's window closed), `voiceEngine` is the default voice's, `voiceFallback` holds the reason, and a `status` says "Zonos voice unavailable (…): the default voice speaks instead.";
   - `{type:'vad', speaking}`;
   - `{type:'user.partial'|'user.text', text}`. A stop phrase comes as `{type:'user.text', text, reply:false}`: it goes into the history, but the agent does not reply. With people recorded (Settings → People), a `user.text` has a `speaker`, and a `{type:'speaker', name, closest, score, short}` comes just before it: the turn's voice (its last 8.5 s, without its silences) compared with each voiceprint;
   - `{type:'turn.prediction', probability, complete, ms}`: the Smart Turn model's verdict on the turn;
@@ -200,7 +199,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
   - `{type:'decision', …}`, `{type:'stage', stage, from}`, `{type:'signal', name, value}`: as the events of the same names. A decision comes after `thinking`; a pattern's choices, mood, signals and stage come right after it, before the reply's sentences;
   - `{type:'error', code, message, fatal}`.
 
-  Two `status` texts are warnings, not errors: "Smart Turn is unavailable here: using silence only." (once per conversation) and "Parler only speaks English: replies will sound English-accented."
+  Two `status` texts are warnings, not errors: "Smart Turn is unavailable here: using silence only." (once per conversation) and "Parler only speaks English: replies will sound English-accented." (until 3.7.4: Parler is gone since 3.8.0)
 - as binary: the voice, with an 8-byte header followed by the sound. The first 4 bytes give the sample rate (unsigned 32-bit integer, little-endian), the next 4 the turn number (same format), then comes the 16-bit mono PCM. The browser ignores the voice of a turn it has interrupted. A turn number of `0xFFFFFFFF` (4294967295) marks the audio of a **filler**: the browser plays it, but it is not part of the reply.
 
 One conversation at a time. A second studio that connects takes over, and the first one receives the `replaced` error.

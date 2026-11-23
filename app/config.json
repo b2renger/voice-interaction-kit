@@ -58,10 +58,6 @@
       "steps": 5,
       "useGpu": true,
       "mode": "sentence",
-      "parler": {
-        "src": "TTS_MINI_V1_EN_PARLER_TTS_Q8_0",
-        "voice": "Laura"
-      },
       "chatterbox": {
         "src": "TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0",
         "s3gen": "TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0",

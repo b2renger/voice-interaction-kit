@@ -1,17 +1,26 @@
 // The studio's state (docs/DESIGN.md, 5):
 //   - the agent being edited: its files, read and saved through the API as you type (persona.md, the tables,
 //     interactions.json);
-//   - this computer's settings (engine, models, keys, speakers): kept in this window, never in an agent.
-// settings() merges both into what the voice core runs with.
+//   - its project settings (since 3.8: the language model, OSC, the microphone, the clients): written in the agent, so
+//     that a project reopened on another computer behaves the same; the last ones used are the defaults of an agent
+//     that has none yet;
+//   - this computer's settings (keys, the voice server's address, the microphone muted): kept in this window, never
+//     in an agent.
+// settings() merges them into what the voice core runs with.
 import { api } from './api.js';
 import { debounce } from './ui.js';
 
 const D = VoiceCore.DEFAULTS;
-/** This computer's settings: they never travel with an agent (an export, a persona file shared by a student). */
-export const MACHINE = ['engine', 'apiKey', 'tokenUrl', 'geminiEndpoint', 'geminiModel', 'serverUrl', 'localAsr', 'localLlm',
-  'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'volume', 'playVoice', 'listenWhileSpeaking', 'micMuted', 'micGain', 'micGate', 'micAutoGain', 'clientsMayStart'];
+/** This computer's settings: keys, addresses of this computer. They never travel with an agent. */
+export const MACHINE = ['apiKey', 'llmKey', 'tokenUrl', 'geminiEndpoint', 'serverUrl', 'micMuted'];
+/**
+ * The agent's project settings that were this computer's before 3.8. Always written in the agent (another computer
+ * must not fill them with its own), and remembered here as the defaults of an agent that has none yet.
+ */
+export const PROJECT = ['engine', 'geminiModel', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'oscTo', 'oscIn', 'volume', 'playVoice',
+  'listenWhileSpeaking', 'micGain', 'micGate', 'micAutoGain', 'clientsMayStart'];
 /** Written in persona.md even when they have their default value. */
-const ALWAYS = ['name', 'title', 'language', 'greeting'];
+const ALWAYS = ['name', 'title', 'language', 'greeting', ...PROJECT];
 const MACHINE_STORE = 'vik.machine';
 const AGENT_STORE = 'vik.agent';
 
@@ -25,7 +34,7 @@ function loadMachine() {
   let m = {};
   try { m = JSON.parse(localStorage.getItem(MACHINE_STORE) || '{}'); } catch { /* no storage */ }
   const out = {};
-  for (const k of MACHINE) if (m[k] !== undefined) out[k] = m[k];
+  for (const k of [...MACHINE, ...PROJECT]) if (m[k] !== undefined) out[k] = m[k];
   if (!out.engine) out.engine = 'local';
   // the voice server is the one that served this page (its port can change from one launch to the next)
   out.serverUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/voice`;
@@ -39,12 +48,17 @@ function saveMachine() {
   } catch { /* no storage */ }
 }
 
-/** What the voice core runs with: the defaults, the agent's settings, this computer's, the persona, the agent. */
+/**
+ * What the voice core runs with: the defaults, the project settings last used here (for an agent that has none), the
+ * agent's own settings, this computer's (keys…), the persona, the agent.
+ */
 export function settings() {
   const a = state.agent;
-  // an agent never sets this computer's settings (where the conversation goes, the keys): an agent can come from anyone
+  // an agent never sets this computer's own settings (keys, addresses of this computer)
   const own = a ? Object.fromEntries(Object.entries(a.settings).filter(([k]) => !MACHINE.includes(k))) : {};
-  const s = { ...D, ...own, ...state.machine };
+  const pick = (keys) => Object.fromEntries(keys.filter((k) => state.machine[k] !== undefined).map((k) => [k, state.machine[k]]));
+  const s = { ...D, ...pick(PROJECT), ...own, ...pick(MACHINE) };
+  if (s.localVoiceEngine === 'parler') s.localVoiceEngine = 'supertonic';   // Parler, removed in 3.8.0: the default voice
   s.persona = a ? a.body : '';
   // Gemini decides by itself: it gets the knowledge in its prompt (the local engine looks it up per sentence)
   if (s.engine === 'gemini' && a) s.persona = withKnowledge(a.body, a.tables);
@@ -70,20 +84,21 @@ export function freeTalk(agent) {
   return typeof v === 'boolean' ? v : !agent.interactions.patterns.some((p) => p.on && p.when.kind === 'otherwise');
 }
 
-/** A field changed. */
-export function set(k, v) {
-  if (MACHINE.includes(k)) { state.machine[k] = v; saveMachine(); } else if (state.agent) {
+/** A field changed: this computer's, or the agent's (a project setting is also remembered as the next default). */
+function put(k, v) {
+  if (MACHINE.includes(k)) { state.machine[k] = v; saveMachine(); return; }
+  if (PROJECT.includes(k)) { state.machine[k] = v; saveMachine(); }
+  if (state.agent) {
     if (k === 'persona') state.agent.body = String(v);
     else state.agent.settings[k] = v;
     savePersonaSoon();
   }
-  emit('setting', k);
 }
+export function set(k, v) { put(k, v); emit('setting', k); }
 
-/** Several of this computer's settings at once (choosing a farm: the address and the model). */
+/** Several settings at once (choosing a farm: the address and the model), all set before anyone is told. */
 export function setMachine(o) {
-  Object.assign(state.machine, o);
-  saveMachine();
+  for (const [k, v] of Object.entries(o)) put(k, v);
   for (const k of Object.keys(o)) emit('setting', k);
 }
 
@@ -111,7 +126,7 @@ function personaFile() {
   for (const [k, v] of Object.entries(state.agent.settings)) {
     if (MACHINE.includes(k) || k === 'persona' || k === 'agent' || v === undefined || v === null) continue;
     if (!ALWAYS.includes(k) && Object.prototype.hasOwnProperty.call(D, k) && D[k] === v) continue;
-    if (ALWAYS.includes(k) && v === '' && k !== 'name') continue;
+    if (ALWAYS.includes(k) && v === '' && k !== 'name' && !PROJECT.includes(k)) continue;   // a project's '' is a value too
     out[k] = v;
   }
   return { settings: out, body: state.agent.body };
@@ -191,6 +206,10 @@ export async function openAgent(id) {
   state.agentId = id;
   state.agent = a;
   tableSavers.clear();
+  // an agent of an earlier version, or a new one: its project settings, filled from those last used here, are written
+  // in it, so that it behaves the same on another computer
+  const missing = PROJECT.filter((k) => a.settings[k] === undefined);
+  if (missing.length) { const s = settings(); for (const k of missing) a.settings[k] = s[k]; savePersonaSoon(); savePersonaSoon.flush(); }
   try { localStorage.setItem(AGENT_STORE, id); } catch { /* no storage */ }
   emit('agent', a);
   return a;

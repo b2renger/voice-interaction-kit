@@ -1,6 +1,6 @@
 # Files and sharing
 
-An agent is a folder of plain files. You can open them with any text editor or spreadsheet, share them, and keep them in git.
+An agent is a project: a folder of plain files that holds everything it needs to behave the same on another computer. You can open them with any text editor or spreadsheet, share them, and keep them in git.
 
 ```
 cafe/
@@ -8,6 +8,9 @@ cafe/
   knowledge/
     menu.csv          the tables, one CSV file each
   interactions.json   the stages and the patterns
+  voices.json         its saved voices
+  voices/lea.wav      a voice recorded for cloning (Chatterbox)
+  people.json         the people it recognizes by their voice (their voiceprints)
 ```
 
 ## Where they are
@@ -20,14 +23,20 @@ Next to the agent's name, at the top:
 
 - **New agent…** makes an empty one.
 - **Duplicate** makes a copy you can change freely: a good start from an example.
-- **Export to a file** makes one `.vik.json` file with the persona, the knowledge and the interactions.
+- **Export to a file** makes one `.vik.json` file with the persona and its settings, the knowledge, the interactions and the saved voices. When the agent has people or recorded voices, it asks whether to include them: they identify real people, share them only with their consent.
 - **Import a file…** opens such a file, on another computer for instance.
 - **Add the example agents** brings back the museum guide, the station kiosk, the chef and the gardener.
 - **Delete this agent…** moves its folder to the agents' trash folder, from where it can be put back by hand.
 
-## What never travels
+## What an agent carries
 
-An agent never carries this computer's settings: no engine, no language model, no address, no key. An agent from someone else cannot send the conversation elsewhere, and exporting yours never shares your keys.
+Everything that makes it behave the same elsewhere: its persona, knowledge, interactions and voices, and its settings ([Settings](view:settings)): the engine and the models, the language model or the farm it uses, its OSC destinations and port, the microphone's gain and gate, whether clients may start it, and its people (in an export, only if you say so).
+
+**Never:** keys and passwords (a service's key, Gemini's key), which stay on each computer: type them again there.
+
+**Importing someone else's agent:** when its settings send things elsewhere (its conversation to Gemini, its replies written by a farm or a service on another computer, OSC to another computer, a port listening to the network, clients allowed to open the microphone), VIK lists them and asks. **Cancel** turns them off: the agent then uses VIK's own language model on this computer, sends no OSC there, listens to none, and only this window starts a conversation.
+
+An agent made before 3.8 gets the settings last used on this computer the first time it is opened.
 
 ## persona.md
 

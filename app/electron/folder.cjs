@@ -1,5 +1,5 @@
-// The VIK folder: where VIK keeps the agents, the people recognized by their voice, and the downloaded models.
-//   usual place (no folder chosen): <userData>/agents, <userData>/people.json, <home>/.qvac/models
+// The VIK folder: where VIK keeps the agents (each with its people and voices) and the downloaded models.
+//   usual place (no folder chosen): <userData>/agents, <userData>/people.json (before 3.8: the people, now in each agent), <home>/.qvac/models
 //   a folder D chosen in Settings:   D/agents, D/people.json, D/.qvac/models
 // QVAC's worker keeps its models in <home>/.qvac/models, and takes that home from SNAP_USER_COMMON when it is set:
 // VIK sets it to D. The choice is written in <userData>/folder.json ({dir, previous}), read at each launch.

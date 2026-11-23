@@ -56,7 +56,7 @@ export async function createMockEngine(config = {}) {
     newConversation() { heardIndex = 0; replyIndex = 0; },
 
     async prepare(settings, onProgress) {
-      voiceEngine = ['parler', 'chatterbox'].includes(settings && settings.localVoiceEngine) ? settings.localVoiceEngine : 'supertonic';
+      voiceEngine = settings && settings.localVoiceEngine === 'chatterbox' ? settings.localVoiceEngine : 'supertonic';
       if (loaded) return;
       for (const [stage, p] of [['recognition', 50], ['recognition', 100], ['model', 100], ['voice', 100]]) {
         onProgress && onProgress({ stage, progress: p });
@@ -126,9 +126,9 @@ export async function createMockEngine(config = {}) {
 
     speak({ voice, speed, engine }) {
       const q = new AsyncQueue();
-      const rate = engine === 'parler' ? 44100 : 24000;               // like the real engines (Supertonic: 24 kHz here)
-      const f0 = engine === 'parler' ? 170 : engine === 'chatterbox' ? 150 : String(voice || 'F1').startsWith('M') ? 115 : 205;
-      const sp = engine === 'parler' ? 1 : clamp(num(speed, 1), 0.5, 2);
+      const rate = 24000;                                              // like the real engines (Supertonic: 24 kHz here)
+      const f0 = engine === 'chatterbox' ? 150 : String(voice || 'F1').startsWith('M') ? 115 : 205;
+      const sp = clamp(num(speed, 1), 0.5, 2);
       let chain = Promise.resolve();
       let cancelled = false;
       return {

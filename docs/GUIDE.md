@@ -122,7 +122,7 @@ In **Talk**, **Why it answered** shows each decision as it happens: the pattern,
 
 ### 3.5 Sharing an agent
 
-**Manage → Export to a file** makes one `.vik.json` file: persona, knowledge, interactions (never the keys or this computer's settings). **Import a file…** opens it on another computer. An agent is also a folder of plain files (`persona.md`, `knowledge/*.csv`, `interactions.json`), in the studio's settings folder (**Files → Open agents folder**): they can be edited with any text editor or spreadsheet, and kept in git.
+**Manage → Export to a file** makes one `.vik.json` file: persona and settings, knowledge, interactions, voices, and the people only if you say so (never the keys). **Import a file…** opens it on another computer. An agent is also a folder of plain files (`persona.md`, `knowledge/*.csv`, `interactions.json`), in the studio's settings folder (**Files → Open agents folder**): they can be edited with any text editor or spreadsheet, and kept in git.
 
 ---
 
@@ -167,12 +167,12 @@ This is the heart of the workshop. For each case: what happens, the settings tha
 | who it is, what it knows, how it behaves | **Persona**: name, the persona's text; **Knowledge**; **Interactions** | write the persona in the second person: "You are… You help… You never talk about…" |
 | its tone | Creativity (0 calm → 2 unpredictable), Short answers | when spoken, short answers are almost always better |
 | what it says first | Greeting, or a pattern "when the conversation starts" | empty = it waits to be spoken to (another design choice) |
-| its voice | **Voice & timing**: voice engine Supertonic (voices F1–F5, M1–M5, speed), Parler (the voice described in words) or Chatterbox; with Gemini, 30 Gemini voices and a way of speaking | Gemini's way of speaking is an instruction given to the model ("slow and calm", "with a smile"). The model follows it more or less. |
+| its voice | **Voice & timing**: voice engine Supertonic (voices F1–F5, M1–M5, speed), Chatterbox or Zonos (a voice designed with sliders); with Gemini, 30 Gemini voices and a way of speaking | Gemini's way of speaking is an instruction given to the model ("slow and calm", "with a smile"). The model follows it more or less. |
 | its displayed mood | "Can show choices and a mood by itself", or a pattern that sets the mood → `Mood` output | 7 moods: neutral, happy, curious, focused, sorry, surprised, excited |
 
 The **example agents** (museum guide, station kiosk, chef, gardener) come with the studio. Pick one at the top; **Manage** duplicates, exports and imports agents (section 3.5).
 
-**Designing a voice in words (Parler, local).** With the voice engine Parler, there are no preset voices: you write the voice, like a persona. For example: "A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone." Describe who speaks (gender, pitch, pace, how expressive) and how it is recorded (close to the mic or far, a small room or a hall). The new description applies from the next sentence, with no restart. Parler only speaks English, and its first use downloads about 1.16 GB.
+**Designing a voice (Zonos, local).** With the voice engine Zonos, sliders shape the voice: age, gender, pitch, texture, mood. **Listen** says a sentence of your own (or a sample one) in French or English, without starting a conversation: move a slider, listen again. Save the voices you like under a name: the **Persona** chooses among them.
 
 **Cloning a voice (Chatterbox, local).** Chatterbox speaks many languages, French included, and it can imitate a voice from a short WAV recording (`referenceAudio` in `config.json`, see the [studio's README](../app/README.md)). This raises real questions, and they belong in the workshop. Whose voice is it? Did they agree, to what, and for how long? What if the clone says something they would never say? The rules for class: the clear, written consent of the person; for the exercise only; delete the recording afterwards; never someone who isn't there, and never a public figure. Every Chatterbox output carries a watermark (Resemble AI's "Perth"), so it can be identified as synthetic. That is a good starting point for a discussion: how should a synthetic voice announce itself?
 
@@ -240,7 +240,6 @@ Between the end of the person's sentence and the agent's voice, there is always 
 | setting | effect |
 |---|---|
 | **Extra delay before replying** | adds latency on purpose, so you can design it. With Gemini, the voice does not start before this delay (counted from the end of the sentence). With the local engine, the model is only asked after this delay: the wait adds up with the computing time. |
-| `Thinking sound` | off, tick (a discreet clock) or hum |
 | **Interface sounds** | off, soft or clear: a sound when the session opens, when the sentence has been heard, when choices arrive, on an error |
 | **Filler lines** | short phrases said while it thinks, separated by `\|`: "Hmm, let me see…\|Good question…\|One moment…". Empty = no filler. |
 | **Say a filler after** | say a filler if the reply's voice hasn't started this long after the end of your sentence (default 1,200 ms; 0 = never) |
@@ -316,20 +315,20 @@ Each exercise builds on one or two edge cases. Suggested length: 1 hour to half 
 7. **The agent that acts.** Declare a tool (`change_color`, `open_door`…) and make the patch react to the voice.
 8. **The wait, measured (after CUI '25).** Reproduce a published experiment with the VIK: three delays × three ways to fill the wait.
 
-   | delay (`Wait (ms)`) | nothing | thinking sound | spoken filler |
+   | delay (`Wait (ms)`) | nothing | a sound (from the patch) | spoken filler |
    |---|---|---|---|
    | about 1.5 s | | | |
    | about 4 s | | | |
    | about 6.5 s | | | |
 
    - **The delays.** First measure the natural wait with **Extra delay before replying** = 0 (the `Wait (ms)` output, or the felt wait in **Talk**). Then set **Extra delay before replying** to the target minus that natural wait. `Wait (ms)` is the number you report: it measures the real reply, never the filler.
-   - **The three conditions.** *Nothing*: `Thinking sound` off, **Filler lines** empty. *Thinking sound*: `Thinking sound` = hum or tick, plus a thinking animation (the closest to the study's "icon + sound"). *Spoken filler*: **Filler lines** = "Hmm, let's see…\|Let me think…\|Good question…", **Say a filler after** = 500, thinking sound off.
+   - **The three conditions.** *Nothing*: **Filler lines** empty. *A sound*: your patch (cables.gl, p5.js) plays a sound and a thinking animation while the `State` is `thinking` (the closest to the study's "icon + sound"; VIK itself plays none since 3.8.0). *Spoken filler*: **Filler lines** = "Hmm, let's see…\|Let me think…\|Good question…", **Say a filler after** = 500, the patch silent.
    - **The participants** (other students) ask three questions in each condition, in a shuffled order. After each condition, a short questionnaire, from 1 to 5: "It answered quickly enough." "The wait felt natural." "I'd like to keep talking with it." And one open question: "How long did you wait, in seconds?" (the perceived wait).
    - **Compare with the study.** Does the experience drop after 4 s? Does the spoken filler beat the sound? Deliverable: the table, a chart, and one design rule.
 
    On a slow machine, the natural wait may already be over 1.5 s: drop that row, or use the fastest machine. The protocol comes from the CUI '25 study ([arXiv 2507.22352](https://arxiv.org/html/2507.22352v1)). Its code has no license, so we reuse the protocol only.
 9. **Four ways to end a turn.** Prepare five test sentences: a complete question; a sentence with a hesitation ("I'd like to… um… see room 2"); a list ("apples, pears, and…"); a one-word answer ("yes"); a question that ends with a rising tone. Say each one with **End-of-turn silence** at 300, then 2,000, then **End of turn** = "Silence and the Smart Turn model" with 2,000. For each, note: did it cut in? How long before it replied? What did `Turn probability (local)` say? Then discuss the two ways the kit doesn't have (section 5.2): what would they get right or wrong on your five sentences? Deliverable: a comparison table, and a recommendation for one persona (a station kiosk is not a museum guide).
-10. **Design a voice in words (Parler).** Choose a persona, for example the station kiosk. Set `Local voice engine` = `Parler`, `Language` = English. Write three descriptions of its voice in **The voice, described**: vary the pitch, the pace, the warmth, and the recording (close to the mic or far, a small room or a hall). Listen to each one with the same three questions. Then rework the description as you would a persona sheet, until the voice matches the character. Compare with the closest Supertonic voice. Deliverable: a voice sheet with the final description, the words that changed the most, and what Parler ignored. (Outside the kit, Qwen3-TTS VoiceDesign does the same and speaks French; see [the landscape](OPEN_SOURCE_LANDSCAPE.md). It is untested on student laptops.)
+10. **Design a voice (Zonos).** Choose a persona, for example the station kiosk. Set the voice engine to **Zonos**, and write three lines the character would really say in the field next to **Listen**. Make three voices with the sliders: vary the age, the pitch, the mood, the room. **Listen** to each one with the same three lines, and save each under a name. Then rework the best one, as you would a persona sheet, until the voice matches the character; far ends of the sliders can break the voice. Compare with the closest Supertonic voice. Deliverable: a voice sheet with the final design, the sliders that changed the most, and those that did nothing.
 11. **Storyboard before you prototype (after VoiceIt).** Three short exercises taken from [VoiceIt](https://github.com/kortuem/voiceit), a tool by Gerd Kortuem for TU Delft's IDEM307 course (MIT license). Write each dialogue as a script: a character, a voice, the lines, and stage directions for `SOUND`, `LIGHT`, `SCREEN` and `(pause N)`, as VoiceIt does. Mark the moments with the kit's names (`hearing`, `thinking`, `On away`, `On interruption`…), so the script turns into a patch later.
     - **Same scene, two characters.** The same exchange (buying a train ticket) with two different agents. What changes, beyond the words?
     - **Same character, two scenes.** One agent in two situations (a quiet morning, a rush hour). What should stay the same, and what should adapt?
@@ -399,7 +398,7 @@ app/                        the VIK studio (Electron)
   src/hub.mjs               the hub: the studio (/brain) publishes its events and levels, the clients
                             (/events) follow them and send commands (CONTRACT.md, the clients protocol)
   src/engines/qvac.mjs      the QVAC adapter: Whisper + Silero (hearing), EmbeddingGemma (deciding), Qwen3…
-                            (writing), Supertonic, Parler or Chatterbox (speaking)
+                            (writing), Supertonic or Chatterbox (speaking)
   src/engines/mock.mjs      the simulated engine (no models)
   src/turn/                 Smart Turn: the model (through onnxruntime-node, optional) and its audio features
   models/                   the Smart Turn v3.2 model (8.7 MB, BSD-2) and its license
@@ -444,8 +443,7 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 | the cables op can't reach the app although it is open (in the cables editor) | Chrome (since version 147) blocks connections from a website to this computer, and the editor runs the patch in a frame that cannot ask for that permission. Open the patch on its own page (`cables.gl/p/…`) and allow "Apps on your device" (or "Local network") when Chrome asks; in Chrome's settings, `chrome://settings/content/localNetwork` |
 | a client says the app's window is closed | the server runs without its studio (`npm run server`): open `http://localhost:8790` in a browser. (In the installed app, closing the window quits the app: clients then say they can't reach it, and reconnect when it opens again.) |
 | VIK: "Smart Turn is unavailable here: using silence only." | the optional `onnxruntime-node` is missing or did not load. Run `npm install` again in `app`, then `npm run selftest` (⚠ on "end of turn: Smart Turn" means it is still missing). Meanwhile, turns end on silence. |
-| VIK: "Parler only speaks English: replies will sound English-accented." | Parler is English only: set the language to English, or use Supertonic or Chatterbox |
-| VIK: nothing is said for a long time after choosing Parler or Chatterbox | the first use downloads the voice (about 1.16 GB for Parler, 345 MB + 788 MB for Chatterbox): watch the banner. On Windows, Parler and Chatterbox run on the processor (QVAC cannot run Parler on the graphics card there, and Chatterbox can fill a small one): Chatterbox then takes long for each sentence. Better: **Files → Download all models** once, on a good network. |
+| VIK: nothing is said for a long time after choosing Chatterbox | the first use downloads the voice (345 MB + 788 MB): watch the banner. On Windows, Chatterbox runs on the processor (it can fill a small graphics card): it then takes long for each sentence. Better: **Files → Download all models** once, on a good network. |
 | VIK: "RPC initialization timed out" | QVAC's worker took too long to start (a first launch after a restart, the antivirus scanning its libraries): click **Start** again. **Files → Server log** shows the worker's own reason |
 | the agent stops for a "mm-hm" (local) | **Talk over it this long to interrupt** is 0, so it stops at once: try 600 |
 | no filler is heard | Gemini ignores fillers. Locally: check **Filler lines** and **Say a filler after**; a quick reply comes before the filler; the very first one can be skipped while it is prepared |
@@ -455,12 +453,12 @@ tests/                      the automated tests (npm test), with Smart Turn's Py
 
 ## 9. Known limits, and what remains to be checked
 
-- **Tried for real:** on a Windows computer with QVAC 0.21, the default models load from their files, and EmbeddingGemma decides as intended on the example agents (34 sentences, English and French, about 20 ms each); the packaged Windows app (3.0.0) does the same. **Not yet tried for real:** the Gemini API, the Mac installer, Parler and Chatterbox, the local models other than the defaults, a real LlmOnLan farm and the online services. Everything else is checked by the automated tests, against faithful imitations of the protocols. The [human test protocol](HUMAN_TESTS.md) starts with exactly that.
+- **Tried for real:** on a Windows computer with QVAC 0.21, the default models load from their files, and EmbeddingGemma decides as intended on the example agents (34 sentences, English and French, about 20 ms each); the packaged Windows app (3.0.0) does the same. **Not yet tried for real:** the Gemini API, the Mac installer, Chatterbox, the local models other than the defaults, a real LlmOnLan farm and the online services. Everything else is checked by the automated tests, against faithful imitations of the protocols. The [human test protocol](HUMAN_TESTS.md) starts with exactly that.
 - **Gemini 3.8 Live** picks its language on its own, has only predefined voices and no "affective dialog". Sessions last 15 minutes at most (the studio reconnects on its own).
 - **Local engine:** no echo cancellation, small language models (less refined replies, weaker in languages other than English), latency that depends a lot on the machine. The patterns compensate: a designed line is exact and instant.
 - **The decision model** compares meanings, not facts: two patterns with close examples compete, and an entry named in another language needs its other name in the table. The words matcher (simulated engine, or EmbeddingGemma not loaded) only matches close wordings. The patterns don't apply with Gemini Live.
-- **Not yet tried for real, among the borrowed features:** `onnxruntime-node` inside Electron 42, and the Smart Turn model inside the installers (only the Python check has run the real model); the real Parler and Chatterbox voices in QVAC (a fake SDK checks the calls against QVAC 0.21's docs); Smart Turn's accuracy on real speech, and its timing with QVAC's speech detector; what real Whisper writes for a short "mm-hm"; echo with speakers while the voice dips; how fast fillers get prepared, since QVAC makes one synthesis at a time; how real Gemini answers the reprompt instruction. Tests A12, B5, B6, D5, E6 to E8, F6 and I8 of the [human test protocol](HUMAN_TESTS.md) check them.
-- **Local voices:** Supertonic, the default, was archived by its makers in September 2026: it keeps working, but there will be no new voices. Parler only speaks English. Chatterbox has no Japanese or Chinese here.
+- **Not yet tried for real, among the borrowed features:** `onnxruntime-node` inside Electron 42, and the Smart Turn model inside the installers (only the Python check has run the real model); the real Chatterbox voice in QVAC (a fake SDK checks the calls against QVAC 0.21's docs); Smart Turn's accuracy on real speech, and its timing with QVAC's speech detector; what real Whisper writes for a short "mm-hm"; echo with speakers while the voice dips; how fast fillers get prepared, since QVAC makes one synthesis at a time; how real Gemini answers the reprompt instruction. Tests A12, B5, B6, D5, E6 to E8, F6 and I8 of the [human test protocol](HUMAN_TESTS.md) check them.
+- **Local voices:** Supertonic, the default, was archived by its makers in September 2026: it keeps working, but there will be no new voices. Chatterbox has no Japanese or Chinese here.
 - **QVAC changes fast:** four releases with breaking changes in six weeks (August to October 2026). The app is pinned to 0.21.0.
 - **Unsigned apps:** Windows and macOS warnings on first launch.
 

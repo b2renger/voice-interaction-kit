@@ -157,6 +157,7 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 16
 .voices .hint { margin: 0; }
 .voices .listen { align-items: center; flex-wrap: wrap; }
 .voices .listen select { width: auto; }
+.voices .listen input[type=text] { flex: 1 1 260px; min-width: 200px; }
 .voices h3 { font-size: 14px; margin-top: 8px; }
 .voice-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
 .voice-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); }
@@ -454,3 +455,6 @@ a.btn { text-decoration: none; color: inherit; }
 .folder { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 10px; font-size: 13.5px; }
 .folder dt { color: var(--muted); }
 .folder dd { margin: 0; overflow-wrap: anywhere; }
+.clone { display: grid; gap: 8px; padding: 10px 0; border-top: 1px solid var(--rule); }
+.clone .row input[type=text] { flex: 1 1 220px; }
+.clone .row select { width: auto; }

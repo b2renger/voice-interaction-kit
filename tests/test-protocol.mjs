@@ -7,7 +7,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { ROOT, check, summary, sleep, until } from './helpers.mjs';
 
@@ -16,10 +16,12 @@ const PORT = 19300 + Math.floor(Math.random() * 600);
 const report = join(tmpdir(), `fake-qvac-report-${PORT}.json`);
 const serverLog = [];
 const servers = [];
+const agentsOf = new Map();   // port → the server's agents folder (a temporary one)
 
 /** Starts a local server (simulated engine, or the QVAC adapter on the fake SDK) on a port. */
 function startServer(port, { env: extraEnv = {}, engine = mode, cwd, config } = {}) {
   const env = { ...process.env, VIK_AGENTS: mkdtempSync(join(tmpdir(), 'vik-agents-protocol-')), ...extraEnv };   // never the user's agents
+  agentsOf.set(port, env.VIK_AGENTS);
   const args = [join(ROOT, 'app', 'src', 'server.mjs'), '--port', String(port)];
   if (engine === 'mock') args.push('--mock');
   else {
@@ -199,7 +201,7 @@ if (mode === 'mock') {
   check(await waitFor('bot.done', (m) => sayText && m.turnId > sayText.turnId, 10000), '{type:"say"}: the conversation goes on');
 }
 
-// — the local voice engines: Supertonic, Parler (a voice described in words), Chatterbox —
+// — the local voice engines: Supertonic, Chatterbox (Parler, removed in 3.8.0: an agent set to it gets Supertonic) —
 if (mode === 'fake-qvac') {
   const turnAfter = async (prevId, text) => {
     send({ type: 'text', text });
@@ -209,31 +211,23 @@ if (mode === 'fake-qvac') {
   };
   let last = Math.max(0, ...msgs.filter((m) => m.turnId).map((m) => m.turnId));
   send({ type: 'playback', state: 'ended', turnId: last });
-  send({ type: 'settings', settings: { localVoiceEngine: 'parler', voiceDescription: 'A warm, low-pitched female voice, speaking slowly.' } });
+  send({ type: 'settings', settings: { localVoiceEngine: 'parler' } });
   await sleep(500);
   const p1 = await turnAfter(last, 'Describe the painting.');
-  check(p1 && !has('error'), 'Parler: the conversation goes on with the Parler voice', has('error'));
-  check(p1 && audio.filter((a) => a.turnId === p1.turnId).every((a) => a.rate === 44100) && audio.some((a) => a.turnId === p1.turnId), 'Parler: its audio at 44.1 kHz');
-  send({ type: 'settings', settings: { voiceDescription: '' } });
-  await sleep(200);
-  const p2 = await turnAfter(p1 ? p1.turnId : last, 'And the sculpture?');
-  check(!!p2, 'Parler without a description: the conversation goes on');
-  send({ type: 'settings', settings: { localVoiceEngine: 'chatterbox' } });
+  check(p1 && !has('error') && audio.filter((a) => a.turnId === p1.turnId).every((a) => a.rate === 44100) && audio.some((a) => a.turnId === p1.turnId),
+    'an agent still set to Parler (removed): the conversation goes on with Supertonic (44.1 kHz), no error', has('error'));
+  // a voice cloned in the museum guide (Voice & timing → Clone a voice): its recording, kept in the agent
+  const clone = join(agentsOf.get(PORT), 'museum-guide', 'voices', 'lea.wav');
+  mkdirSync(join(agentsOf.get(PORT), 'museum-guide', 'voices'), { recursive: true });
+  writeFileSync(clone, Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVE'), Buffer.alloc(32 + 32000)]));
+  send({ type: 'settings', settings: { localVoiceEngine: 'chatterbox', agent: 'museum-guide', referenceAudio: 'voices/lea.wav' } });
   await sleep(500);
-  const c1 = await turnAfter(p2 ? p2.turnId : last, 'Tell me more.');
+  const c1 = await turnAfter(p1 ? p1.turnId : last, 'Tell me more.');
   check(c1 && audio.filter((a) => a.turnId === c1.turnId).every((a) => a.rate === 24000) && audio.some((a) => a.turnId === c1.turnId), 'Chatterbox: the conversation goes on, audio at 24 kHz');
   send({ type: 'settings', settings: { localVoiceEngine: 'supertonic' } });
   await sleep(500);
   const s1 = await turnAfter(c1 ? c1.turnId : last, 'Thanks.');
   check(s1 && audio.filter((a) => a.turnId === s1.turnId).every((a) => a.rate === 44100), 'back to Supertonic');
-}
-if (mode === 'mock') {
-  // Parler speaks English only: a status says so when the language is another one
-  send({ type: 'settings', settings: { localVoiceEngine: 'parler', language: 'fr' } });
-  const warn = await waitFor('status', (m) => m.text === 'Parler only speaks English: replies will sound English-accented.', 3000);
-  check(warn && !has('error', (m) => m.fatal), 'Parler + French: the status "Parler only speaks English: replies will sound English-accented."', warn);
-  send({ type: 'settings', settings: { localVoiceEngine: 'supertonic', language: 'en' } });
-  await sleep(300);
 }
 
 // — one conversation only: a 2nd page takes over —
@@ -385,21 +379,15 @@ if (mode === 'fake-qvac') {
     check(streams.length >= 2 && streams[streams.length - 1].o.endOfTurnSilenceMs === 900, 'the end silence reopens a recognition stream (900 ms)', streams.map((c) => c.o.endOfTurnSilenceMs));
     // the voice engines
     const ttsLoads = loads.filter((c) => c.modelType === 'tts');
-    const parlerLoad = ttsLoads.find((c) => c.modelConfig.ttsEngine === 'parler');
-    check(parlerLoad && parlerLoad.src === 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0' && parlerLoad.modelConfig.seed === 42 && !('language' in parlerLoad.modelConfig) && !('voice' in parlerLoad.modelConfig),
-      'Parler: switching loads TTS_MINI_V1_EN_PARLER_TTS_Q8_0 ({ttsEngine: parler, seed: 42})', parlerLoad);
     const ttsCalls = rep.calls.filter((c) => c.fn === 'textToSpeech');
-    const parlerCalls = ttsCalls.filter((c) => c.engine === 'parler');
-    const firstVoice = parlerCalls.findIndex((c) => c.voice !== undefined);
-    const described = parlerCalls.slice(0, firstVoice < 0 ? parlerCalls.length : firstVoice);
-    const templated = firstVoice < 0 ? [] : parlerCalls.slice(firstVoice);
-    check(described.length > 0 && described.every((c) => c.description === 'A warm, low-pitched female voice, speaking slowly.' && c.voice === undefined),
-      'Parler: every textToSpeech call carries the description (and no voice)', described.length);
-    check(templated.length > 0 && templated.every((c) => c.voice === 'Laura' && c.description === undefined), 'Parler: with the description cleared, voice: "Laura" (and no description)', templated.length);
+    check(!ttsLoads.some((c) => c.modelConfig.ttsEngine === 'parler') && !ttsCalls.some((c) => c.engine === 'parler'),
+      'Parler (removed): an agent set to it never loads it, Supertonic speaks instead', ttsLoads.map((c) => c.modelConfig.ttsEngine));
     const cbLoad = ttsLoads.find((c) => c.modelConfig.ttsEngine === 'chatterbox');
     check(cbLoad && cbLoad.src === 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0' && cbLoad.modelConfig.s3genModelSrc === 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0' && cbLoad.modelConfig.language === 'en',
       'Chatterbox: switching loads the T3 model with s3genModelSrc (S3Gen)', cbLoad);
-    check(ttsCalls.filter((c) => c.engine !== 'parler').every((c) => c.voice === undefined && c.description === undefined), 'Supertonic and Chatterbox requests carry no Parler field');
+    check(cbLoad && typeof cbLoad.modelConfig.referenceAudioSrc === 'string' && cbLoad.modelConfig.referenceAudioSrc.replace(/\\/g, '/').endsWith('museum-guide/voices/lea.wav'),
+      'Chatterbox: a cloned voice loads with the agent\'s recording (referenceAudioSrc)', cbLoad && cbLoad.modelConfig.referenceAudioSrc);
+    check(ttsCalls.every((c) => c.voice === undefined && c.description === undefined), 'no voice request carries a description or a template voice (Parler fields)');
     const whisperLoads = loads.filter((c) => c.modelType === 'whisper');
     check(whisperLoads.length === 2 && whisperLoads[1].modelConfig.vad_params.min_silence_duration_ms === 500, 'the end sensitivity reloads whisper (new detection), only once', whisperLoads.map((c) => c.modelConfig.vad_params.min_silence_duration_ms));
     unlinkSync(report);

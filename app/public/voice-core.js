@@ -52,10 +52,9 @@ const VoiceCore = (function () {
   /** The Supertonic voices (QVAC's local TTS engine): F = female, M = male. */
   const LOCAL_VOICES = ['F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5'];
 
-  /** The local voice engines. QVAC's: Supertonic (preset voices), Parler (a voice described in words, English),
-   *  Chatterbox (multilingual, can clone a voice). And Zonos (a voice designed with sliders, spoken by a Zonos
+  /** The local voice engines. QVAC's: Supertonic (preset voices), Chatterbox (multilingual, can clone a voice). And Zonos (a voice designed with sliders, spoken by a Zonos
    *  server on the computer; without one, the default voice speaks). */
-  const LOCAL_VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox', 'zonos'];
+  const LOCAL_VOICE_ENGINES = ['supertonic', 'chatterbox', 'zonos'];   // (Parler: removed in 3.8.0)
 
   /** The moods an agent can show (set_mood tool / [[mood: …]] tag). */
   const MOODS = ['neutral', 'happy', 'curious', 'focused', 'sorry', 'surprised', 'excited'];
@@ -75,12 +74,12 @@ const VoiceCore = (function () {
     speakingStyle: '',                // Gemini: voice style asked for in the prompt ("slow, calm")
     // — voice —
     geminiVoice: 'Kore',
-    localVoiceEngine: 'supertonic',   // local: 'supertonic' | 'parler' | 'chatterbox' | 'zonos' (a change reloads the voice)
+    localVoiceEngine: 'supertonic',   // local: 'supertonic' | 'chatterbox' | 'zonos' (a change reloads the voice)
     localVoice: 'F1',                 // Supertonic only
     localSpeed: 1,                    // speed of the local voice (0.5 – 2): Supertonic and Chatterbox
-    voiceDescription: '',             // Parler only: the voice described in words, applied to each sentence
     zonosVoice: '',                   // Zonos only: one of its voices, by id or name ('' = its first)
     voiceDesign: '',                  // Zonos only: the voice designed, "age +1.5, deep 3", applied to each sentence
+    referenceAudio: '',               // Chatterbox only: the agent's recording of a voice to clone ('voices/<name>.wav'; '' = none)
     // — models (local) —
     localAsr: '',                     // local: speech recognition model, one of config.json's "choices" ('' = its default)
     localLlm: '',                     // local: language model, one of config.json's "choices" ('' = its default)
@@ -89,8 +88,8 @@ const VoiceCore = (function () {
     llmUrl: '',                       // the farm's or the service's OpenAI address (http://<host>:4000/v1)
     llmModel: '',                     // the model there
     llmKey: '',                       // its key or password, if it needs one
-    oscTo: '127.0.0.1:10000',         // local: where the patterns' OSC messages go, "host:port, host:port" (this computer)
-    oscIn: '',                        // local: the UDP port sensors and buttons send OSC to ('' = not listening; this computer)
+    oscTo: '127.0.0.1:10000',         // local: where the patterns' OSC messages go, "host:port, host:port" (the agent's)
+    oscIn: '',                        // local: the UDP port sensors and buttons send OSC to ('' = not listening)
     agent: '',                        // local: the agent (its folder name): its knowledge and its patterns decide (docs/DESIGN.md)
     // — turn-taking —
     endSilenceMs: 800,                // silence that ends a turn (patient ↔ impatient)
@@ -105,7 +104,7 @@ const VoiceCore = (function () {
                                       // ("mm-hm" → it carries on, "stop" → it stops and listens)
     listenWhileSpeaking: true,        // false = the mic is cut while the agent speaks (half-duplex)
     micMuted: false,
-    // — the microphone (this computer) —
+    // — the microphone (the agent's settings since 3.8.0; micMuted is this computer's) —
     micGain: 0,                       // dB, -12 to +24: applied to the mic before anything listens to it
     micGate: -80,                     // dBFS, -80 (off) to -10: quieter than this (after the gain), the agent hears
                                       // silence; the gate stays open MIC_GATE_HOLD_MS after the last loud block
@@ -117,7 +116,6 @@ const VoiceCore = (function () {
     // — feedback —
     replyDelayMs: 0,                  // delay added before the voice starts: latency as a design material
     earcons: 'soft',                  // 'off' | 'soft' | 'clear': small interface sounds
-    thinkingSound: 'off',             // 'off' | 'tick' | 'hum': sound while thinking
     repairLine: '',                   // line said when nothing was understood (local engine)
     fillerLines: '',                  // local: short phrases said while a slow reply is prepared, separated by |
                                       // ("Hmm, let me see…|Good question…"); '' = no filler
@@ -148,7 +146,7 @@ const VoiceCore = (function () {
   const LOCAL_KEYS = ['name', 'persona', 'language', 'greeting', 'shortAnswers', 'creativity', 'localVoice',
     'localSpeed', 'endSilenceMs', 'startSensitivity', 'endSensitivity', 'interruptible', 'repairLine',
     'replyDelayMs', 'uiTools', 'turnDetection', 'interruptAfterMs', 'fillerLines', 'fillerAfterMs',
-    'localVoiceEngine', 'voiceDescription', 'zonosVoice', 'voiceDesign', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'agent'];
+    'localVoiceEngine', 'zonosVoice', 'voiceDesign', 'referenceAudio', 'localAsr', 'localLlm', 'llm', 'llmUrl', 'llmModel', 'llmKey', 'oscTo', 'oscIn', 'agent'];
 
   const GEMINI_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService';
   const IN_RATE = 16000;              // what both engines listen to
@@ -830,7 +828,6 @@ const VoiceCore = (function () {
     // the current turn
     let turn = newTurn(); const turns = [];
     let remoteHeard = false; let noReplyTimer = 0; let lastSpeechAt = 0; let serverTurnId = 0;
-    let thinkingStop = null;
     let duckFactor = 1; let duckPending = false;    // someone talks over the agent: its voice is lowered
     let awayTimer = 0; let awayCount = 0;           // the person stays silent while the agent listens (awayAfterMs)
 
@@ -863,7 +860,6 @@ const VoiceCore = (function () {
       const prev = state;
       state = next;
       emit('state', { prev: prev });
-      if (next !== 'thinking') stopThinkingSound();
       if (next === 'listening') armAway(); else clearAway();
     }
 
@@ -905,33 +901,6 @@ const VoiceCore = (function () {
         o.start(t); o.stop(t + 0.14);
       });
     }
-    function startThinkingSound() {
-      stopThinkingSound();
-      if (!ctx || settings.thinkingSound === 'off') return;
-      const vol = 0.05 * clamp(num(settings.volume, 1), 0, 2);
-      if (settings.thinkingSound === 'hum') {
-        const o = ctx.createOscillator(); const lfo = ctx.createOscillator(); const lfoGain = ctx.createGain(); const g = ctx.createGain();
-        o.frequency.value = 150; lfo.frequency.value = 3; lfoGain.gain.value = vol * 0.5;
-        g.gain.value = 0; g.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.3);
-        lfo.connect(lfoGain); lfoGain.connect(g.gain); o.connect(g); g.connect(ctx.destination);
-        o.start(); lfo.start();
-        thinkingStop = function () {
-          const t = ctx.currentTime;
-          g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + 0.15);
-          o.stop(t + 0.2); lfo.stop(t + 0.2);
-        };
-      } else {
-        const tick = function () {
-          const o = ctx.createOscillator(); const g = ctx.createGain(); const t = ctx.currentTime + 0.005;
-          o.frequency.value = 1400; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
-          o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.04);
-        };
-        tick();
-        const id = setInterval(tick, 450);
-        thinkingStop = function () { clearInterval(id); };
-      }
-    }
-    function stopThinkingSound() { if (thinkingStop) { const f = thinkingStop; thinkingStop = null; try { f(); } catch (e) { /* already stopped */ } } }
 
     // — the voice level: volume × duck factor —
     function voiceGain() { return clamp(num(settings.volume, 1), 0, 2) * duckFactor; }
@@ -1129,7 +1098,6 @@ const VoiceCore = (function () {
       emit('user.end', { source: source, speechMs: turn.ms.speech == null ? null : turn.ms.speech });
       earcon('heard');
       emit('thinking');
-      startThinkingSound();
       clearTimeout(noReplyTimer);
       noReplyTimer = setTimeout(function () {
         if (state !== 'thinking') return;
@@ -1367,7 +1335,6 @@ const VoiceCore = (function () {
       clearTimeout(noReplyTimer);
       clearAway();
       duckFactor = 1; duckPending = false;
-      stopThinkingSound();
       stopPlayback();
       if (engine) { try { engine.close(); } catch (e) { /* closed */ } }
       engine = null;

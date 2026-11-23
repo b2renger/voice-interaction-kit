@@ -1,7 +1,7 @@
 // OSC out: a pattern's action "Send OSC" (docs/DESIGN.md, 2.3), to ArtLux, an Arduino, a show controller.
-// The address and the value belong to the agent. Where the messages go (the setting oscTo, "host:port, host:port")
-// belongs to this computer: an agent shared by someone else can never send what is said to another address.
-// OSC in: sensors and buttons (an Arduino) send to the port oscIn (this computer's too): their latest values go
+// The address and the value belong to the agent, and so does where the messages go (the setting oscTo, "host:port,
+// host:port"; since 3.8: importing an agent that sends OSC to another computer, the studio asks first).
+// OSC in: sensors and buttons (an Arduino) send to the port oscIn (the agent's too): their latest values go
 // into what the language model reads, and patterns "when an OSC message arrives" fire on them.
 import dgram from 'node:dgram';
 
@@ -119,7 +119,7 @@ export function oscPort(v) {
 }
 
 /**
- * OSC in: listens on a UDP port (the setting oscIn, this computer's), on every network interface (an Arduino
+ * OSC in: listens on a UDP port (the agent's setting oscIn), on every network interface (an Arduino
  * on the network); VIK_OSC_IN_HOST narrows it (the tests: 127.0.0.1). onMessage({address, args}) for each
  * message of each packet. A port already taken comes to onError. Returns {close()}.
  */

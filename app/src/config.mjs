@@ -37,9 +37,8 @@ export function loadConfig(file) {
       decide: { src: 'EMBEDDINGGEMMA_300M_Q8_0', name: 'EmbeddingGemma 300M', calibration: { similar: [0.55, 0.95], search: [0.35, 0.7] }, useGpu: true },
       tts: {
         src: 'TTS_MULTILINGUAL_SUPERTONIC3_Q8_0', engine: 'supertonic', language: 'en', voice: 'F1', speed: 1, steps: 5, useGpu: true, mode: 'sentence',
-        // the other local voice engines (setting localVoiceEngine): Parler (a voice described in words, English)
-        // and Chatterbox (multilingual; referenceAudio = optional path of a WAV file to clone a voice)
-        parler: { src: 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0', voice: 'Laura' },
+        // the other QVAC voice engine (setting localVoiceEngine): Chatterbox (multilingual; referenceAudio = optional
+        // path of a WAV file to clone a voice)
         chatterbox: { src: 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0', s3gen: 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0', referenceAudio: '' },
         // Zonos (ZONOS3-Mini, a voice designed with sliders): not a QVAC model (engines/zonos.mjs).
         // mode 'web': its in-browser engine runs in the studio's window (WebGPU); 'server': a Zonos server at url.
@@ -70,7 +69,7 @@ export function mergeConfig(base, user) {
       asr: { ...base.models.asr, ...m.asr },
       llm: { ...base.models.llm, ...m.llm },
       decide: { ...base.models.decide, ...m.decide },
-      tts: { ...bt, ...tts, parler: { ...bt.parler, ...tts.parler }, chatterbox: { ...bt.chatterbox, ...tts.chatterbox }, zonos: { ...bt.zonos, ...tts.zonos } },
+      tts: { ...bt, ...tts, chatterbox: { ...bt.chatterbox, ...tts.chatterbox }, zonos: { ...bt.zonos, ...tts.zonos } },
     },
     turn: { ...base.turn, ...turn, smartTurn: { ...(base.turn || {}).smartTurn, ...turn.smartTurn } },
     defaults: { ...base.defaults, ...((user && user.defaults) || {}) },

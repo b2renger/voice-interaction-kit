@@ -122,7 +122,7 @@ function fakeModel() {
   };
 }
 
-/** The people recorded on this computer, and their voiceprints. Never in an agent: a voice is personal data. */
+/** The people an agent recognizes, and their voiceprints (its people.json; personal data: exported only if asked). */
 export function createPeople({ file, log = () => {} }) {
   let people = [];
   try {

@@ -7,11 +7,10 @@ How the agent sounds, when it takes its turn, and what it does while it thinks. 
 | engine | the voice | good to know |
 |---|---|---|
 | **Supertonic** | ten preset voices (F1 to F5, M1 to M5), and a speed | fast, 31 languages |
-| **Parler** | a voice you describe in words | English only; downloads about 1.2 GB on first use |
 | **Chatterbox** | many languages, and it can clone a voice | downloads about 1.1 GB on first use; every output carries a watermark |
 | **Zonos** | a voice you design with sliders: age, gender, pitch, texture, mood | many languages, French included; runs on the graphics card and downloads about 1 GB on first use, see below |
 
-With Parler, write the voice like a persona: who speaks (pitch, pace, warmth) and how it is recorded. "A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone." The new description applies from the next sentence.
+VIK keeps the voice at a steady level, sentence after sentence: a quiet sentence is raised, a loud one lowered (a Zonos voice with a strong design can vary a lot from one sentence to the next).
 
 ### Designing a voice with sliders (Zonos)
 
@@ -23,11 +22,21 @@ Zonos starts from one of its ready-made voices and lets you move it: older or yo
 
 Zonos runs inside this window, on the computer's graphics card. The first time you choose it, its model is downloaded (about 1 GB) and kept on the computer: next to "Voice" you see "loading", then "ready". On a computer whose graphics card cannot run it, you see "cannot run here": the agent speaks with the default voice instead, and the conversation goes on. Keep this window open while Zonos speaks. Numbers and dates are read as written, so spell them out in fixed lines ("half past twelve", not "12:30"). More in the kit's `docs/ZONOS.md`.
 
-> **Cloning a voice needs consent.** A voice identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards.
+### Cloning a voice (Chatterbox)
+
+Chatterbox can imitate someone's voice from a short recording of it. With Chatterbox chosen, **Clone a voice**:
+
+1. Tick that the person agrees, and type whose voice it is.
+2. **Record**, and have them read the text shown, close to the microphone, in a quiet room (10 to 30 seconds; it stops by itself at 30). **Stop**. Or choose a WAV file of their voice.
+3. The voice is saved in the agent's **Saved voices** and the agent speaks with it at once: **Listen** to hear it.
+
+Chatterbox loads a voice once: switching to another reloads it. On Windows it runs on the processor, so a sentence takes about a minute: fine to try a voice, slow for a conversation. The recording is kept in the agent's folder (`voices/`), and an export carries it only if you say so.
+
+> **Cloning a voice needs consent.** A voice identifies someone, like a face. Only clone a voice with the clear, written consent of the person, for this exercise only, and delete the recording afterwards (delete the saved voice, and its file in the agent's `voices` folder).
 
 ### Saved voices: several voices for one agent
 
-**Listen** says a sentence in the voice as it is set, **in French** or **in English**: move a slider or pick another voice, then listen again, without starting a conversation. The first time a voice is used, it loads first (a few seconds; a voice never used on this computer is downloaded once). Not during a conversation: stop it first.
+**Listen** says a sentence in the voice as it is set: type your own in the field (empty: a sample sentence), **in French** or **in English**: move a slider or pick another voice, then listen again, without starting a conversation. The first time a voice is used, it loads first (a few seconds; a voice never used on this computer is downloaded once). Not during a conversation: stop it first.
 
 **Save this voice…** keeps the voice as it is set (its engine, its voice, its speed or its design) under a name: "the old sailor", "the child", "calm". **Saved voices** lists them, each with what it is ("Zonos · Gaspard · age +1.5"), the one the agent speaks with marked **in use**, and the voices saved in the other agents of this computer.
 
@@ -59,7 +68,7 @@ The agent has to guess when you have finished speaking. Too early, and it cuts o
 Between the end of your sentence and the agent's voice, there is always a wait, measured on every turn (the **felt wait**, in Talk).
 
 - **Extra delay before replying** adds a wait on purpose, to design it.
-- **Thinking sound** and **Interface sounds**: a tick or a hum while it thinks; small sounds when it hears you or shows choices.
+- **Interface sounds**: small sounds when it hears you or shows choices. While it thinks, a spoken **filler** ("Hmm, let me see…") tells that a reply is coming.
 - **Filler lines**: short phrases said if the reply is late ("Hmm, let me see…"), separated by `|`, after **Say a filler after**.
 
 ## Silence, and not understanding

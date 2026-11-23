@@ -5,7 +5,7 @@ The voice models VIK uses, for networks that block QVAC's peer-to-peer network (
 | File | Voice | Size | Licence |
 |---|---|---|---|
 | `supertonic3-q8_0.gguf` | Supertonic 3, the default voice | 127 MB | BigScience OpenRAIL-M (`LICENSE-supertonic-3.txt`, with its use restrictions) |
-| `parler-mini-v1-q8_0.gguf` | Parler-TTS mini v1 | 1.16 GB | Apache 2.0 (`LICENSE-parler-tts.txt`) |
+| `parler-mini-v1-q8_0.gguf` | Parler-TTS mini v1 (no longer used since VIK 3.8.0) | 1.16 GB | Apache 2.0 (`LICENSE-parler-tts.txt`) |
 | `chatterbox-t3-mtl-q4_0.gguf` | Chatterbox multilingual | 345 MB | MIT (`LICENSE-chatterbox.txt`) |
 | `chatterbox-s3gen-mtl-q4_0.gguf` | Chatterbox multilingual, part 2 | 788 MB | MIT (`LICENSE-chatterbox.txt`) |
 

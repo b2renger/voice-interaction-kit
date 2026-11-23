@@ -13,7 +13,7 @@ In [Settings](view:settings), under **People**:
 
 Record each person with the microphone of the conversation, in the room where it takes place. Recording the same name again replaces their voice. **Delete** forgets it.
 
-**Ask each person first.** What is kept is a voiceprint, 512 numbers that describe a voice, never the recording. It is still personal data: it stays on this computer, in Settings, never in an agent, so an agent you share carries nobody's voice.
+**Ask each person first.** What is kept is a voiceprint, 512 numbers that describe a voice, never the recording. It is still personal data: it belongs to the agent (each agent has its own people), and an export carries it only if you say so when exporting.
 
 ## In a conversation
 

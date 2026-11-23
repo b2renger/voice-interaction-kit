@@ -4,6 +4,7 @@ import { $, h, debounce, toast, ask, slug, pct } from './ui.js';
 import { api } from './api.js';
 import { state, settings, saveInteractionsSoon, touched, flush, freeTalk } from './state.js';
 import { people, onPeople } from './people.js';
+import { languageWarning } from './lang.js';
 
 const WHEN = {
   says: 'the person says something like',
@@ -175,7 +176,7 @@ function renderEditor() {
         known.includes(n) ? n : `${n} (not recorded here)`))) : '',
       h('p', { class: 'hint' }, known.length
         ? 'Recognized by their voice. Anyone else who asks for it (or someone not recognized): the agent says it won\'t, kindly.'
-        : 'Nobody is recorded on this computer yet: record each person in Settings → People.'));
+        : 'Nobody is recorded in this agent yet: record each person in Settings → People.'));
   }
 
   // — Then —
@@ -185,7 +186,12 @@ function renderEditor() {
     if (a.do === 'say') {
       // the placeholders no column fills, pointed out as you type (the line is not redrawn: the cursor stays)
       const warn = h('p', { class: 'warn-line', 'aria-live': 'polite' });
-      const check = () => { const u = unknownPlaceholders(a.text, headers); warn.textContent = u.length ? `No column fills ${u.map((x) => `{${x}}`).join(', ')}.` : ''; warn.hidden = !u.length; };
+      // …and a line in another language than the agent's: said as written, the agent would switch language
+      const check = () => {
+        const u = unknownPlaceholders(a.text, headers);
+        warn.textContent = [u.length ? `No column fills ${u.map((x) => `{${x}}`).join(', ')}.` : '', languageWarning(a.text, settings().language)].filter(Boolean).join(' ');
+        warn.hidden = !warn.textContent;
+      };
       body = [h('textarea', { rows: 2, value: a.text, 'aria-label': 'The line', oninput: edit((e) => { a.text = e.target.value; check(); }) }),
         h('p', { class: 'hint' }, headers.length ? `Fill it from ${source}: ${headers.map((x) => `{${x}}`).join(' ')}. Several lines separated by | : one at random.` : 'Several lines separated by | : one is picked at random. {said} is what the person said, {speaker} who said it (Settings → People).'),
         warn];

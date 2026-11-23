@@ -2,7 +2,7 @@
 
 VIK can speak with [ZONOS3-Mini](https://huggingface.co/Zyphra/ZONOS3-Mini), Zyphra's open text-to-speech model (weights Apache-2.0, runtime MIT). In **Voice & timing**, choose the voice engine **Zonos**: you pick one of its ready-made voices, then design it with sliders (age, gender, pitch, texture, delivery, mood). No recording of anyone is needed, and it speaks French.
 
-Zonos is an extra voice. It does not replace anything: hearing, deciding and the language model stay as they are, and the other voices (Supertonic, Parler, Chatterbox) are untouched.
+Zonos is an extra voice. It does not replace anything: hearing, deciding and the language model stay as they are, and the other voices (Supertonic, Chatterbox) are untouched.
 
 ## How it runs: in VIK's own window, on the graphics card
 
