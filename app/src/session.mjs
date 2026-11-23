@@ -8,6 +8,7 @@ import { knowledgePrompt } from './agent/decide.mjs';
 import { VOICE_KEYS } from './agent/voices.mjs';
 import { oscArgs, oscTargets, sendOsc, listenOsc, oscPort, oscFires, oscValue, liveDataPrompt } from './osc.mjs';
 import { voiced, MIN_SECONDS } from './speakers/speakers.mjs';
+import { guessLanguage } from '../public/js/lang.js';
 
 const DEFAULTS = {
   name: 'Ada', persona: '', language: 'en', greeting: '', shortAnswers: true, creativity: 1,
@@ -491,7 +492,7 @@ export class Session {
     if (heardNothing(text)) {
       this.send({ type: 'not.understood', text });
       const repair = String(this.s.repairLine || '').trim();
-      if (repair && !this.bot) this.translated(repair).then((t) => { if (!this.bot && !this.closed) this.sayFixed(t, false); });
+      if (repair && !this.bot) this.sayFixed(repair, false);
       return;
     }
     this.whoSpoke(audio).then((who) => {
@@ -516,7 +517,7 @@ export class Session {
     this.respond(t, { asrMs: null, speaker: speaker !== undefined ? speaker.trim() : this.peopleOn ? '' : null });
   }
 
-  /** {type:'say'}: the agent says this line as written (a reprompt…): an agent turn, kept in the history. */
+  /** {type:'say'}: the agent says this line (a reprompt…), translated first if needed (sayFixed): an agent turn, kept in the history. */
   onSay(text) {
     const t = text.trim();
     if (!t || !this.started || this.closed) return;
@@ -847,8 +848,11 @@ export class Session {
     if (this.oscQueue.size) this.oscTimer = setTimeout(() => this.oscTurn(), 100);
   }
 
-  /** A fixed line (greeting, repair line), said without going through the model. */
-  sayFixed(text, remember) {
+  /**
+   * A fixed line (greeting, repair line, reprompt, a client's "say"), said without the model writing it: translated
+   * first when it is written in another language than the conversation's (translated()).
+   */
+  sayFixed(written, remember) {
     this.endDuck();
     const id = ++this.turnId;
     const abort = new AbortController();
@@ -856,7 +860,17 @@ export class Session {
     this.bot = bot;
     const tts = this.engine.speak(this.voiceParams());
     bot.tts = tts;
-    this.send({ type: 'bot.text', text, turnId: id });
+    let text = written;
+    const end = () => { try { tts.end(); } catch { /* cancelled: interrupted */ } };
+    (async () => {
+      text = await this.translated(written, bot);
+      bot.gen = null;
+      if (abort.signal.aborted) return end();
+      this.send({ type: 'bot.text', text, turnId: id });
+      const { sentences } = new ReplyParser().push(text, true);
+      for (const s of (sentences.length ? sentences : [speakable(text)])) tts.write(s);
+      return end();
+    })().catch((e) => { this.log(`(fixed line: ${e.message})`); end(); });
     (async () => {
       let index = 0;
       const level = createLeveler();
@@ -874,9 +888,6 @@ export class Session {
       bot.safety = setTimeout(() => this.onPlaybackEnded(id), 30000);
       if (!bot.audio) this.onPlaybackEnded(id);
     })();
-    const { sentences } = new ReplyParser().push(text, true);
-    for (const s of (sentences.length ? sentences : [speakable(text)])) tts.write(s);
-    tts.end();
   }
 
   /**
@@ -937,11 +948,14 @@ export class Session {
   }
 
   /**
-   * A fixed line (a pattern's "say", the repair line) in the conversation's language: as written in the
-   * agent's own language, translated by the language model in another one (as written if that fails).
+   * A fixed line (the greeting, a pattern's "say", the repair line, a reprompt) in the conversation's language:
+   * translated by the language model when it is written in another one (as written if that fails). The line's
+   * language is guessed (English or French, app/public/js/lang.js); a line it cannot tell is taken to be in the
+   * agent's own language.
    */
   async translated(text, bot = null) {
-    if (!this.lang || !text) return text;
+    const written = guessLanguage(text) || this.s.language || 'en';
+    if (!text || written === this.language) return text;
     let out = '';
     try {
       const gen = this.engine.generate({ system: translatePrompt(this.language), history: [{ role: 'user', content: text }],

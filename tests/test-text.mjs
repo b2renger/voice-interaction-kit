@@ -116,7 +116,7 @@ check(refusalLine('fr', 'Léo', ['Papa', 'Maman']) === "Pardon Léo, c'est à Pa
 check(['en', 'fr', 'es', 'de', 'it', 'pt'].every((l) => outsideLine(l).length > 10) && outsideLine('fr') === "Désolé, je ne peux pas t'aider pour ça." && outsideLine('xx') === outsideLine('en'),
   'outside its subject: a fixed line in each of the six languages; unknown language: English');
 
-// a fixed line in another language than the agent's (said as written: the agent switches language), pointed out
+// a fixed line in another language than the agent's (translated before it is said: slower, words may change), pointed out
 {
   const { guessLanguage, languageWarning } = await import('../app/public/js/lang.js');
   const en = ['Hi! So, how are your plants doing?', 'Here is {scene}.', 'I can show the fire, the sea, the forest, darkness, or go back to the start.'];
@@ -124,7 +124,7 @@ check(['en', 'fr', 'es', 'de', 'it', 'pt'].every((l) => outsideLine(l).length > 
   const none = ['Lyon', 'OK', 'De 9 h à 19 h.', ''];
   check(en.every((t) => guessLanguage(t) === 'en') && fr.every((t) => guessLanguage(t) === 'fr') && none.every((t) => guessLanguage(t) === ''),
     'language of a line: English and French told apart; a name, a word, a time: no guess', [...en, ...fr, ...none].map(guessLanguage));
-  check(/looks English, and the agent speaks French: it is said as written/.test(languageWarning(en[0], 'fr')) && languageWarning(fr[0], 'fr') === '' && languageWarning(en[0], 'en') === '' && languageWarning(en[0], 'de') === '',
+  check(/looks English, and the agent speaks French: it is translated before it is said/.test(languageWarning(en[0], 'fr')) && languageWarning(fr[0], 'fr') === '' && languageWarning(en[0], 'en') === '' && languageWarning(en[0], 'de') === '',
     'a warning when a line looks English in a French agent (or French in an English one); none otherwise, nor for other languages');
 }
 

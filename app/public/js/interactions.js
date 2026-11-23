@@ -186,7 +186,7 @@ function renderEditor() {
     if (a.do === 'say') {
       // the placeholders no column fills, pointed out as you type (the line is not redrawn: the cursor stays)
       const warn = h('p', { class: 'warn-line', 'aria-live': 'polite' });
-      // …and a line in another language than the agent's: said as written, the agent would switch language
+      // …and a line in another language than the agent's: translated before it is said (slower, words may change)
       const check = () => {
         const u = unknownPlaceholders(a.text, headers);
         warn.textContent = [u.length ? `No column fills ${u.map((x) => `{${x}}`).join(', ')}.` : '', languageWarning(a.text, settings().language)].filter(Boolean).join(' ');

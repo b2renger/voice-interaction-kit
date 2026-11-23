@@ -353,6 +353,35 @@ const decider = createDecider({ store, matcher: () => words });
   check(it2 && it2.language === 'it' && it2.own === true, 'language: the agent\'s language edited in the studio → the conversation goes back to it', it2);
   poly.ws.close();
 
+  // a line written in another language than the conversation's is translated before it is said (3.8.1): a French
+  // garden with an English greeting and an English "Say"; a French line as written; in English, the English line as written
+  await api('/agents', { bundle: { vik: 'agent', id: 'jardin', persona: '---\nname: Jo\nlanguage: fr\n---\nUn jardin.', knowledge: {}, interactions: { version: 1, patterns: [
+    { id: 'forest', name: 'Forest', when: { kind: 'says', examples: ['show me the forest'] }, then: [{ do: 'say', text: 'Here is the forest, with its trees.' }] },
+    { id: 'foret', name: 'Forêt', when: { kind: 'says', examples: ['montre-moi la forêt'] }, then: [{ do: 'say', text: 'Voici la forêt, avec ses arbres.' }] },
+  ] } } });
+  const translations = (from) => farm.requests.slice(from).filter((r) => /^Translate the user's message into/.test(r.body.messages[0].content)).map((r) => [r.body.messages[0].content.match(/into (\w+)/)[1], r.body.messages[1].content]);
+  asked = farm.requests.length;
+  const garden = await open({ agent: 'jardin', name: 'Jo', persona: 'Un jardin.', language: 'fr', greeting: 'Hi! So, how are your plants doing?', llm: 'farm', llmUrl: farm.url, llmModel: 'assistant' });
+  const greeted = await garden.after(0, 'bot.done');
+  check(greeted && greeted.text === 'It is a pond.' && JSON.stringify(translations(asked)) === JSON.stringify([['French', 'Hi! So, how are your plants doing?']])
+    && !garden.msgs.some((m) => m.type === 'bot.text' && /plants/.test(m.text)),
+  'language: an English greeting in a French agent is translated into French before it is said (never shown in English)', { said: greeted && greeted.text, asked: translations(asked) });
+  const sayIn = async (text) => { const k = garden.msgs.length; const from = farm.requests.length; garden.ws.send(JSON.stringify({ type: 'text', text })); const d = await garden.after(k, 'bot.done'); return { said: d && d.text, asked: translations(from) }; };
+  const enLine = await sayIn('show me the forest');
+  const frLine = await sayIn('montre-moi la forêt');
+  check(enLine.said === 'It is a pond.' && JSON.stringify(enLine.asked) === JSON.stringify([['French', 'Here is the forest, with its trees.']]) && frLine.said === 'Voici la forêt, avec ses arbres.' && !frLine.asked.length,
+    'language: an English "Say" in a French conversation is translated; a French one is said as written', { enLine, frLine });
+  let k2 = garden.msgs.length;
+  garden.ws.send(JSON.stringify({ type: 'language', language: 'en' }));
+  await until(() => garden.msgs.slice(k2).some((m) => m.type === 'language' && m.language === 'en'), 5000);
+  const enInEn = await sayIn('show me the forest');
+  check(enInEn.said === 'Here is the forest, with its trees.' && !enInEn.asked.length, 'language: the conversation in English: the English line is said as written (no translation)', enInEn);
+  k2 = garden.msgs.length;
+  garden.ws.send(JSON.stringify({ type: 'say', text: 'Voici la forêt, avec ses arbres.' }));
+  const sayCmd = await garden.after(k2, 'bot.done');
+  check(sayCmd && sayCmd.text === 'It is a pond.', 'language: a "say" command (a reprompt, a client) in French, in an English conversation: translated too', sayCmd && sayCmd.text);
+  garden.ws.close();
+
   // "Send OSC": the ArtLux example agent, two listeners standing in for ArtLux and an Arduino
   const { createSocket } = await import('node:dgram');
   const listener = async () => {
