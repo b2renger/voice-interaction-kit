@@ -20,7 +20,7 @@ A conversation stays in one language. It changes only when someone asks:
 - a pattern's action **Change language**, so that a sentence switches it ("can we speak English?"), see [Interactions](interactions.md);
 - a client's `language` command (a language button in an installation, see [Clients](clients.md)).
 
-Hearing and the voice reload, which takes a few seconds. The language model then answers in the new language, and the lines you wrote are translated by it: write them in the agent's **Language**, never in another one, or they are said as written. The next conversation starts again in the agent's language.
+Hearing and the voice reload, which takes a few seconds. The language model then answers in the new language, and the lines you wrote are translated by it. The next conversation starts again in the agent's language.
 
 ## Writing the persona
 

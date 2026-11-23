@@ -82,7 +82,7 @@ They are set in the studio. Clients don't change them. They belong to the **agen
 | `agent` | empty | the agent (its folder name): its knowledge and its patterns decide | — | the decision model |
 | `name`, `persona` | Ada, a museum guide | who the agent is | system prompt | system prompt |
 | `language` | `en` | the agent's language: the one its persona, knowledge and lines are written in, and the one each conversation starts in. In another conversation language (local engine), its fixed lines are translated by the language model | in the prompt (Gemini picks on its own) | Whisper + voice + prompt |
-| `greeting` | empty | what it says first (empty = it waits) | asked of the model | said as written |
+| `greeting` | empty | what it says first (empty = it waits) | asked of the model | said as written; translated first if it is written in another language than the conversation's |
 | `shortAnswers` | yes | short spoken answers | prompt | prompt |
 | `freeTalk` (an agent's, in its `persona.md`) | yes, or no for an agent with an `otherwise` pattern | what no pattern catches: the language model answers (yes), or only when something in the knowledge fits, else the `otherwise` pattern or a fixed line (no) | — | the decision model |
 | `creativity` | 1 | 0 calm → 2 unpredictable | `temperature` | `temp` × 0.7 |
@@ -111,7 +111,7 @@ They are set in the studio. Clients don't change them. They belong to the **agen
 | `micGate` | -80 (off) | the gate's threshold in dBFS (-80 = off, to -10): quieter than this, after the gain, the agent hears silence; it closes 300 ms after the last loud sound | browser | browser |
 | `micAutoGain` | yes | the browser's automatic level (`autoGainControl`); untick it to set the gain yourself in a noisy room. At the next Start | browser | browser |
 | `awayAfterMs` | 0 (never) | silence while listening before `user.away` (up to 3,600,000 ms) | browser | browser |
-| `repromptLine` | empty | what the agent says **once** when the person stays silent (at the first `user.away`) | asked of the model, in its own words | said as written |
+| `repromptLine` | empty | what the agent says **once** when the person stays silent (at the first `user.away`) | asked of the model, in its own words | said as written (translated first, like the greeting) |
 | `replyDelayMs` | 0 | delay added before the voice | browser | server |
 | `earcons` | `soft` | small interface sounds (`off`, `soft`, `clear`) | browser | browser |
 | `repairLine` | empty | what it says when it understood nothing | — | server |
@@ -168,7 +168,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
   - `{type:'text', text}`: a typed message, or a choice (`(The user chose: "…")`: the decision is made on the option itself). `speaker` (optional): decided as if this person had said it (the studio's "as Léa"); without it, when people are recorded, a typed message is from someone not recognized;
   - `{type:'context', text}`: information for the agent, with no reply. It never cuts the agent off: the local engine keeps it for the next reply (the last 5), and the Gemini engine holds it while the agent is speaking, then sends it at the end of the reply;
   - `{type:'interrupt'}`: cut the reply;
-  - `{type:'say', text}`: the agent says this line as written, with no thinking state, and it goes into the history as the agent's message (used for the reprompt line);
+  - `{type:'say', text}`: the agent says this line as written (translated first if it is written in another language than the conversation's: English and French are recognized), with no thinking state, and it goes into the history as the agent's message (used for the reprompt line);
   - `{type:'signal', name, value}`: a client's signal, for the agent's patterns "when a client sends this signal";
   - `{type:'language', language}`: the conversation's language (`''`: the agent's own). An unknown one is ignored;
   - `{type:'playback', state:'ended', turnId}`: the voice has finished playing;

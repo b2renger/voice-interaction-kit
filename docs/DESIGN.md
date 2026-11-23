@@ -127,7 +127,7 @@ The Raft of the Medusa,Théodore Géricault,1819,1,Survivors of a shipwreck on a
 
 | `do` | what it does | fields |
 |---|---|---|
-| `say` | says this line as written. Several lines separated by `\|`: one is picked at random | `text` |
+| `say` | says this line as written (translated by the language model first when it looks written in another language than the conversation's: `app/public/js/lang.js` tells English from French). Several lines separated by `\|`: one is picked at random | `text` |
 | `answer` | the language model writes the reply, following the instruction, with the entry found (and its links) | `instruction` |
 | `choices` | shows choice buttons | `question`, `options` (separated by `\|`) |
 | `mood` | sets the agent's mood | `mood` |

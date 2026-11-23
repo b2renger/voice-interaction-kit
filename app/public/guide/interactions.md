@@ -25,7 +25,7 @@ A pattern does one or more things, in order:
 
 | then | what it does |
 |---|---|
-| **Say** | says a line, as written: exact and instant |
+| **Say** | says a line, as written: exact and instant (written in another language than the conversation's, it is translated first) |
 | **Answer** | the language model writes the reply, following your instruction ("in two sentences, then ask a question") |
 | **Show choices** | buttons on the screen, with an optional question |
 | **Set the mood** | a mood for the interface: happy, curious, sorry… |

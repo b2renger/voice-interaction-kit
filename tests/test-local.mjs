@@ -532,10 +532,10 @@ await browser.close();
   const d1 = await disk('bike-shop');
   check(d1.settings.name === 'Bo' && d1.body.startsWith('You sell bikes'), 'studio: the persona is saved to persona.md as you type', d1.settings);
   check(/Your name is Bo\.\nYou sell bikes/.test(await page.textContent('#promptPreview')), 'studio: "What the model reads" shows the prompt');
-  // a greeting in another language than the agent's is said as written: the studio points it out
+  // a greeting in another language than the agent's is translated before it is said: the studio points it out
   await page.fill('[data-k="greeting"]', 'Bonjour ! Voici le magasin de vélos, que voulez-vous ?');
-  check(await until(async () => !(await page.isHidden('#greetingWarn')) && /looks French, and the agent speaks English/.test(await page.textContent('#greetingWarn')), 2000),
-    'studio: a greeting in French for an English agent: "it is said as written" is pointed out', await page.textContent('#greetingWarn'));
+  check(await until(async () => !(await page.isHidden('#greetingWarn')) && /looks French, and the agent speaks English: it is translated before it is said/.test(await page.textContent('#greetingWarn')), 2000),
+    'studio: a greeting in French for an English agent: "it is translated before it is said" is pointed out', await page.textContent('#greetingWarn'));
   await page.fill('[data-k="greeting"]', 'Hello! What can I do for you?');
   check(await until(() => page.isHidden('#greetingWarn'), 2000), 'studio: …and not for a greeting in the agent\'s language');
   await page.fill('[data-k="greeting"]', '');                 // as it was: what follows has no greeting

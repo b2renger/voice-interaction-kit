@@ -109,13 +109,14 @@ const voices = await put(`/api/agents/${id}/voices`, { voices: [
   { name: 'Child', settings: { localVoiceEngine: 'zonos', zonosVoice: 'Savannah', voiceDesign: 'age -2' } },
   { name: 'Robot', settings: { localVoiceEngine: 'chatterbox' } },
 ] });
+// the agent is French: its lines are in French (one in another language would be translated first)
 await put(`/api/agents/${id}/interactions`, { stages: [{ id: 'main', name: 'Main' }], confidence: 0.5, patterns: [
-  says('Sailor', 'tell it like an old sailor', [{ do: 'voice', voice: 'old-sailor' }, { do: 'say', text: 'Ahoy! Listen to this.' }]),
-  says('Child', 'tell it like a child', [{ do: 'say', text: 'Once upon a time!' }, { do: 'voice', voice: 'child' }]),
-  says('Robot', 'tell it like a robot', [{ do: 'voice', voice: 'robot' }, { do: 'say', text: 'Beep. Story loaded.' }]),
-  says('Yourself', 'be yourself again', [{ do: 'voice', voice: '' }, { do: 'say', text: 'Here I am.' }]),
-  says('Ghost', 'tell it like a ghost', [{ do: 'voice', voice: 'ghost' }, { do: 'say', text: 'Boo.' }]),
-  says('Weather', 'what is the weather', [{ do: 'say', text: 'It is sunny.' }]),
+  says('Sailor', 'tell it like an old sailor', [{ do: 'voice', voice: 'old-sailor' }, { do: 'say', text: 'Ohé ! Écoutez ça.' }]),
+  says('Child', 'tell it like a child', [{ do: 'say', text: 'Il était une fois !' }, { do: 'voice', voice: 'child' }]),
+  says('Robot', 'tell it like a robot', [{ do: 'voice', voice: 'robot' }, { do: 'say', text: 'Bip. Histoire chargée.' }]),
+  says('Yourself', 'be yourself again', [{ do: 'voice', voice: '' }, { do: 'say', text: 'Me voici.' }]),
+  says('Ghost', 'tell it like a ghost', [{ do: 'voice', voice: 'ghost' }, { do: 'say', text: 'Bouh.' }]),
+  says('Weather', 'what is the weather', [{ do: 'say', text: 'Il fait beau.' }]),
 ] });
 check(voices.length === 3 && voices[0].id === 'old-sailor', 'PUT /api/agents/:id/voices saves the list and returns it', voices.map((v) => v.id));
 const got = await (await fetch(`${url}/api/agents/${id}`)).json();
@@ -132,7 +133,7 @@ check(t1 && same(c.rates(t1), [24000]) && zonosAsked() === 0 && !c.has('voice'),
 
 const t2 = await c.turn('tell it like an old sailor');
 const v2 = c.all('voice');
-check(t2 && same(c.rates(t2), [44100]) && /Ahoy/.test(t2.text), 'a pattern with "Change voice": its own reply is already said in the new voice (Zonos, 44.1 kHz)', [c.rates(t2), t2 && t2.text]);
+check(t2 && same(c.rates(t2), [44100]) && /Ohé/.test(t2.text), 'a pattern with "Change voice": its own reply is already said in the new voice (Zonos, 44.1 kHz)', [c.rates(t2), t2 && t2.text]);
 check(v2.length === 1 && v2[0].voice === 'old-sailor' && v2[0].name === 'Old sailor', 'the clients are told: {type: "voice", voice: "old-sailor", name: "Old sailor"}', v2);
 const r2 = fake.requests[fake.requests.length - 1];
 check(r2 && r2.speaker_embedding_id === SPEAKERS[1].id && same(r2.controls, { 'identity.age': 2, 'texture.deep': 3 }) && r2.language === 'fr_fr', 'the voice is the saved one: its Zonos voice and its design (the language stays the agent\'s)', r2);
@@ -159,7 +160,7 @@ const t6 = await c.turn('tell it like a robot');
 check(t6 && same(c.rates(t6), [24000]) && zonosAsked() === n6 && reloads() === reloadsBefore + 1 && c.all('voice')[2].voice === 'robot', 'a voice of another engine (Chatterbox): it is loaded first ("Changing voice…"), then says the reply; Zonos is no longer asked', [c.rates(t6), zonosAsked() - n6]);
 
 const t7 = await c.turn('tell it like a ghost');
-check(t7 && /Boo/.test(t7.text) && c.all('voice').length === 3 && zonosAsked() === n6, 'a pattern naming a voice that does not exist (deleted): the reply is said, the voice stays');
+check(t7 && /Bouh/.test(t7.text) && c.all('voice').length === 3 && zonosAsked() === n6, 'a pattern naming a voice that does not exist (deleted): the reply is said, the voice stays');
 
 const t8 = await c.turn('be yourself again');
 const last = c.all('voice').pop();

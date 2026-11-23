@@ -128,7 +128,7 @@ function paintFields() {
   for (const el of $$('[data-show]')) el.hidden = el.dataset.show !== s.engine;
   for (const el of $$('[data-voice]')) if (s.engine === 'local') el.hidden = !el.dataset.voice.split(' ').includes(s.localVoiceEngine || 'supertonic');
   $('#botName').textContent = s.name || 'Agent';
-  const gw = languageWarning(s.greeting, s.language);       // a greeting in another language: said as written
+  const gw = languageWarning(s.greeting, s.language);       // a greeting in another language: translated first
   $('#greetingWarn').textContent = gw; $('#greetingWarn').hidden = !gw;
   $('#promptPreview').textContent = s.engine === 'gemini'
     ? VoiceCore.systemPrompt(s, 'gemini')
