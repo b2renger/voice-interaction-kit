@@ -106,7 +106,7 @@
               <select data-k="language"><option value="en">English</option><option value="fr">French</option><option value="es">Spanish</option><option value="de">German</option><option value="it">Italian</option><option value="pt">Portuguese</option></select>
               <span class="hint">Write the persona, the knowledge and the lines in it. Conversations start in it; in another one (Talk, a pattern), the lines are translated.</span>
             </label>
-            <label class="field" style="align-content:start"><span>Greeting</span><input type="text" data-k="greeting" placeholder="Empty: it waits to be spoken to"></label>
+            <label class="field" style="align-content:start"><span>Greeting</span><input type="text" data-k="greeting" placeholder="Empty: it waits to be spoken to"><span class="warn-line" id="greetingWarn" aria-live="polite" hidden></span></label>
           </div>
           <label class="field"><span>Persona</span><textarea id="personaBody" data-k="persona" spellcheck="true"></textarea></label>
         </div>
@@ -184,10 +184,9 @@
         <header><h2>Voice</h2></header>
         <div class="grid2">
           <label class="field" data-show="local"><span>Voice engine</span>
-            <select data-k="localVoiceEngine"><option value="supertonic">Supertonic: fast, ten preset voices</option><option value="parler">Parler: a voice described in words, English</option><option value="chatterbox">Chatterbox: multilingual, can clone a voice</option><option value="zonos">Zonos: a voice designed with sliders</option></select>
+            <select data-k="localVoiceEngine"><option value="supertonic">Supertonic: fast, ten preset voices</option><option value="chatterbox">Chatterbox: multilingual, can clone a voice</option><option value="zonos">Zonos: a voice designed with sliders</option></select>
           </label>
           <label class="field" data-show="local" data-voice="supertonic"><span>Voice <span>F female, M male</span></span><select data-k="localVoice" id="localVoices"></select></label>
-          <label class="field" data-show="local" data-voice="parler"><span>The voice, described</span><textarea data-k="voiceDescription" placeholder="A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone."></textarea></label>
           <label class="field" data-show="local" data-voice="zonos"><span>Voice <span id="zonosState"></span></span><select data-k="zonosVoice" id="zonosVoices"><option value="">The first voice</option></select></label>
           <label class="field" data-show="local" data-voice="zonos"><span>The voice, designed <span>written by the sliders below</span></span><input type="text" data-k="voiceDesign" placeholder="age +1.5, deep 3, gender -1"></label>
           <div class="design" data-show="local" data-voice="zonos">
@@ -201,6 +200,7 @@
           <div class="voices" data-show="local">
             <div class="row listen">
               <span>Hear the voice as it is set</span>
+              <input type="text" id="voiceText" maxlength="400" aria-label="What the voice says" placeholder="A sentence of your own (empty: a sample sentence)">
               <select id="voiceLang" aria-label="Language of the sentence heard"><option value="fr">in French</option><option value="en">in English</option></select>
               <button type="button" class="btn" id="voiceListen">Listen</button>
               <button type="button" class="btn" id="voiceSave">Save this voice…</button>
@@ -233,7 +233,6 @@
         <div class="grid2">
           <label class="field"><span>Extra delay before replying <output data-out="replyDelayMs"></output></span><input type="range" min="0" max="5000" step="100" data-k="replyDelayMs"></label>
           <label class="field"><span>Interface sounds</span><select data-k="earcons"><option value="off">Off</option><option value="soft">Soft</option><option value="clear">Clear</option></select></label>
-          <label class="field"><span>Thinking sound</span><select data-k="thinkingSound"><option value="off">Off</option><option value="tick">Tick</option><option value="hum">Hum</option></select></label>
           <label class="field" data-show="local"><span>Filler lines, separated by |</span><input type="text" data-k="fillerLines" placeholder="Hmm, let me see…|Good question…"></label>
           <label class="field" data-show="local"><span>Say a filler after <output data-out="fillerAfterMs"></output></span><input type="range" min="0" max="4000" step="100" data-k="fillerAfterMs"></label>
           <label class="field" data-show="local"><span>When nothing was understood</span><input type="text" data-k="repairLine" placeholder="Sorry, I didn't catch that."></label>

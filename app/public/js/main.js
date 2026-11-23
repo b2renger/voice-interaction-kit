@@ -10,6 +10,7 @@ import { initSettings, initMicMeter, initOscIn, loadModels, paintSettings, showH
 import { initPeople } from './people.js';
 import { initUpdates } from './updates.js';
 import { initFolder } from './folder.js';
+import { languageWarning } from './lang.js';
 import { initGuide, renderGuide, openGuide, refreshGuideTour } from './guide.js';
 import { initTour, startTour, tourCard } from './tour.js';
 import { initZonos } from './zonos.js';
@@ -127,6 +128,8 @@ function paintFields() {
   for (const el of $$('[data-show]')) el.hidden = el.dataset.show !== s.engine;
   for (const el of $$('[data-voice]')) if (s.engine === 'local') el.hidden = !el.dataset.voice.split(' ').includes(s.localVoiceEngine || 'supertonic');
   $('#botName').textContent = s.name || 'Agent';
+  const gw = languageWarning(s.greeting, s.language);       // a greeting in another language: said as written
+  $('#greetingWarn').textContent = gw; $('#greetingWarn').hidden = !gw;
   $('#promptPreview').textContent = s.engine === 'gemini'
     ? VoiceCore.systemPrompt(s, 'gemini')
     : `${VoiceCore.systemPrompt(s, 'local')}\n\nAnd for each reply: the entries of the knowledge it found, and the instruction of the pattern that fired.`;

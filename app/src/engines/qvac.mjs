@@ -1,5 +1,5 @@
 // QVAC engine: speech recognition (Whisper + Silero VAD), language model (llama.cpp) and voice
-// (Supertonic, Parler or Chatterbox), all local, through the @qvac/sdk SDK (tested against version 0.21 of its source code).
+// (Supertonic or Chatterbox), all local, through the @qvac/sdk SDK (tested against version 0.21 of its source code).
 //
 // Interface shared by the engines (see engines/mock.mjs):
 //   prepare(settings, onProgress)                      loads / reloads the models for these settings
@@ -7,12 +7,10 @@
 //   choices()                                          the models offered for listening and thinking (config "choices")
 //   openAsr(opts, {onVad, onText, onEndOfTurn, onError}) → {write(pcmS16le16k), close()}
 //   generate({system, history, temperature, onDelta})   → {done: Promise<{text, firstTokenMs}>, cancel()}
-//   speak({voice, speed, language, engine, description}) → {write(phrase), end(), cancel(), frames: AsyncIterable}
+//   speak({voice, speed, language, engine}) → {write(phrase), end(), cancel(), frames: AsyncIterable}
 //
-// The three local voice engines (setting localVoiceEngine), from QVAC 0.21's text-to-speech docs and schemas:
+// The local voice engines (setting localVoiceEngine), from QVAC 0.21's text-to-speech docs and schemas:
 //   supertonic  fast, 10 preset voices (F1–F5, M1–M5), 31 languages; voice, speed and language at load time.
-//   parler      English only; the voice is DESCRIBED in words, per request ("description"), or a template
-//               speaker ("voice": Laura) when there is no description — never both. 44.1 kHz.
 //   chatterbox  multilingual (not ja/zh here: they need extra tokenizer assets); a T3 model + an S3Gen companion,
 //               optional voice cloning from a WAV (referenceAudio in config.json). 24 kHz. Every output carries
 //               Resemble's Perth watermark.
@@ -117,17 +115,17 @@ export function hideWorkerConsole(cp = childProcess, platform = process.platform
   cp.spawn = hidden;
 }
 
-export const VOICE_ENGINES = ['supertonic', 'parler', 'chatterbox'];
+// (Parler was one until 3.7.5: English only, and poor in French. An agent still set to it speaks with Supertonic.)
+export const VOICE_ENGINES = ['supertonic', 'chatterbox'];
 const SUPERTONIC_VOICES = ['F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5'];
 // Chatterbox multilingual languages, minus ja and zh (they need mecabDictSrc / cangjieTsvSrc)
 const CHATTERBOX_LANGUAGES = ['en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'tr', 'sv', 'da', 'fi', 'no', 'el', 'ms', 'sw', 'ar', 'ko', 'he', 'ru', 'hi'];
-const NATIVE_RATE = { supertonic: 44100, parler: 44100, chatterbox: 24000 };
+const NATIVE_RATE = { supertonic: 44100, chatterbox: 24000 };
 export function voiceEngineOf(s) { return VOICE_ENGINES.includes(s && s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic'; }
 /**
- * Parler and Chatterbox (o: their section of config.json) use the graphics card on a Mac only, unless their own
- * useGpu says otherwise. On Windows with QVAC 0.21, Parler does not load on the graphics card ("failed to fuse
- * decode projection weights": QVAC lists no Windows GPU for it), and Chatterbox next to the other models filled
- * a 4 GB card and crashed QVAC's worker, every model with it (checked on an RTX 3050 Ti; alone, it ran).
+ * Chatterbox (o: its section of config.json) uses the graphics card on a Mac only, unless its own useGpu says
+ * otherwise. On Windows with QVAC 0.21, Chatterbox next to the other models filled a 4 GB card and crashed QVAC's
+ * worker, every model with it (checked on an RTX 3050 Ti; alone, it ran).
  */
 export function bigVoiceOnGpu(o, tts, platform = process.platform) {
   return o.useGpu == null ? platform === 'darwin' && tts.useGpu !== false : o.useGpu !== false;
@@ -229,13 +227,12 @@ export async function createQvacEngine(config, log) {
     return cachedFile(c) || (config.download !== 'p2p' && hfUrl(c)) || c;
   }
 
-  /** Every catalogue model these settings can use (all three voices), and whether it is on this computer. */
+  /** Every catalogue model these settings can use (all the voices), and whether it is on this computer. */
   function models() {
-    const P = M.tts.parler || {};
     const C = M.tts.chatterbox || {};
     const wanted = [
       ['speech recognition', st.asrSrc], ['voice detection', M.asr.vad], ['language model', st.llmSrc], ['voice (supertonic)', M.tts.src],
-      ['voice (parler)', P.src || 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0'], ['voice (chatterbox)', C.src || 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0'],
+      ['voice (chatterbox)', C.src || 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0'],
       ['voice (chatterbox, part 2)', C.s3gen || 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0'],
       ['decision model', (M.decide || {}).src],
     ];
@@ -398,12 +395,7 @@ export async function createQvacEngine(config, log) {
       const engine = voiceEngineOf(s);
       const speed = clamp(num(s.localSpeed, M.tts.speed || 1), 0.5, 2);
       let ttsSrc; let ttsConfig;
-      if (engine === 'parler') {
-        // the voice is chosen per request (a description, or the template speaker)
-        const P = M.tts.parler || {};
-        ttsSrc = String(P.src || 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0');
-        ttsConfig = { ttsEngine: 'parler', seed: P.seed == null ? 42 : Number(P.seed), useGPU: bigVoiceOnGpu(P, M.tts) };
-      } else if (engine === 'chatterbox') {
+      if (engine === 'chatterbox') {
         const C = M.tts.chatterbox || {};
         ttsSrc = String(C.src || 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0');
         ttsConfig = {
@@ -549,13 +541,6 @@ export async function createQvacEngine(config, log) {
       let current = null;
       let chain = Promise.resolve();
       const mode = M.tts.mode || 'sentence';
-      // Parler: the voice per request — a free-text description, OR the template speaker (never both)
-      const voiceFields = {};
-      if (st.ttsEngine === 'parler') {
-        const description = String(o.description || '').trim();
-        if (description) voiceFields.description = description;
-        else voiceFields.voice = String((M.tts.parler && M.tts.parler.voice) || 'Laura');
-      }
       if (mode === 'stream') return streamSpeak();
       // One sentence at a time: we know exactly which sentence is being said (captions), and can cut cleanly.
       return {
@@ -568,7 +553,7 @@ export async function createQvacEngine(config, log) {
             let r;
             let samples;
             try {
-              r = sdk.textToSpeech({ modelId: st.tts, text: sentence, inputType: 'text', stream: false, ...voiceFields });   // can throw at once
+              r = sdk.textToSpeech({ modelId: st.tts, text: sentence, inputType: 'text', stream: false });   // can throw at once
               current = r;
               samples = await r.buffer;
             } catch (e) { if (!cancelled) q.fail(e); return; }
@@ -594,7 +579,7 @@ export async function createQvacEngine(config, log) {
       // Variant: continuous streaming voice (textToSpeechStream). Setting "tts.mode": "stream".
       function streamSpeak() {
         let session = null;
-        const ready = sdk.textToSpeechStream({ modelId: st.tts, inputType: 'text', accumulateSentences: true, sentenceDelimiterPreset: 'latin', ...voiceFields })
+        const ready = sdk.textToSpeechStream({ modelId: st.tts, inputType: 'text', accumulateSentences: true, sentenceDelimiterPreset: 'latin' })
           .then((s) => {
             session = s;
             if (cancelled) { try { s.destroy(); } catch { /* closed */ } q.end(); return s; }

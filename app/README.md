@@ -10,7 +10,7 @@ A **desktop app** to install on each student's computer. It is the **brain** of 
 | speaking | Supertonic 3: 31 languages including English and French, voices F1–F5 and M1–M5 | 127 MB |
 | knowing when you have finished (optional) | Smart Turn v3.2 | 8.7 MB, included in the app |
 
-These models run on Tether's [QVAC](https://github.com/tetherto/qvac) SDK (llama.cpp, whisper.cpp, GGML). On first launch the app downloads them (about 1.8 GB) and shows the progress, then offers to download the two other voice engines, Parler and Chatterbox, once and for all (see "Downloading the models").
+These models run on Tether's [QVAC](https://github.com/tetherto/qvac) SDK (llama.cpp, whisper.cpp, GGML). On first launch the app downloads them (about 1.8 GB) and shows the progress, then offers to download the other voice engine, Chatterbox, once and for all (see "Downloading the models").
 
 ## The studio
 
@@ -92,7 +92,7 @@ You also need:
 
 - **On Windows**: an up-to-date graphics driver. QVAC needs **Vulkan 1.4**, even without a dedicated graphics card; recent NVIDIA, AMD and Intel drivers have it.
 - **On Mac**: 16 GB of memory is comfortable. With 8 GB, choose lighter models (see "Choosing the models").
-- **About 2 GB of disk space** for the models, in `~/.qvac/models` (menu **Files → Open models folder**), or in the VIK folder chosen in **Settings → VIK folder** (**Move…** takes the agents, the people and the models to another folder or drive, then VIK restarts there). Add about 1.2 GB for Parler and 1.1 GB for Chatterbox.
+- **About 2 GB of disk space** for the models, in `~/.qvac/models` (menu **Files → Open models folder**), or in the VIK folder chosen in **Settings → VIK folder** (**Move…** takes the agents, the people and the models to another folder or drive, then VIK restarts there). Add about 1.1 GB for Chatterbox.
 
 On first launch, the banner follows the model download. When it says "The models are ready", click **Start** and talk.
 
@@ -184,7 +184,7 @@ Good to know:
 
 **Download everything once.** When the app is ready, it offers to download all the models it does not have yet, the three voices and the decision model included (about 4 GB, once): click **Download everything**. It is also in the menu **Files → Download all models**. Afterwards, nothing downloads again, and the app works without the internet.
 
-Whisper, Silero, Qwen and EmbeddingGemma come straight from **Hugging Face** over HTTPS (`"download": "http"`, the default), which works on most networks. The voices (Supertonic, Parler, Chatterbox) only exist in QVAC's registry, which downloads **peer to peer** (Hyperswarm), and many school networks block this. So VIK gets the voices from a **mirror** over HTTPS first: the [`models` release](https://github.com/b2renger/voice-interaction-kit/releases/tag/models) of this repository (`"modelMirror"` in `config.json`). Each file must have the size and SHA-256 of QVAC's catalogue, or it is refused; if the mirror fails, QVAC's peer-to-peer network is tried, and a download that receives nothing for 90 seconds is given up. While a model loads, the banner shows a progress bar; "waiting for data" that keeps counting means the network is blocking the download.
+Whisper, Silero, Qwen and EmbeddingGemma come straight from **Hugging Face** over HTTPS (`"download": "http"`, the default), which works on most networks. The voices (Supertonic, Chatterbox) only exist in QVAC's registry, which downloads **peer to peer** (Hyperswarm), and many school networks block this. So VIK gets the voices from a **mirror** over HTTPS first: the [`models` release](https://github.com/b2renger/voice-interaction-kit/releases/tag/models) of this repository (`"modelMirror"` in `config.json`). Each file must have the size and SHA-256 of QVAC's catalogue, or it is refused; if the mirror fails, QVAC's peer-to-peer network is tried, and a download that receives nothing for 90 seconds is given up. While a model loads, the banner shows a progress bar; "waiting for data" that keeps counting means the network is blocking the download.
 
 **By hand** (a classroom without internet, a USB key): download the voice files from the `models` release and put them in the models folder (**Files → Open models folder**, i.e. `~/.qvac/models`), under their own names; or copy that whole folder from a computer that has the models. VIK finds any file of the right size whose name is the catalogue's file name, alone or after a prefix (`<hash>_` for QVAC's downloads, `mirror_` for the mirror's).
 
@@ -210,7 +210,7 @@ The menu **Files → Open settings folder** creates a personal `config.json`, wh
 "turn": { "smartTurn": { "model": "models/smart-turn-v3.2-cpu.onnx", "threshold": 0.5, "threads": 1 } }
 ```
 
-`decide.calibration` is the decision model's measured range of cosines, for two sentences (`similar`) and for a sentence against an entry (`search`): change it only with another embedding model. A few optional keys: `parler.seed`, `parler.useGpu`, `chatterbox.useGpu` (by default Parler and Chatterbox use the graphics card on a Mac only: on Windows, QVAC 0.21 cannot run Parler on it, and Chatterbox next to the other models filled a 4 GB card and crashed QVAC's worker; `true` is for a large card), and a `mock` section for the simulated engine (`llmDelayMs`: a slower reply, to try fillers; `shortText`: what a short sound is heard as).
+`decide.calibration` is the decision model's measured range of cosines, for two sentences (`similar`) and for a sentence against an entry (`search`): change it only with another embedding model. A few optional keys: `parler.seed`, `parler.useGpu`, `chatterbox.useGpu` (by default Chatterbox uses the graphics card on a Mac only: on Windows, next to the other models it filled a 4 GB card and crashed QVAC's worker; `true` is for a large card), and a `mock` section for the simulated engine (`llmDelayMs`: a slower reply, to try fillers; `shortText`: what a short sound is heard as).
 
 | if… | try |
 |---|---|
@@ -241,8 +241,7 @@ A change in `config.json` takes effect when you restart the app.
 | Filler lines, Say a filler after | if the reply's voice hasn't started this long after the end of your turn, one filler is said, then the reply follows |
 | When nothing was understood | said when Whisper hears nothing useful, including its phantom phrases ("Thanks for watching!") |
 | Can show choices and a mood by itself | the language model writes `[[choices: A \| B]]` and `[[mood: happy]]`: they become buttons and a mood, never read aloud. Patterns can also show choices and set a mood |
-| Voice engine, voice, speed, language | the voice is reloaded (one or two seconds; the first use of Parler or Chatterbox downloads it) |
-| The voice, described (Parler) | sent with each sentence: the next sentence already has the new voice |
+| Voice engine, voice, speed, language | the voice is reloaded (one or two seconds; the first use of Chatterbox downloads it) |
 
 ## Smart Turn: knowing when you have finished
 
@@ -259,7 +258,6 @@ Choose one in **Voice & timing → Voice engine** (it belongs to the agent). A c
 | engine | the voice | languages | download | good to know |
 |---|---|---|---|---|
 | **Supertonic** (default) | 10 preset voices (F1–F5, M1–M5), speed | 31, including English and French | 127 MB | fast. Its makers archived the project in September 2026: it keeps working, but there will be no new voices |
-| **Parler** | **you describe the voice in words**: "A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone." Empty = a template voice | English only | about 1.16 GB, on first use | the description applies from the next sentence. In another language, the banner warns that replies will sound English-accented |
 | **Chatterbox** | its default voice, speed, and **voice cloning** from a short recording | many, including English, French, Spanish, German, Italian (not Japanese or Chinese here) | about 345 MB + 788 MB, on first use | every output carries a watermark (Resemble AI's "Perth"), so it can be identified as synthetic |
 
 **Voice cloning (Chatterbox).** Put the path of a WAV file in `config.json`, under `models.tts.chatterbox.referenceAudio`, then restart the app.
@@ -302,7 +300,7 @@ Any number of clients can follow the conversation and drive it, at the same time
 - **Small language models** make more mistakes and are weaker in languages other than English. The patterns help: a fact said as written is never wrong.
 - **The words matcher** (simulated engine, or EmbeddingGemma not loaded) only matches close wordings.
 - **The app is not signed.** Hence the Windows and macOS warnings the first time you open it.
-- **What has been checked.** The studio, the decision model and the conversation are covered by automated tests against faithful fakes (QVAC, Electron, an LLM farm, Gemini Live). On a Windows computer with the real QVAC 0.21, the default models load and EmbeddingGemma decides as intended (34 sentences, English and French); the packaged Windows app (3.0.0) boots, loads them and decides. **Not yet** checked for real: the Mac installer, Parler and Chatterbox, the models other than the defaults (Llama 3.2 above all, since the app turns off a "thinking" it doesn't have), a real LlmOnLan farm and the online services, `onnxruntime-node` inside the packaged app. First step on a real machine: `npm install`, `npm run selftest`, then `npm start`.
+- **What has been checked.** The studio, the decision model and the conversation are covered by automated tests against faithful fakes (QVAC, Electron, an LLM farm, Gemini Live). On a Windows computer with the real QVAC 0.21, the default models load and EmbeddingGemma decides as intended (34 sentences, English and French); the packaged Windows app (3.0.0) boots, loads them and decides. **Not yet** checked for real: the Mac installer, Chatterbox, the models other than the defaults (Llama 3.2 above all, since the app turns off a "thinking" it doesn't have), a real LlmOnLan farm and the online services, `onnxruntime-node` inside the packaged app. First step on a real machine: `npm install`, `npm run selftest`, then `npm start`.
 
 ## If something goes wrong
 
@@ -320,7 +318,7 @@ Any number of clients can follow the conversation and drive it, at the same time
 | the installed app never loads a model ("RPC initialization timed out", and `Cannot find module '@qvac/llm-llamacpp'` in the server log), while `npm start` works | the package lost QVAC's llama.cpp addons: check the `@qvac/inference` pin (see "For the teacher"), then `node scripts/check-package.mjs` after packaging |
 | Windows, 3.0.0: an empty terminal window opens with the app, titled `…\bare.exe` | QVAC's worker, which runs the models: leave it open (closing it stops them), or install 3.0.1 or later, which hides it (`hideWorkerConsole` in `src/engines/qvac.mjs`) |
 | "Smart Turn is unavailable here: using silence only." | `onnxruntime-node` is missing: run `npm install` again, then `npm run selftest` |
-| after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner |
+| after choosing Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner |
 | the agent stops for a "mm-hm" | "Talk over it this long to interrupt" is at 0: try 600 ms |
 | Files → Server log | the server's latest messages, to understand an error |
 | the Updates window says "Could not check for a new version" | the network blocks GitHub or update.electronjs.org: the new versions are on the Releases page (**Open the download page**). The reason follows the message, and is in Files → Server log |

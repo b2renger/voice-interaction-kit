@@ -90,7 +90,6 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `geminiVoice` | Kore | one of the 30 Gemini voices | `voiceName` | — |
 | `localVoiceEngine` | `supertonic` | the local voice engine: `supertonic` (10 preset voices), `parler` (a voice described in words, English only), `chatterbox` (multilingual, can clone a voice) or `zonos` (a voice designed with sliders, spoken by Zonos's engine in the studio's window, on the graphics card: [`docs/ZONOS.md`](docs/ZONOS.md); when it cannot speak, the default voice does and a status says so) | — | voice reload (`zonos`: waits for its engine to load) |
 | `localVoice`, `localSpeed` | F1, 1 | Supertonic voice (F1–F5, M1–M5); speed (Supertonic and Chatterbox) | — | voice reload |
-| `voiceDescription` | empty | Parler only: the voice described in words ("A warm, low-pitched female voice…"). Empty = Parler's template voice | — | sent with each sentence (no reload) |
 | `zonosVoice` | empty | Zonos only: one of its voices, by its name ("Gaspard") or its id. Empty = `voice` in `config.json`, else the first default voice | — | sent with each sentence (no reload) |
 | `voiceDesign` | empty | Zonos only: the voice designed, as a line of slider names and values: "age +1.5, deep 3, gender -1" (the sliders Zonos lists; a raw `<set>.<direction>` dose is sent as written). Unknown names are left out | — | sent with each sentence (no reload) |
 | `localAsr`, `localLlm` (this computer) | empty (= `src` in `config.json`) | the speech recognition and local language models: a QVAC name among the `choices` in `config.json` (any other value = the default) | — | model reload |
@@ -114,7 +113,6 @@ They are set in the studio. Clients don't change them. Most belong to the **agen
 | `repromptLine` | empty | what the agent says **once** when the person stays silent (at the first `user.away`) | asked of the model, in its own words | said as written |
 | `replyDelayMs` | 0 | delay added before the voice | browser | server |
 | `earcons` | `soft` | small interface sounds (`off`, `soft`, `clear`) | browser | browser |
-| `thinkingSound` | `off` | sound while thinking (`off`, `tick`, `hum`) | browser | browser |
 | `repairLine` | empty | what it says when it understood nothing | — | server |
 | `fillerLines` | empty (off) | short phrases said while it thinks, separated by `\|` (up to 20): "Hmm, let me see…\|Good question…" | — | server |
 | `fillerAfterMs` | 1200 | say a filler if the reply's voice has not started this long after the end of the person's turn (0 = never; up to 30,000) | — | server |
@@ -179,7 +177,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
 
 - as JSON:
   - `{type:'status', text, progress}`;
-  - `{type:'ready', engine, voices, models, voiceEngine}`: `voices` is empty (`[]`) for Parler, Chatterbox and Zonos. With `localVoiceEngine: 'zonos'` and a Zonos that cannot speak (not installed, no WebGPU, the studio's window closed), `voiceEngine` is the default voice's, `voiceFallback` holds the reason, and a `status` says "Zonos voice unavailable (…): the default voice speaks instead.";
+  - `{type:'ready', engine, voices, models, voiceEngine}`: `voices` is empty (`[]`) for Chatterbox and Zonos. With `localVoiceEngine: 'zonos'` and a Zonos that cannot speak (not installed, no WebGPU, the studio's window closed), `voiceEngine` is the default voice's, `voiceFallback` holds the reason, and a `status` says "Zonos voice unavailable (…): the default voice speaks instead.";
   - `{type:'vad', speaking}`;
   - `{type:'user.partial'|'user.text', text}`. A stop phrase comes as `{type:'user.text', text, reply:false}`: it goes into the history, but the agent does not reply. With people recorded (Settings → People), a `user.text` has a `speaker`, and a `{type:'speaker', name, closest, score, short}` comes just before it: the turn's voice (its last 8.5 s, without its silences) compared with each voiceprint;
   - `{type:'turn.prediction', probability, complete, ms}`: the Smart Turn model's verdict on the turn;
@@ -200,7 +198,7 @@ The studio streams the mic to the local engine and plays its voice through a Web
   - `{type:'decision', …}`, `{type:'stage', stage, from}`, `{type:'signal', name, value}`: as the events of the same names. A decision comes after `thinking`; a pattern's choices, mood, signals and stage come right after it, before the reply's sentences;
   - `{type:'error', code, message, fatal}`.
 
-  Two `status` texts are warnings, not errors: "Smart Turn is unavailable here: using silence only." (once per conversation) and "Parler only speaks English: replies will sound English-accented."
+  Two `status` texts are warnings, not errors: "Smart Turn is unavailable here: using silence only." (once per conversation) and "Parler only speaks English: replies will sound English-accented." (until 3.7.4: Parler is gone since 3.7.5)
 - as binary: the voice, with an 8-byte header followed by the sound. The first 4 bytes give the sample rate (unsigned 32-bit integer, little-endian), the next 4 the turn number (same format), then comes the 16-bit mono PCM. The browser ignores the voice of a turn it has interrupted. A turn number of `0xFFFFFFFF` (4294967295) marks the audio of a **filler**: the browser plays it, but it is not part of the reply.
 
 One conversation at a time. A second studio that connects takes over, and the first one receives the `replaced` error.

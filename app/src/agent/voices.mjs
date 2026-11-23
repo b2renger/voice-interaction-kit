@@ -1,5 +1,5 @@
 // An agent's saved voices: <agent>/voices.json. A saved voice is a name and the voice settings that make it
-// (the voice engine, its voice, its speed, Parler's description, Zonos's voice and design): what "Voice" holds in
+// (the voice engine, its voice, its speed, Zonos's voice and design): what "Voice" holds in
 // Voice & timing, kept under a name. They are saved from that view, and used
 //   - there, to give the agent one of them as its own voice;
 //   - in a pattern, with the action "Change voice": the agent answers in that voice from then on, until another
@@ -8,8 +8,8 @@
 import { slug } from './interactions.mjs';
 
 /** The settings a saved voice holds (CONTRACT.md, the local voice). */
-export const VOICE_KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'voiceDescription', 'zonosVoice', 'voiceDesign'];
-const ENGINES = ['supertonic', 'parler', 'chatterbox', 'zonos'];
+export const VOICE_KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'zonosVoice', 'voiceDesign'];
+const ENGINES = ['supertonic', 'chatterbox', 'zonos'];   // a voice saved with Parler (removed) becomes a Supertonic one
 const MAX_VOICES = 40;
 
 function settings(raw) {
@@ -19,7 +19,6 @@ function settings(raw) {
     localVoiceEngine: ENGINES.includes(s.localVoiceEngine) ? s.localVoiceEngine : 'supertonic',
     localVoice: String(s.localVoice || '').trim().slice(0, 80),
     localSpeed: Number.isFinite(speed) ? Math.min(2, Math.max(0.5, speed)) : 1,
-    voiceDescription: String(s.voiceDescription || '').trim().slice(0, 1000),
     zonosVoice: String(s.zonosVoice || '').trim().slice(0, 120),
     voiceDesign: String(s.voiceDesign || '').trim().slice(0, 1000),
   };

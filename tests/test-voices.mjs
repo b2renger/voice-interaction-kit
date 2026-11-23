@@ -25,9 +25,10 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   ] });
   check(v.version === 1 && v.voices.length === 2 && v.voices[0].id === 'the-old-sailor' && v.voices[0].name === 'The old sailor', 'a saved voice has a name and an id made from it; the same name twice, an empty name and junk are dropped', v.voices.map((x) => x.id));
   check(same(Object.keys(v.voices[0].settings), VOICE_KEYS) && v.voices[0].settings.localSpeed === 2 && !('apiKey' in v.voices[0].settings) && v.voices[1].settings.localVoiceEngine === 'supertonic' && v.voices[1].settings.localSpeed === 1.2,
-    'it holds the six voice settings and nothing else (no key, no persona); values are kept in range', v.voices[0].settings);
+    'it holds the five voice settings and nothing else (no key, no persona); values are kept in range', v.voices[0].settings);
   check(same(normalizeVoices(null), { version: 1, voices: [] }) && same(normalizeVoices([{ name: 'A' }]).voices.map((x) => x.id), ['a']) && normalizeVoices({ voices: Array.from({ length: 60 }, (_, i) => ({ name: `v${i}` })) }).voices.length === 40, 'nothing, a bare list, and too many voices (40 at most) are all handled');
-  check(same(voiceOf({ localVoiceEngine: 'parler', voiceDescription: ' A warm voice ', name: 'Ada', creativity: 2 }), { localVoiceEngine: 'parler', localVoice: '', localSpeed: 1, voiceDescription: 'A warm voice', zonosVoice: '', voiceDesign: '' }), 'voiceOf(settings): the voice part of an agent\'s settings');
+  check(same(voiceOf({ localVoiceEngine: 'chatterbox', localSpeed: 1.2, name: 'Ada', creativity: 2 }), { localVoiceEngine: 'chatterbox', localVoice: '', localSpeed: 1.2, zonosVoice: '', voiceDesign: '' }), 'voiceOf(settings): the voice part of an agent\'s settings');
+  check(same(voiceOf({ localVoiceEngine: 'parler', voiceDescription: 'A warm voice' }), { localVoiceEngine: 'supertonic', localVoice: '', localSpeed: 1, zonosVoice: '', voiceDesign: '' }), 'a voice saved with Parler (removed) becomes a Supertonic one; its description is dropped');
   const it = normalizeInteractions({ stages: [{ id: 'main', name: 'Main' }], patterns: [{ name: 'P', when: { kind: 'says', examples: ['x'] }, then: [{ do: 'voice', voice: 'The Old Sailor' }, { do: 'voice' }, { do: 'voice', voice: 42 }] }] });
   check(same(it.patterns[0].then, [{ do: 'voice', voice: 'the-old-sailor' }, { do: 'voice', voice: '' }, { do: 'voice', voice: '42' }]), 'a pattern\'s "Change voice" keeps the voice\'s id (\'\' = the agent\'s own voice)', it.patterns[0].then);
 }
@@ -106,7 +107,7 @@ const says = (name, example, then) => ({ name, stage: '', on: true, when: { kind
 const voices = await put(`/api/agents/${id}/voices`, { voices: [
   { name: 'Old sailor', settings: { localVoiceEngine: 'zonos', zonosVoice: 'Gaspard', voiceDesign: 'age +2, deep 3' } },
   { name: 'Child', settings: { localVoiceEngine: 'zonos', zonosVoice: 'Savannah', voiceDesign: 'age -2' } },
-  { name: 'Robot', settings: { localVoiceEngine: 'parler', voiceDescription: 'A flat robotic voice.' } },
+  { name: 'Robot', settings: { localVoiceEngine: 'chatterbox' } },
 ] });
 await put(`/api/agents/${id}/interactions`, { stages: [{ id: 'main', name: 'Main' }], confidence: 0.5, patterns: [
   says('Sailor', 'tell it like an old sailor', [{ do: 'voice', voice: 'old-sailor' }, { do: 'say', text: 'Ahoy! Listen to this.' }]),
@@ -155,7 +156,7 @@ check(t5 && same(c.rates(t5), [44100]) && r5.speaker_embedding_id === SPEAKERS[0
 
 const n6 = zonosAsked();
 const t6 = await c.turn('tell it like a robot');
-check(t6 && same(c.rates(t6), [44100]) && zonosAsked() === n6 && reloads() === reloadsBefore + 1 && c.all('voice')[2].voice === 'robot', 'a voice of another engine (Parler): it is loaded first ("Changing voice…"), then says the reply; Zonos is no longer asked', [c.rates(t6), zonosAsked() - n6]);
+check(t6 && same(c.rates(t6), [24000]) && zonosAsked() === n6 && reloads() === reloadsBefore + 1 && c.all('voice')[2].voice === 'robot', 'a voice of another engine (Chatterbox): it is loaded first ("Changing voice…"), then says the reply; Zonos is no longer asked', [c.rates(t6), zonosAsked() - n6]);
 
 const t7 = await c.turn('tell it like a ghost');
 check(t7 && /Boo/.test(t7.text) && c.all('voice').length === 3 && zonosAsked() === n6, 'a pattern naming a voice that does not exist (deleted): the reply is said, the voice stays');

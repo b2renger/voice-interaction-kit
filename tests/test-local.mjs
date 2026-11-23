@@ -356,14 +356,11 @@ await browser.close();
   await openPlain(page, base2);
   await page.evaluate(() => { window.__ev = []; window.agent.on('*', (e) => window.__ev.push(JSON.parse(JSON.stringify(e)))); });
   const evs = () => page.evaluate(() => window.__ev);
-  // — the local voice engine: Parler hides the preset voices and shows its description —
+  // — the local voice engine: Chatterbox hides the preset voices; an agent still set to Parler (removed) shows Supertonic —
   const shown = (sel) => page.evaluate((x) => !document.querySelector(x).closest('label').hidden, sel);
-  check(await shown('#localVoices') && !(await shown('[data-k="voiceDescription"]')), 'lab: Supertonic: the F/M voice picker is shown, no description');
-  await setField(page, 'localVoiceEngine', 'parler');
-  check(!(await shown('#localVoices')) && (await shown('[data-k="voiceDescription"]')) && !(await shown('[data-k="localSpeed"]')) && (await page.evaluate(() => window.agent.settings.localVoiceEngine)) === 'parler',
-    'lab: "Local voice engine" → Parler: "Voice description (Parler)" shown, voice picker hidden');
+  check(await shown('#localVoices') && await page.evaluate(() => !document.querySelector('[data-k="localVoiceEngine"] option[value="parler"]')), 'lab: Supertonic: the F/M voice picker is shown; Parler is no longer offered');
   await setField(page, 'localVoiceEngine', 'chatterbox');
-  check(!(await shown('#localVoices')) && !(await shown('[data-k="voiceDescription"]')) && (await shown('[data-k="localSpeed"]')), 'lab: Chatterbox: no voice picker, no description, a speed');
+  check(!(await shown('#localVoices')) && (await shown('[data-k="localSpeed"]')), 'lab: Chatterbox: no voice picker, a speed');
   await setField(page, 'localVoiceEngine', 'supertonic');
   // — spoken fillers —
   await setField(page, 'greeting', '');
@@ -523,6 +520,13 @@ await browser.close();
   const d1 = await disk('bike-shop');
   check(d1.settings.name === 'Bo' && d1.body.startsWith('You sell bikes'), 'studio: the persona is saved to persona.md as you type', d1.settings);
   check(/Your name is Bo\.\nYou sell bikes/.test(await page.textContent('#promptPreview')), 'studio: "What the model reads" shows the prompt');
+  // a greeting in another language than the agent's is said as written: the studio points it out
+  await page.fill('[data-k="greeting"]', 'Bonjour ! Voici le magasin de vélos, que voulez-vous ?');
+  check(await until(async () => !(await page.isHidden('#greetingWarn')) && /looks French, and the agent speaks English/.test(await page.textContent('#greetingWarn')), 2000),
+    'studio: a greeting in French for an English agent: "it is said as written" is pointed out', await page.textContent('#greetingWarn'));
+  await page.fill('[data-k="greeting"]', 'Hello! What can I do for you?');
+  check(await until(() => page.isHidden('#greetingWarn'), 2000), 'studio: …and not for a greeting in the agent\'s language');
+  await page.fill('[data-k="greeting"]', '');                 // as it was: what follows has no greeting
   // a table (Knowledge → New table), filled like a spreadsheet
   await page.click('.nav button[data-view="knowledge"]');
   await page.click('#tableTabs button:has-text("New table")');

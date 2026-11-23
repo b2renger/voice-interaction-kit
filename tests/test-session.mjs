@@ -140,5 +140,30 @@ async function conversation({ prepare = null, decider = null } = {}) {
   c.session.close('test');
 }
 
+// — the voice at a steady level (util.mjs createLeveler): what the browser plays —
+{
+  const { createLeveler } = await import(src('util.mjs'));
+  const R = 24000;
+  const tone = (sec, dbfs) => Int16Array.from({ length: Math.round(sec * R) }, (_, i) => Math.round(32767 * 10 ** (dbfs / 20) * Math.SQRT2 * Math.sin((2 * Math.PI * 200 * i) / R)));
+  const rms = (p) => 10 * Math.log10(p.reduce((s, v) => s + (v / 32768) ** 2, 0) / p.length);
+  const peak = (p) => 20 * Math.log10(p.reduce((m, v) => Math.max(m, Math.abs(v)), 0) / 32768);
+  const near = (a, b, d) => Math.abs(a - b) <= d;
+  const lv = createLeveler();
+  const quiet = lv(tone(2, -32), R);
+  const loud = lv(tone(2, -10), R);
+  check(near(rms(quiet), -20, 1.5) && near(rms(loud), -16, 1.5), 'leveler: a quiet sentence (-32 dBFS) comes up to -20, a loud one (-10) down (at most 6 dB)', [rms(quiet), rms(loud)]);
+  // a quiet sentence after a loud one, in frames of 100 ms (a voice that streams, Zonos)
+  // (the first frame of a sentence says so: the start is corrected quickly)
+  const frames = Array.from({ length: 15 }, (_, i) => lv(tone(0.1, -30), R, i === 0));
+  check(near(rms(frames[3]), -20, 2) && near(rms(frames[14]), -20, 1.5), 'leveler: a quieter sentence after a loud one, streamed in 100 ms frames, is up to level within 0.3 s', frames.map((f) => Math.round(rms(f))));
+  const fresh = createLeveler();
+  const silence = new Int16Array(4800);
+  const noise = Int16Array.from({ length: 4800 }, () => Math.round((Math.random() - 0.5) * 20));     // about -70 dBFS
+  check(fresh(silence, R) === silence && fresh(noise, R) === noise, 'leveler: silence and room noise are left as they are (never raised)');
+  const click = tone(1, -40); click[100] = 32000;                                                  // one loud sample
+  const out = createLeveler()(click, R);
+  check(peak(out) <= -0.9, 'leveler: a peak never goes past -1 dBFS', peak(out));
+}
+
 check(!unhandled.length, 'no unhandled rejection in any of these', unhandled);
 process.exitCode = summary() ? 1 : 0;

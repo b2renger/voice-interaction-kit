@@ -14,7 +14,7 @@ import { createAgentStore } from './agent/agents.mjs';
 import { createDecider } from './agent/decide.mjs';
 import { wordsMatcher } from './agent/matcher.mjs';
 import { handleApi } from './api.mjs';
-import { mutex, progressText } from './util.mjs';
+import { mutex, progressText, createLeveler } from './util.mjs';
 import { createZonosVoice, withZonos } from './engines/zonos.mjs';
 import { createZonosFiles } from './engines/zonos-files.mjs';
 import { createPeople, voiced, ENROL_SECONDS, MIN_SECONDS } from './speakers/speakers.mjs';
@@ -361,8 +361,9 @@ export async function startServer(o) {
   }
 
   /**
-   * Voice & timing → Listen (POST /api/voice/test {settings, language}): a sample sentence in this voice, as a WAV,
-   * without a conversation (one running uses the voice model: it would be taken from it).
+   * Voice & timing → Listen (POST /api/voice/test {settings, language, text}): the text typed (or a sample
+   * sentence) in this voice, as a WAV, without a conversation (one running uses the voice model: it would be taken
+   * from it).
    */
   const SAMPLES = {
     en: 'Hello! This is how I sound. Do you like my voice?',
@@ -376,10 +377,11 @@ export async function startServer(o) {
     await prepareLock(() => engine.prepare(s, (p) => status(progressText(p), p.progress)));
     status('', null);
     const tts = engine.speak(voiceParamsOf(s));
-    tts.write(SAMPLES[language]);
+    tts.write(String((q && q.text) || '').replace(/\s+/g, ' ').trim().slice(0, 400) || SAMPLES[language]);
     tts.end();
     const parts = []; let rate = 24000; let n = 0;
-    for await (const f of tts.frames) { rate = f.sampleRate || rate; parts.push(f.pcm); n += f.pcm.length; }
+    const level = createLeveler();                   // as in a conversation: the voice at a steady level
+    for await (const f of tts.frames) { rate = f.sampleRate || rate; const p = level(f.pcm, rate, !!f.text); parts.push(p); n += p.length; }
     if (!n) throw new Error('The voice said nothing.');
     const wav = Buffer.alloc(44 + n * 2);
     wav.write('RIFF', 0); wav.writeUInt32LE(36 + n * 2, 4); wav.write('WAVE', 8); wav.write('fmt ', 12);

@@ -1,5 +1,5 @@
-// The agent's saved voices (Voice & timing): the voice being set (its engine, its voice, its speed, Parler's
-// description, Zonos's voice and design) kept under a name. A saved voice can be given back to the agent as its
+// The agent's saved voices (Voice & timing): the voice being set (its engine, its voice, its speed, Zonos's voice
+// and design) kept under a name. A saved voice can be given back to the agent as its
 // own voice ("Use"), or used by a pattern ("Change voice", Interactions): the agent then answers in it from that
 // reply on. They live with the agent (voices.json), and travel with it: duplicate, export, import.
 // The voices saved in the other agents of this computer are listed too: using one copies it here.
@@ -9,18 +9,17 @@ import { api } from './api.js';
 import { $, h, ask, toast } from './ui.js';
 import { state, settings, set, onChange, saveVoices } from './state.js';
 
-const KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'voiceDescription', 'zonosVoice', 'voiceDesign'];
-const ENGINE = { supertonic: 'Supertonic', parler: 'Parler', chatterbox: 'Chatterbox', zonos: 'Zonos' };
+const KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'zonosVoice', 'voiceDesign'];
+const ENGINE = { supertonic: 'Supertonic', chatterbox: 'Chatterbox', zonos: 'Zonos' };
 let others = [];              // the voices of the other agents: [{agent, title, id, name, settings}]
 let push = () => {};
 
 /** A saved voice in a few words: "Zonos · Gaspard · age +1.5, deep 3". */
 export function describeVoice(v) {
   const s = v.settings || {};
-  const e = s.localVoiceEngine || 'supertonic';
+  const e = ENGINE[s.localVoiceEngine] ? s.localVoiceEngine : 'supertonic';   // Parler (removed): Supertonic
   const parts = [ENGINE[e] || e];
   if (e === 'supertonic') parts.push(s.localVoice || 'F1');
-  if (e === 'parler') parts.push(s.voiceDescription ? `“${s.voiceDescription}”` : 'its template voice');
   if (e === 'zonos') { parts.push(s.zonosVoice || 'the first voice'); if (s.voiceDesign) parts.push(s.voiceDesign); }
   if ((e === 'supertonic' || e === 'chatterbox') && Number(s.localSpeed) && Number(s.localSpeed) !== 1) parts.push(`speed ${s.localSpeed}`);
   return parts.join(' · ');
@@ -30,7 +29,7 @@ const mine = () => (state.agent && state.agent.voices) || [];
 /** The patterns that change to this voice. */
 const usedBy = (id) => (state.agent ? state.agent.interactions.patterns.filter((p) => p.then.some((a) => a.do === 'voice' && a.voice === id)).map((p) => p.name) : []);
 
-/** Is this saved voice the agent's voice now (the same engine, voice, speed, description, design)? */
+/** Is this saved voice the agent's voice now (the same engine, voice, speed, design)? */
 function inUse(v) {
   const s = settings();
   const norm = (k, x) => (k === 'localSpeed' ? Number(x || 1) : k === 'localVoiceEngine' ? (x || 'supertonic') : String(x == null ? '' : x).trim());
@@ -66,14 +65,14 @@ async function loadOthers() {
 
 /** A sample sentence in this voice (French or English), without a conversation. */
 let listening = false;
-async function listen(voiceSettings, language = $('#voiceLang').value) {
+async function listen(voiceSettings, language = $('#voiceLang').value, text = $('#voiceText').value.trim()) {
   const note = (t) => { $('#voiceStatus').textContent = t; };
   if (window.agent && (window.agent.active || window.agent.state === 'connecting')) { note('Stop the conversation to listen to a voice: the conversation uses it.'); return; }
   if (listening) return;
   listening = true;
   note('Preparing the voice… (a voice used for the first time loads first)');
   try {
-    const blob = await api.testVoice({ ...current(), ...voiceSettings }, language);
+    const blob = await api.testVoice({ ...current(), ...voiceSettings }, language, text);
     const audio = new Audio(URL.createObjectURL(blob));
     audio.volume = Math.max(0, Math.min(1, Number(settings().volume) || 1));
     note(`Listening (${language === 'fr' ? 'French' : 'English'}).`);
@@ -115,9 +114,10 @@ export function initVoices(pushSettings) {
   push = pushSettings;
   $('#voiceSave').addEventListener('click', () => save().catch((e) => toast(e.message, 'err')));
   $('#voiceListen').addEventListener('click', () => listen({}));
+  $('#voiceText').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); listen({}); } });
   $('#personaVoice').addEventListener('change', (e) => use(mine().find((v) => v.id === e.target.value)));
   // Persona → Listen: the agent's voice, in its language when it is French or English
-  $('#personaListen').addEventListener('click', () => listen({}, settings().language === 'fr' ? 'fr' : 'en'));
+  $('#personaListen').addEventListener('click', () => listen({}, settings().language === 'fr' ? 'fr' : 'en', ''));
   onChange((what, detail) => {
     if (what === 'agent') { $('#voiceLang').value = settings().language === 'fr' ? 'fr' : 'en'; loadOthers(); }
     else if (what === 'setting' && (KEYS.includes(detail) || detail === 'voices')) renderVoices();

@@ -43,7 +43,7 @@ The tests marked ★ make up the **quick run**, to do first: about 2¾ hours for
 | R10 | the **basic UX/UI vocabulary**, usable by designers, and edge cases that don't break everything | I1 to I10, J2, A13 |
 | R11 | **switch between cloud and local** without redoing everything | A10, J1, L1 |
 | R12 | a **teaching** tool, usable by design students | K1 to K3, A14 |
-| N1 | the features **borrowed from open source** ([landscape](OPEN_SOURCE_LANDSCAPE.md)): Smart Turn, backchannels and stop phrases, spoken fillers, away and the reprompt, the Parler and Chatterbox voices | B5, B6, D5, D6, E6 to E8, F6, I8, L1 |
+| N1 | the features **borrowed from open source** ([landscape](OPEN_SOURCE_LANDSCAPE.md)): Smart Turn, backchannels and stop phrases, spoken fillers, away and the reprompt, the Chatterbox voice | B5, B6, D5, D6, E6 to E8, F6, I8, L1 |
 | N2 | installers published as a **GitHub Release**, built by GitHub Actions | A12 |
 | R13 | the name of everything is **VIK, the Voice Interaction Kit** | S1, A6, A7 |
 | R14 | an interface that is **minimal, slick and elegant**, not messy | S1, S10, G5 |
@@ -192,9 +192,9 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 1. Once: **Actions → Models mirror → Run workflow**, with **publish** ticked, and wait for it to finish (the `models` release lists four `.gguf` files, `SHA256SUMS.txt` and three licences).
 2. On a school PC that has never run VIK (or after emptying `~/.qvac/models`), on the school network: install VIK and launch it from the Start menu.
 3. Click **Download everything** when VIK offers it.
-4. Choose Parler, then Chatterbox, in **Voice & timing**, and have one sentence said by each.
+4. Choose Chatterbox in **Voice & timing**, and have one sentence said.
 
-**Expected:** no terminal window opens. Supertonic downloads with the other models at launch, and the banner says "The models are ready". At step 3 the three other voices download (about 2.3 GB), and no "could not be downloaded" dialog appears. **Files → Server log** shows "downloaded from the mirror" for each voice. At step 4 both voices speak.
+**Expected:** no terminal window opens. Supertonic downloads with the other models at launch, and the banner says "The models are ready". At step 3 the other voice downloads (Chatterbox, in two files, about 1.1 GB), and no "could not be downloaded" dialog appears. **Files → Server log** shows "downloaded from the mirror" for each voice. At step 4 it speaks.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
@@ -239,15 +239,14 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
-### B5 A voice described in words (Parler)
-1. VIK, `Language` = English. "Local voice engine" = "Parler (describe the voice in words, English)". The first time, wait for the download (about 1.16 GB).
-2. "Voice description (Parler)" = "A warm, low-pitched female voice, speaking slowly and clearly, very close to the microphone." Talk.
-3. **Without** clicking Start, change it to "A fast, high-pitched male voice, far from the microphone, in a large echoing hall." Talk again.
-4. Set `Language` to French.
+### B5 Hear a voice, and keep its level
+1. **Voice & timing**, without starting a conversation: type a sentence of your own next to **Listen**, choose French, click **Listen**. Then English.
+2. Zonos: move a slider far (calm, room), listen again with the same sentence.
+3. Start, and ask five questions whose answers have several sentences.
 
-**Expected:** 1. the F/M voice picker and the Speed slider disappear, and the description field appears. 2. the voice roughly matches the description. 3. the voice changes from the next sentence, with no reloading and no restart. 4. the window warns "Parler only speaks English: replies will sound English-accented."
+**Expected:** 1. the sentence typed is said, in that language (the first time, the voice loads first). 2. the change is heard. 3. no sentence is much quieter than the others: VIK keeps the voice at a steady level.
 
-Which words of the description did Parler follow, and which did it ignore? ………
+Which sliders changed the voice the most? ………
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
@@ -461,10 +460,10 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
-### F3 The thinking sound
-1. In the studio, "Thinking sound" = tick, then hum.
+### F3 Nothing plays while it thinks
+1. In the studio, ask a question and listen while it thinks.
 
-**Expected:** the sound is only heard while it is thinking, and stops as soon as the voice starts.
+**Expected:** no sound of VIK's own while it thinks (the thinking sound is gone since 3.7.5); only a spoken filler, if **Filler lines** has some.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 
@@ -487,10 +486,9 @@ Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 ### F6 ★ Spoken fillers (local)
 1. VIK (local engine). "Extra delay before replying" = 3000. "Filler lines" = "Hmm, let me see…|Good question…|One moment…", "Say a filler after (ms)" = 1200.
 2. Ask three questions, one after the other.
-3. Set "Thinking sound" = hum and ask one more.
-4. Switch Engine to Gemini Live, leaving the filler lines filled in. Start, and ask a question.
+3. Switch Engine to Gemini Live, leaving the filler lines filled in. Start, and ask a question.
 
-**Expected:** 2. about 1.2 s after each question, you hear a filler, then the reply. The filler changes from one turn to the next (never the same twice in a row), and the log shows `bot.filler`. The "Turns" table and `Wait (ms)` show more than 3 s: they measure the reply, not the filler. The very first filler may be skipped while it is being prepared. 3. the hum keeps playing under the filler. 4. no filler with Gemini: it is a local feature.
+**Expected:** 2. about 1.2 s after each question, you hear a filler, then the reply. The filler changes from one turn to the next (never the same twice in a row), and the log shows `bot.filler`. The "Turns" table and `Wait (ms)` show more than 3 s: they measure the reply, not the filler. The very first filler may be skipped while it is being prepared. 3. no filler with Gemini: it is a local feature.
 
 Verdict: ☐ pass ☐ needs work ☐ fail — Notes:
 

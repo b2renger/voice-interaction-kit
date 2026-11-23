@@ -2,7 +2,7 @@
 // against QVAC's catalogue (size and SHA-256), for the "models" release that VIK downloads them from over
 // HTTPS (config.json "modelMirror"). Many school and company networks block the peer-to-peer network.
 //   node scripts/mirror-models.mjs <folder>    (the Models mirror workflow runs it; or on any open network)
-// The models: every catalogue name config.json uses (src, choices, Parler, Chatterbox and its S3Gen part)
+// The models: every catalogue name config.json uses (src, choices, Chatterbox and its S3Gen part)
 // with no Hugging Face source. Writes <folder>/<file name> for each, and SHA256SUMS.txt.
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs';
@@ -37,7 +37,7 @@ function namesInConfig() {
   for (const m of Object.values(JSON.parse(readFileSync(join(APP, 'config.json'), 'utf8')).models)) {
     add(m.src); add(m.vad);
     for (const c of m.choices || []) add(c && c.src);
-    for (const k of ['parler', 'chatterbox']) if (m[k]) { add(m[k].src); add(m[k].s3gen); }
+    for (const k of ['chatterbox']) if (m[k]) { add(m[k].src); add(m[k].s3gen); }
   }
   return [...names];
 }

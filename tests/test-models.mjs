@@ -56,18 +56,18 @@ check(process.env.QVAC_RPC_INIT_TIMEOUT_MS === '180000', 'the QVAC worker gets 3
   check(Boolean(real.spawn.vikHidesWorker) === (process.platform === 'win32'), 'the engine applies it, on Windows only', process.platform);
 }
 
-// — Parler and Chatterbox: the graphics card on a Mac only, unless config.json says otherwise —
+// — Chatterbox: the graphics card on a Mac only, unless config.json says otherwise —
 check(!bigVoiceOnGpu({}, { useGpu: true }, 'win32') && bigVoiceOnGpu({}, { useGpu: true }, 'darwin') && !bigVoiceOnGpu({}, { useGpu: false }, 'darwin'),
-  'Parler / Chatterbox: on the CPU on Windows (no GPU for Parler there; Chatterbox filled a 4 GB card), on the GPU on a Mac (unless tts.useGpu is false)');
+  'Chatterbox: on the CPU on Windows (it filled a 4 GB card), on the GPU on a Mac (unless tts.useGpu is false)');
 check(bigVoiceOnGpu({ useGpu: true }, { useGpu: true }, 'win32') && !bigVoiceOnGpu({ useGpu: false }, { useGpu: true }, 'darwin'), '... and their own useGpu in config.json decides, everywhere');
 
 // — what is on this computer —
 const list = engine.models();
 const byName = (n) => list.find((m) => m.name === n);
-check(list.length === 8 && byName('TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0') && byName('EMBEDDINGGEMMA_300M_Q8_0'), 'the models: recognition, detection, language, the 3 voices (Chatterbox in 2 files), the decision model', list.map((m) => m.name));
+check(list.length === 7 && byName('TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0') && byName('EMBEDDINGGEMMA_300M_Q8_0'), 'the models: recognition, detection, language, the 2 voices (Chatterbox in 2 files), the decision model', list.map((m) => m.name));
 check(byName('WHISPER_SMALL_Q8_0').file === whisperFile, 'a download of the right size is found, whatever its prefix', byName('WHISPER_SMALL_Q8_0'));
 check(!byName('TTS_MULTILINGUAL_SUPERTONIC3_Q8_0').file, 'a file of the wrong size (an interrupted download) is not');
-check(list.filter((m) => m.p2pOnly).length === 4 && list.filter((m) => m.p2pOnly).every((m) => m.name.startsWith('TTS_')), 'the 4 voice files come from the peer-to-peer registry only');
+check(list.filter((m) => m.p2pOnly).length === 3 && list.filter((m) => m.p2pOnly).every((m) => m.name.startsWith('TTS_')), 'the 3 voice files come from the peer-to-peer registry only');
 
 // — loading: from the file on disk when there is one —
 await engine.prepare(config.defaults, () => {});
@@ -110,17 +110,17 @@ const progress = [];
 const t0 = Date.now();
 const failed = await engine.install((p) => progress.push(p), 1);
 const dl = fake.calls.filter((c) => c.fn === 'downloadAsset');
-check(dl.length === 7 && !dl.some((c) => /ggml-small/.test(c.src)), 'downloads the 7 missing models, not Whisper', dl.map((c) => c.src));
+check(dl.length === 6 && !dl.some((c) => /ggml-small/.test(c.src)), 'downloads the 6 missing models, not Whisper', dl.map((c) => c.src));
 check(dl.filter((c) => /^https:\/\/huggingface\.co\//.test(c.src)).length === 3, 'Silero, Qwen3 and EmbeddingGemma over HTTPS (default "http")');
-check(failed.length === 4 && failed.every((m) => m.p2pOnly), 'the 4 voice files, receiving nothing, are reported as failed', failed.map((m) => m.name));
-check(fake.calls.filter((c) => c.fn === 'cancel').length === 4 && Date.now() - t0 < 15000, 'each stalled download is cancelled, in time', Date.now() - t0);
+check(failed.length === 3 && failed.every((m) => m.p2pOnly), 'the 3 voice files, receiving nothing, are reported as failed', failed.map((m) => m.name));
+check(fake.calls.filter((c) => c.fn === 'cancel').length === 3 && Date.now() - t0 < 15000, 'each stalled download is cancelled, in time', Date.now() - t0);
 check(logs.some((l) => /peer-to-peer network \(this network seems to block it\)/.test(l)), 'the log says the network seems to block peer-to-peer', logs);
-check(progress.some((p) => p.stage === '1/7 voice detection'), 'the progress names each model ("1/7 voice detection")', progress.slice(0, 3));
+check(progress.some((p) => p.stage === '1/6 voice detection'), 'the progress names each model ("1/6 voice detection")', progress.slice(0, 3));
 
 // — the mirror: the voices over HTTPS, on a network that blocks peer-to-peer (a school's) —
 {
-  // a mirror of the 4 voice files; the fake catalogue gets their SHA-256, as the real one has
-  const VOICES = ['TTS_MULTILINGUAL_SUPERTONIC3_Q8_0', 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0', 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0', 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0'];
+  // a mirror of the 3 voice files; the fake catalogue gets their SHA-256, as the real one has
+  const VOICES = ['TTS_MULTILINGUAL_SUPERTONIC3_Q8_0', 'TTS_T3_MULTILINGUAL_CHATTERBOX_Q4_0', 'TTS_S3GEN_MULTILINGUAL_CHATTERBOX_Q4_0'];
   const served = {};
   for (const n of VOICES) {
     const body = Buffer.alloc(fake[n].expectedSize, n.length);
@@ -143,8 +143,8 @@ check(progress.some((p) => p.stage === '1/7 voice detection'), 'the progress nam
   const here = () => readdirSync(dir);
   const p2pTried = (n) => fake.calls.some((c) => c.fn === 'downloadAsset' && c.src === n);
 
-  check(engine.models().every((x) => !x.p2pOnly) && engine.models().filter((x) => x.mirror).length === 4,
-    'with a mirror, no model depends on peer-to-peer only any more (the 4 voices have a mirror address)', engine.models().map((x) => [x.name, x.mirror]));
+  check(engine.models().every((x) => !x.p2pOnly) && engine.models().filter((x) => x.mirror).length === 3,
+    'with a mirror, no model depends on peer-to-peer only any more (the 3 voice files have a mirror address)', engine.models().map((x) => [x.name, x.mirror]));
 
   // Start with Chatterbox, not on this computer: both its files come from the mirror before QVAC loads them
   const before = fake.calls.length;
@@ -158,9 +158,10 @@ check(progress.some((p) => p.stage === '1/7 voice detection'), 'the progress nam
     '... with their progress in the banner, and a line in the log', seen.filter((p) => /voice/.test(p.stage)).slice(-2));
 
   // a copy put in the models folder by hand, under its own name, counts
-  writeFileSync(join(dir, 'parler-mini-v1-q8_0.gguf'), served['parler-mini-v1-q8_0.gguf']);
-  check(engine.models().find((x) => x.name === 'TTS_MINI_V1_EN_PARLER_TTS_Q8_0').file === join(dir, 'parler-mini-v1-q8_0.gguf'),
+  writeFileSync(join(dir, 'supertonic3-q8_0.gguf'), served['supertonic3-q8_0.gguf']);
+  check(engine.models().find((x) => x.name === 'TTS_MULTILINGUAL_SUPERTONIC3_Q8_0').file === join(dir, 'supertonic3-q8_0.gguf'),
     'a voice downloaded by hand and put in the models folder (its own file name) is found');
+  rmSync(join(dir, 'supertonic3-q8_0.gguf'));      // missing again, for what follows
 
   // the mirror sends the wrong bytes: refused, deleted, and QVAC's peer-to-peer network is tried
   mode = { 'supertonic3-q8_0.gguf': 'bad' };
@@ -232,7 +233,7 @@ await srv.ready;
 const health = async () => (await fetch(`http://127.0.0.1:${srv.port}/health`)).json();
 const h1 = await health();
 check(h1.models === 'ready' && /fake: this download is blocked \(Click Start to try again\.\)/.test(h1.error || ''), 'warm-up failed: the lab window says so, and to click Start', h1);
-check(srv.models().length === 8, '... and the models can still be listed (to offer "Download all models")', srv.models().length);
+check(srv.models().length === 7, '... and the models can still be listed (to offer "Download all models")', srv.models().length);
 const ws = new WebSocket(`ws://127.0.0.1:${srv.port}/voice`);
 const msgs = [];
 ws.onmessage = (e) => { if (typeof e.data === 'string') msgs.push(JSON.parse(e.data)); };

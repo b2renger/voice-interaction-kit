@@ -174,6 +174,9 @@ let store = createAgentStore({ dir, examples, legacy: [legacy] });
   const bytes = Buffer.from(await wav.arrayBuffer());
   check(wav.status === 200 && wav.headers.get('content-type') === 'audio/wav' && bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WAVE' && bytes.length > 44 + 2000,
     'listen: POST /api/voice/test answers a WAV of the voice saying its sentence', { status: wav.status, type: wav.headers.get('content-type'), bytes: bytes.length });
+  const mine = await fetch(`http://127.0.0.1:${srv.port}/api/voice/test`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings: { localVoiceEngine: 'supertonic' }, language: 'fr', text: 'Une phrase à moi, bien plus longue que la phrase d\'exemple, pour entendre la voix sur la durée, avec des virgules, des pauses et une question à la fin ?' }) });
+  const mineBytes = Buffer.from(await mine.arrayBuffer());
+  check(mine.status === 200 && mineBytes.length > bytes.length * 1.5, 'listen: a sentence of one\'s own is said instead of the sample (a longer text, a longer sound)', { mine: mineBytes.length, sample: bytes.length });
   const prep = await (await fetch(`http://127.0.0.1:${srv.port}/api/prepare`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings: { language: 'fr' } }) })).json();
   check(prep.ok === true, 'prepare: POST /api/prepare loads the models of the agent shown, before Start', prep);
   const talk = new WebSocket(`ws://127.0.0.1:${srv.port}/voice`);

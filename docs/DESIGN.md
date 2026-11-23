@@ -8,8 +8,8 @@
  microphone ─► HEAR ──────────► DECIDE ─────────────────────► REPLY ───────────────► SPEAK ─► speakers
               Whisper           the decision model             a fixed line,          the local voice
               (local)           (local, always):               or a language model:   (Supertonic,
-                                patterns, stages,              QVAC on this computer,  Parler,
-                                knowledge                      an LLM farm, or any     Chatterbox)
+                                patterns, stages,              QVAC on this computer,  Chatterbox,
+                                knowledge                      an LLM farm, or any     Zonos)
                                                                OpenAI-compatible
                                                                service
 ```

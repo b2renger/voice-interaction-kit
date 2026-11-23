@@ -11,7 +11,7 @@ Most problems show in the banner of [Talk](view:talk), in plain words. The menu 
 | a Vulkan error (Windows) | update the graphics driver |
 | the first reply is slow | the models load at startup: wait for **The models are ready** |
 | which version is this? a new version is out? | **Files → Check for updates…**, or **Settings → Version**: the Updates window shows your version and looks for a new one. On Windows, VIK installs it and offers **Restart now**; on a Mac, download the new version from the page it links to. Your agents and settings stay |
-| after choosing Parler or Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner. On Windows, Chatterbox runs on the processor and takes long for each sentence: Supertonic is the fastest voice |
+| after choosing Chatterbox, nothing is said for a long time | the first use downloads the voice (over 1 GB): watch the banner. On Windows, Chatterbox runs on the processor and takes long for each sentence: Supertonic is the fastest voice |
 
 ## Talking
 
@@ -19,6 +19,7 @@ Most problems show in the banner of [Talk](view:talk), in plain words. The menu 
 |---|---|
 | no sound from the microphone (Mac) | System Settings → Privacy & Security → Microphone: allow VIK |
 | it reacts to the room (voices far away, music, a fan) | [Talk](view:talk) → **Microphone**: click **Start**, raise the **Gate** until the meter's bar stays grey when nobody speaks and turns blue when you speak. In a noisy room, untick **Automatic level** (it raises the noise when nobody speaks) and set the **Gain** |
+| the agent switches language | a line written in another language than the agent's (its greeting, a pattern's **Say**) is said as written: the studio points such lines out under the field. Write them in the agent's language |
 | it does not hear a quiet voice | [Talk](view:talk) → **Microphone**: raise the **Gain**, or lower the **Gate** |
 | "Loading from this computer…" at each launch | the models are on this computer and are read into memory (the Zonos voice into the graphics card, about 1 GB): nothing is downloaded. VIK loads the open agent's models while you look at the studio, so that **Start** starts at once. "Downloading" only appears the first time a model is used |
 | the models take too much room on this drive | [Settings](view:settings) → **VIK folder** → **Move…**: the agents, the people and the models go to another folder or drive, and VIK restarts there |

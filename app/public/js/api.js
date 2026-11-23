@@ -53,8 +53,8 @@ export const api = {
   moveFolder: (dir, asIs) => call('POST', '/api/folder/move', { dir, asIs: !!asIs }),
   // the models of the agent shown, loaded before Start; a voice tried (a WAV)
   prepare: (settings) => call('POST', '/api/prepare', { settings }),
-  async testVoice(settings, language) {
-    const r = await fetch('/api/voice/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings, language }) });
+  async testVoice(settings, language, text = '') {
+    const r = await fetch('/api/voice/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings, language, text }) });
     if (!r.ok) { const j = await r.json().catch(() => null); throw new Error((j && j.error) || `The server answered ${r.status}.`); }
     return r.blob();
   },

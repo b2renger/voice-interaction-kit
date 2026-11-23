@@ -45,6 +45,7 @@ export function settings() {
   // an agent never sets this computer's settings (where the conversation goes, the keys): an agent can come from anyone
   const own = a ? Object.fromEntries(Object.entries(a.settings).filter(([k]) => !MACHINE.includes(k))) : {};
   const s = { ...D, ...own, ...state.machine };
+  if (s.localVoiceEngine === 'parler') s.localVoiceEngine = 'supertonic';   // Parler, removed in 3.7.5: the default voice
   s.persona = a ? a.body : '';
   // Gemini decides by itself: it gets the knowledge in its prompt (the local engine looks it up per sentence)
   if (s.engine === 'gemini' && a) s.persona = withKnowledge(a.body, a.tables);
