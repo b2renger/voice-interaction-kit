@@ -96,6 +96,12 @@ export async function loadZonos(fresh = false, retry = false, again = 0) {
   if (info.mode === 'web' && host.state === 'ready' && !info.available && again < 10) setTimeout(() => loadZonos(true, false, again + 1), 300);
 }
 
+/** Does a pattern of the agent change to one of its saved Zonos voices ("Change voice")? */
+export function usesZonos(agent) {
+  const zonos = new Set((agent.voices || []).filter((v) => v.settings.localVoiceEngine === 'zonos').map((v) => v.id));
+  return zonos.size > 0 && ((agent.interactions && agent.interactions.patterns) || []).some((p) => (p.then || []).some((a) => a.do === 'voice' && zonos.has(a.voice)));
+}
+
 /** pushSettings(delayMs): sends the settings to the conversation (main.js). */
 export function initZonos(pushSettings) {
   push = pushSettings;
@@ -114,8 +120,10 @@ export function initZonos(pushSettings) {
     if (on && !shown) loadZonos(true);                 // asked each time the engine is chosen: the server may have started since
     shown = on;
     if (on) paint();
-    // a saved voice of the agent is a Zonos one (a pattern may change to it): have the engine ready too
-    if (!on && s.engine === 'local' && state.agent && (state.agent.voices || []).some((v) => v.settings.localVoiceEngine === 'zonos') && host.state === 'off') loadZonos(true);
+    // a pattern changes to a saved Zonos voice: have the engine ready too. Only then: Zonos holds about 1.5 GB of the
+    // graphics card, and a 4 GB card full of it cannot load the speech recognition again (a voice merely saved,
+    // never used by a pattern, loads Zonos when you listen to it)
+    if (!on && s.engine === 'local' && state.agent && usesZonos(state.agent) && host.state === 'off') loadZonos(true);
   };
   onChange(refresh);
   refresh();

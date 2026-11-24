@@ -400,7 +400,9 @@ export async function startServer(o) {
     await waitEngine();
     const language = Object.hasOwn(SAMPLES, q && q.language) ? q.language : 'en';
     const s = { ...SESSION_DEFAULTS, ...((q && q.settings) || {}), language };
-    await prepareLock(() => engine.prepare(withReference(s), (p) => status(progressText(p), p.progress)));
+    // the voice alone: listening in English to a French agent must not reload its speech recognition (a reload on a
+    // full graphics card can fail) nor its language model
+    await prepareLock(() => engine.prepare(withReference(s), (p) => status(progressText(p), p.progress), { voiceOnly: true }));
     status('', null);
     const tts = engine.speak(voiceParamsOf(s));
     tts.write(String((q && q.text) || '').replace(/\s+/g, ' ').trim().slice(0, 400) || SAMPLES[language]);

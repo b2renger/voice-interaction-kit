@@ -343,52 +343,63 @@ export async function createQvacEngine(config, log) {
       };
     },
 
-    async prepare(s, onProgress) {
-      // — speech recognition: language and sensitivity are load-time settings —
-      const endSilence = clamp(num(s.endSilenceMs, 800), 200, 5000);
-      const asrConfig = {
-        vadModelSrc: vadSource(),
-        audio_format: 's16le',
-        language: s.language || M.asr.language || 'en',
-        strategy: 'greedy',
-        n_threads: M.asr.threads || 4,
-        no_timestamps: true,
-        suppress_blank: true,
-        suppress_nst: true,
-        temperature: 0,
-        vad_params: {
-          threshold: s.startSensitivity === 'low' ? 0.6 : 0.45,
-          min_speech_duration_ms: 250,
-          // a sentence is transcribed after this silence; it stays shorter than the end of turn
-          min_silence_duration_ms: Math.min(s.endSensitivity === 'low' ? 500 : 300, Math.max(150, endSilence - 150)),
-          max_speech_duration_s: 30,
-          speech_pad_ms: 100,
-        },
-        contextParams: { use_gpu: M.asr.useGpu !== false },
-      };
-      const asrSrc = pick(s.localAsr, M.asr);
-      const asrKey = JSON.stringify([asrSrc, asrConfig]);
-      if (asrKey !== st.asrKey) {
-        await asrReleased();                             // the current stream must be released before unloading the model
-        await unload(st.asr);
-        st.asr = null; st.asrKey = '';                   // if the load fails, the next prepare loads again
-        st.asr = await load('speech recognition', source(asrSrc, 'whisper'), asrConfig, onProgress);
-        st.asrKey = asrKey; st.asrSrc = asrSrc;
-      }
-      // — the language model: none while a farm or a service answers (llm), so its memory is free —
-      if (s.llm === 'farm' || s.llm === 'service') {
-        await unload(st.llm);
-        st.llm = null; st.llmKey = '';
-      } else {
-        const llmSrc = pick(s.localLlm, M.llm);
-        const llmConfig = { ctx_size: M.llm.ctxSize || 4096, device: M.llm.useGpu === false ? 'cpu' : 'gpu' };
-        if (M.llm.thinking === false) llmConfig.reasoning_budget = 0;      // Qwen3: no reasoning = fast replies
-        const llmKey = JSON.stringify([llmSrc, llmConfig]);
-        if (llmKey !== st.llmKey) {
+    /** voiceOnly: the voice alone (Voice & timing → Listen): never a reload of speech recognition or the language model. */
+    async prepare(s, onProgress, { voiceOnly = false } = {}) {
+      if (!voiceOnly) {
+        // — speech recognition: language and sensitivity are load-time settings —
+        const endSilence = clamp(num(s.endSilenceMs, 800), 200, 5000);
+        const asrConfig = {
+          vadModelSrc: vadSource(),
+          audio_format: 's16le',
+          language: s.language || M.asr.language || 'en',
+          strategy: 'greedy',
+          n_threads: M.asr.threads || 4,
+          no_timestamps: true,
+          suppress_blank: true,
+          suppress_nst: true,
+          temperature: 0,
+          vad_params: {
+            threshold: s.startSensitivity === 'low' ? 0.6 : 0.45,
+            min_speech_duration_ms: 250,
+            // a sentence is transcribed after this silence; it stays shorter than the end of turn
+            min_silence_duration_ms: Math.min(s.endSensitivity === 'low' ? 500 : 300, Math.max(150, endSilence - 150)),
+            max_speech_duration_s: 30,
+            speech_pad_ms: 100,
+          },
+          contextParams: { use_gpu: M.asr.useGpu !== false },
+        };
+        const asrSrc = pick(s.localAsr, M.asr);
+        const asrKey = JSON.stringify([asrSrc, asrConfig]);
+        if (asrKey !== st.asrKey) {
+          await asrReleased();                             // the current stream must be released before unloading the model
+          await unload(st.asr);
+          st.asr = null; st.asrKey = '';                   // if the load fails, the next prepare loads again
+          try {
+            st.asr = await load('speech recognition', source(asrSrc, 'whisper'), asrConfig, onProgress);
+          } catch (e) {
+            // a graphics card already full (4 GB: the language model, Zonos in the window, other apps) cannot take
+            // Whisper ("Failed to initialize Whisper context"): it listens on the processor instead, a little slower
+            if (!asrConfig.contextParams.use_gpu) throw e;
+            log(`(speech recognition could not start on the graphics card, ${e.message}: it runs on the processor instead)`);
+            st.asr = await load('speech recognition', source(asrSrc, 'whisper'), { ...asrConfig, contextParams: { use_gpu: false } }, onProgress);
+          }
+          st.asrKey = asrKey; st.asrSrc = asrSrc;
+        }
+        // — the language model: none while a farm or a service answers (llm), so its memory is free —
+        if (s.llm === 'farm' || s.llm === 'service') {
           await unload(st.llm);
           st.llm = null; st.llmKey = '';
-          st.llm = await load('language model', source(llmSrc, 'llm'), llmConfig, onProgress);
-          st.llmKey = llmKey; st.llmSrc = llmSrc;
+        } else {
+          const llmSrc = pick(s.localLlm, M.llm);
+          const llmConfig = { ctx_size: M.llm.ctxSize || 4096, device: M.llm.useGpu === false ? 'cpu' : 'gpu' };
+          if (M.llm.thinking === false) llmConfig.reasoning_budget = 0;      // Qwen3: no reasoning = fast replies
+          const llmKey = JSON.stringify([llmSrc, llmConfig]);
+          if (llmKey !== st.llmKey) {
+            await unload(st.llm);
+            st.llm = null; st.llmKey = '';
+            st.llm = await load('language model', source(llmSrc, 'llm'), llmConfig, onProgress);
+            st.llmKey = llmKey; st.llmSrc = llmSrc;
+          }
         }
       }
       // — the voice: the engine, and its load-time settings —

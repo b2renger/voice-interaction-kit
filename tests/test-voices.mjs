@@ -279,6 +279,15 @@ else {
   const gone = await page.evaluate(() => { const s = document.querySelector('#patternEditor select[aria-label="Voice"]'); return s ? s.options[s.selectedIndex].textContent : ''; });
   check(gone === 'sailor-here (deleted)', '[studio] …and the pattern shows that its voice was deleted', gone);
 
+  // Zonos (about 1.5 GB of the graphics card) is loaded ahead only when a pattern changes to a saved Zonos voice
+  const preload = await page.evaluate(async () => {
+    const { usesZonos } = await import('/public/js/zonos.js');
+    const voices = [{ id: 'sailor', settings: { localVoiceEngine: 'zonos' } }, { id: 'calm', settings: { localVoiceEngine: 'supertonic' } }];
+    const changeTo = (voice) => ({ interactions: { patterns: [{ then: [{ do: 'say', text: 'Hi' }, { do: 'voice', voice }] }] } });
+    return [usesZonos({ voices, ...changeTo('sailor') }), usesZonos({ voices, ...changeTo('calm') }), usesZonos({ voices, interactions: { patterns: [] } }), usesZonos({ voices: [], ...changeTo('sailor') })];
+  });
+  check(same(preload, [true, false, false, false]), '[studio] Zonos is loaded ahead only for a pattern that changes to a saved Zonos voice (not for a voice merely saved)', preload);
+
   // Clone a voice (Chatterbox): consent and a name first, then the person's voice (here a WAV file) → a saved voice, in use
   await page.click('.nav button[data-view="voice"]');
   await page.selectOption('[data-k="localVoiceEngine"]', 'chatterbox');

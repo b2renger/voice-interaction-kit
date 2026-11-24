@@ -224,6 +224,26 @@ n = asrLoads().length;
 await engine.prepare({ ...config.defaults, localAsr: 'WHISPER_TINY_Q8_0' }, () => {});
 check(asrLoads().length === n + 1 && /ggml-tiny-q8_0/.test(asrLoads()[n].src) && engine.models().some((m) => m.name === 'WHISPER_TINY_Q8_0'),
   'choices: localAsr reloads speech recognition with that model ("Download all models" then fetches it too)', asrLoads()[n]);
+// — Listen (Voice & timing): the voice alone, never speech recognition or the language model again —
+n = asrLoads().length;
+const llmBefore = llmLoads().length;
+const ttsLoads = () => fake.calls.filter((c) => c.fn === 'loadModel' && c.modelType === 'tts');
+const ttsBefore = ttsLoads().length;
+await engine.prepare({ ...config.defaults, localAsr: 'WHISPER_TINY_Q8_0', language: 'fr', localLlm: 'QWEN3_600M_INST_Q4', localVoice: 'M3' }, () => {}, { voiceOnly: true });
+check(asrLoads().length === n && llmLoads().length === llmBefore && ttsLoads().length === ttsBefore + 1 && ttsLoads()[ttsBefore].modelConfig.language === 'fr',
+  'listen: a voice in another language loads that voice only (not speech recognition, not the language model)', { asr: asrLoads().length - n, llm: llmLoads().length - llmBefore, tts: ttsLoads().length - ttsBefore });
+// — a graphics card too full for Whisper: it listens on the processor —
+process.env.FAKE_GPU_FULL = 'whisper';
+n = asrLoads().length;
+let fullGpu = null;
+try { await engine.prepare({ ...config.defaults, language: 'fr' }, () => {}); } catch (e) { fullGpu = e; }
+delete process.env.FAKE_GPU_FULL;
+check(!fullGpu && asrLoads().length === n + 1 && asrLoads()[n].modelConfig.contextParams.use_gpu === false   // (the fake records only the load that works)
+  && logs.some((l) => /could not start on the graphics card, Failed to activate model, error: Failed to initialize Whisper context: it runs on the processor instead/.test(l)),
+  'full graphics card: Whisper fails there ("Failed to initialize Whisper context"), so it loads on the processor, and the log says why', { error: fullGpu && fullGpu.message, loads: asrLoads().slice(n).map((c) => c.modelConfig.contextParams) });
+n = asrLoads().length;
+await engine.prepare({ ...config.defaults, language: 'fr' }, () => {});
+check(asrLoads().length === n, '… and the same settings again load nothing more');
 // — the server: a warm-up that fails (the voice cannot download) is not final —
 delete process.env.FAKE_P2P;
 process.env.FAKE_LOAD_FAIL = 'tts';

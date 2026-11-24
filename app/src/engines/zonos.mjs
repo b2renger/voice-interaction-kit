@@ -373,8 +373,8 @@ export function withZonos(engine, zonos, log = () => {}) {
   const wrapped = Object.create(engine);
   return Object.assign(wrapped, {
     zonos,
-    async prepare(s, onProgress) {
-      await engine.prepare(s, onProgress);
+    async prepare(s, onProgress, o) {
+      await engine.prepare(s, onProgress, o);
       wanted = !!s && s.localVoiceEngine === 'zonos';
       if (wanted) { await zonos.settle(onProgress); await zonos.probe(true); }
     },

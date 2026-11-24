@@ -9,6 +9,7 @@ import { api } from './api.js';
 import { $, h, ask, toast } from './ui.js';
 import { state, settings, set, onChange, saveVoices } from './state.js';
 import { record, TEXTS } from './people.js';
+import { loadZonos } from './zonos.js';
 
 const KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'zonosVoice', 'voiceDesign', 'referenceAudio'];
 const ENGINE = { supertonic: 'Supertonic', chatterbox: 'Chatterbox', zonos: 'Zonos' };
@@ -74,7 +75,10 @@ async function listen(voiceSettings, language = $('#voiceLang').value, text = $(
   listening = true;
   note('Preparing the voice… (a voice used for the first time loads first)');
   try {
-    const blob = await api.testVoice({ ...current(), ...voiceSettings, agent: state.agentId }, language, text);
+    const voice = { ...current(), ...voiceSettings };
+    // a Zonos voice: its engine runs in this window, loaded only when needed (it takes much of the graphics card)
+    if (voice.localVoiceEngine === 'zonos' && settings().engine === 'local') await loadZonos(true);
+    const blob = await api.testVoice({ ...voice, agent: state.agentId }, language, text);
     const audio = new Audio(URL.createObjectURL(blob));
     audio.volume = Math.max(0, Math.min(1, Number(settings().volume) || 1));
     note(`Listening (${language === 'fr' ? 'French' : 'English'}).`);

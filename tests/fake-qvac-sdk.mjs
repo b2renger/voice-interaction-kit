@@ -56,6 +56,8 @@ const failedOnce = new Set();
 export async function loadModel(o) {
   // FAKE_LOAD_FAIL=tts: the first load of that type fails (a blocked download), the next ones work
   if (process.env.FAKE_LOAD_FAIL === o.modelType && !failedOnce.has(o.modelType)) { failedOnce.add(o.modelType); throw new Error('fake: this download is blocked'); }
+  // FAKE_GPU_FULL=whisper: the graphics card has no room left for it (as QVAC 0.21 says it on Windows); the processor works
+  if (process.env.FAKE_GPU_FULL === o.modelType && (o.modelConfig || {}).contextParams && o.modelConfig.contextParams.use_gpu) throw new Error('Failed to activate model, error: Failed to initialize Whisper context');
   const mc = o.modelConfig || {};
   calls.push({
     fn: 'loadModel', modelType: o.modelType, fallbackSrc: o.fallbackSrc, src: typeof o.modelSrc === 'string' ? o.modelSrc : o.modelSrc && o.modelSrc.name,
