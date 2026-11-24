@@ -235,6 +235,9 @@ export async function startServer(o) {
     if (va && req.method === 'POST') { saveVoiceAudio(req, res, va[1]); return; }
     if (path.startsWith('/api/updates') && handleUpdates(req, res, path)) return;
     if (path.startsWith('/api/folder') && handleFolder(req, res, path)) return;
+    // what the models are doing ({text, progress}; text '' = nothing loading): the studio shows it while it loads
+    // the models of the agent shown, or a voice it listens to (a conversation gets it in its own messages)
+    if (path === '/api/status' && req.method === 'GET') { json(res, 200, lastStatus); return; }
     if (path === '/api/prepare' && req.method === 'POST') { readJson(req).then(prepareFor).then((o) => json(res, 200, o), (e) => json(res, 200, { error: e.message })); return; }
     if (path === '/api/voice/test' && req.method === 'POST') { readJson(req).then((q) => testVoice(q, res)).catch((e) => { if (!res.headersSent) json(res, 400, { error: e.message }); }); return; }
     if (handleApi(req, res, path, { store, decide: decideForStudio })) return;
@@ -470,7 +473,10 @@ export async function startServer(o) {
     req.on('end', () => {
       try {
         if (over) throw Object.assign(new Error('The recording is too long (at most about a minute).'), { status: 400 });
-        let wav = Buffer.concat(parts);
+        // ?from=<agent>&file=voices/x.wav: another agent's recording, copied ("Use" on one of its cloned voices)
+        const from = q.get('from') ? store.voiceAudioPath(q.get('from'), q.get('file')) : '';
+        if (q.get('from') && !from) throw Object.assign(new Error('That agent no longer has this recording.'), { status: 404 });
+        let wav = from ? readFileSync(from) : Buffer.concat(parts);
         if (q.get('format') === 'pcm') {
           if (wav.length < 16000 * 2 * 5) throw Object.assign(new Error('Record at least 5 seconds of the voice.'), { status: 400 });
           const head = Buffer.alloc(44);

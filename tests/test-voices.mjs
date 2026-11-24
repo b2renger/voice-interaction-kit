@@ -62,11 +62,12 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const servers = [];
 const serverLog = [];
 process.on('exit', () => { for (const p of servers) { try { p.kill(); } catch { /* gone */ } } });
+const agentsDir = mkdtempSync(join(tmpdir(), 'vik-agents-voices-'));
 function startServer(port, zonosUrl) {
   const cwd = mkdtempSync(join(tmpdir(), 'vik-voices-'));
   writeFileSync(join(cwd, 'config.json'), JSON.stringify({ modelMirror: '', models: { tts: { zonos: { mode: 'server', url: zonosUrl } } } }));
   const proc = spawn(process.execPath, [join(ROOT, 'app', 'src', 'server.mjs'), '--port', String(port), '--config', 'config.json', '--mock'],
-    { env: { ...process.env, VIK_AGENTS: mkdtempSync(join(tmpdir(), 'vik-agents-voices-')) }, cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    { env: { ...process.env, VIK_AGENTS: agentsDir }, cwd, stdio: ['ignore', 'pipe', 'pipe'] });
   proc.stdout.on('data', (x) => serverLog.push(String(x))); proc.stderr.on('data', (x) => serverLog.push(String(x)));
   servers.push(proc);
   return until(async () => { try { const j = await (await fetch(`http://127.0.0.1:${port}/health`)).json(); return j.models === 'ready' && j; } catch { return false; } }, 15000);
@@ -306,6 +307,61 @@ else {
   const lea = l3 && l3.rows.find((r) => r.id === 'lea');
   check(cloned && lea && lea.about === 'Chatterbox · a cloned voice' && lea.current && /Léa's voice is saved/.test(await page.textContent('#cloneStatus')),
     '[studio] the file becomes "Léa", a saved voice of the agent (voices/lea.wav), described "a cloned voice", in use', { lea, status: await page.textContent('#cloneStatus') });
+
+  // Record greyed out: the window says why (a conversation running, no consent, no name)
+  const whyNow = await page.evaluate(async () => {
+    const { cloneBlocked } = await import('/public/js/voices.js');
+    return [cloneBlocked({ talking: true, consent: true, name: 'x' }), cloneBlocked({ talking: false, consent: false, name: 'x' }), cloneBlocked({ talking: false, consent: true, name: '' }), cloneBlocked({ talking: false, consent: true, name: 'x' })];
+  });
+  await page.uncheck('#cloneConsent');
+  const whyShown = await until(async () => (await page.evaluate(() => document.querySelector('#cloneRecord').disabled)) && page.textContent('#cloneWhy'), 2000);
+  await page.check('#cloneConsent');
+  const whyGone = await until(async () => (await page.textContent('#cloneWhy')) === '', 2000);
+  check(/conversation is running.*stop it first/.test(whyNow[0]) && /Tick the box/.test(whyNow[1]) && /whose voice/.test(whyNow[2]) && whyNow[3] === '' && /Tick the box/.test(whyShown) && whyGone,
+    '[studio] Record greyed out: the window says why (stop the conversation; the consent; a name)', { whyNow, whyShown });
+
+  // another cloned voice of the same agent: only the recording changes, and the voice is loaded ahead all the same
+  const prepared = [];
+  page.on('request', (r) => { if (r.url().endsWith('/api/prepare')) prepared.push(JSON.parse(r.postData()).settings); });
+  await page.fill('#cloneName', 'Max');
+  await page.setInputFiles('#cloneFile', { name: 'max.wav', mimeType: 'audio/wav', buffer: wav });
+  const maxReady = await until(() => prepared.find((s) => s.referenceAudio === 'voices/max.wav' && s.agent === other.id && s.localVoiceEngine === 'chatterbox'), 6000);
+  check(maxReady, '[studio] a change from one cloned voice to another (Chatterbox both) loads the new one ahead (POST /api/prepare)', prepared.map((s) => s.referenceAudio));
+
+  // the voices of another agent: Listen sends that agent (its recording is there); Use copies the recording here
+  await page.selectOption('#agentSelect', id);
+  await until(() => page.evaluate((x) => window.agent.settings.agent === x, id), 5000);
+  await page.click('.nav button[data-view="voice"]');
+  const leaThere = row(':has-text("Léa (Plain)")');
+  await leaThere.waitFor();
+  let heard = null;
+  await page.route('**/api/voice/test', async (route) => { heard = JSON.parse(route.request().postData()).settings; await route.continue(); });
+  await leaThere.locator('button', { hasText: 'Listen' }).click();
+  await until(async () => heard && !/Preparing|Saying/.test(await page.textContent('#voiceStatus')), 6000);
+  await page.unroute('**/api/voice/test');
+  check(heard && heard.agent === other.id && heard.referenceAudio === 'voices/lea.wav', '[studio] Listen on another agent\'s cloned voice: the voice is that agent\'s (its recording)', heard);
+  await leaThere.locator('button', { hasText: 'Use' }).click();
+  const story = () => fetch(`${url}/api/agents/${id}`).then((r) => r.json());
+  const copied = await until(async () => {
+    const a = await story(); const v = a.voices.find((x) => x.settings.referenceAudio === 'voices/lea-plain.wav');
+    return v && a.settings.referenceAudio === 'voices/lea-plain.wav' && a.settings.localVoiceEngine === 'chatterbox' && existsSync(join(agentsDir, id, 'voices', 'lea-plain.wav')) && v;
+  }, 5000);
+  const same16 = copied && readFileSync(join(agentsDir, id, 'voices', 'lea-plain.wav')).equals(readFileSync(join(agentsDir, other.id, 'voices', 'lea.wav')));
+  check(copied && copied.name === 'Léa (Plain)' && same16, '[studio] Use on another agent\'s cloned voice: its recording is copied into this agent (voices/lea-plain.wav), the voice saved here and in use', copied);
+  const missing = await fetch(`${url}/api/agents/${id}/voice-audio?name=x&from=${other.id}&file=voices/nobody.wav`, { method: 'POST' });
+  check(missing.status === 404, 'copying a recording that is not there: refused (404)', missing.status);
+
+  // a voice loading outside a conversation: the top bar says "Loading" and what, then "Ready" and "Loaded"
+  await page.route('**/api/status', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ text: 'Loading from this computer: voice (chatterbox), 4 s', progress: null }) }));
+  await page.route('**/api/voice/test', async (route) => { await sleep(1500); await route.continue(); });
+  await page.click('#voiceListen');
+  const during = await until(() => page.evaluate(() => document.querySelector('#live').dataset.state === 'loading'
+    && { state: document.querySelector('#liveState').textContent, caption: document.querySelector('#liveCaption').textContent, note: document.querySelector('#voiceStatus').textContent }), 3000);
+  await page.unroute('**/api/status');
+  const after = await until(() => page.evaluate(() => document.querySelector('#liveState').textContent === 'Ready' && document.querySelector('#liveCaption').textContent), 5000);
+  await page.unroute('**/api/voice/test');
+  check(during && during.state === 'Loading' && /voice \(chatterbox\)/.test(during.caption) && /voice \(chatterbox\)/.test(during.note) && after === 'Loaded: ready to talk.',
+    '[studio] a voice loading (here for Listen): the top bar says "Loading" and what loads, so does Listen; then "Ready", "Loaded: ready to talk."', { during, after });
   check(!errors.length, '[studio] no page error', errors);
   await browser.close();
 }

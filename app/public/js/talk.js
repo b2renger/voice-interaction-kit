@@ -2,6 +2,7 @@
 // (the decision model's events). Also the hub: this window is the brain, the clients (cables, p5.js, pages)
 // follow it and drive it (CONTRACT.md, "The clients protocol").
 import { $, h, seconds, pct } from './ui.js';
+import { api } from './api.js';
 import { settings, onChange } from './state.js';
 import { onPeople } from './people.js';
 
@@ -20,7 +21,48 @@ export function banner(kind, text, progress) {
   }
 }
 
+/**
+ * The models loading outside a conversation (the agent opened, a voice chosen, Listen): the top bar says what loads
+ * ("Loading", and what: in Talk the banner), then "Ready" and "Loaded" for a moment. A conversation says it in its
+ * own banner. Returns the promise; show(text, progress) is told the same every half second (text '' = nothing loads).
+ */
+let theAgent = null;
+let loads = 0;
+let readyTimer = 0;
+export function followLoading(promise, show = () => {}) {
+  const talking = () => !theAgent || theAgent.active || theAgent.state === 'connecting';
+  const caption = (t) => { $('#liveCaption').textContent = t; banner('', t); };
+  let seen = false;
+  let over = false;
+  loads++;
+  const poll = setInterval(() => api.status().then((st) => {
+    if (over) return;
+    show(st.text || '', st.progress);
+    if (!st.text || talking()) return;
+    seen = true;
+    clearTimeout(readyTimer);
+    $('#live').dataset.state = 'loading';
+    $('#liveState').textContent = 'Loading';
+    $('#liveCaption').textContent = st.text;
+    banner('', st.text, st.progress);
+  }, () => {}), 500);
+  const end = (failed) => {
+    over = true;
+    clearInterval(poll);
+    loads--;
+    if (loads || talking() || !seen) return;           // nothing was loading (or a conversation took over)
+    $('#live').dataset.state = theAgent.state;
+    $('#liveState').textContent = LIVE_WORDS[theAgent.state] || 'Ready';
+    caption(failed ? `Not loaded: ${failed}` : 'Loaded: ready to talk.');
+    readyTimer = setTimeout(() => { if (!loads && !talking()) caption(''); }, failed ? 15000 : 5000);
+  };
+  // POST /api/prepare answers {error} when a model could not load
+  promise.then((r) => end(r && r.error ? r.error : ''), (e) => end(e.message));
+  return promise;
+}
+
 export function initTalk(agent) {
+  theAgent = agent;
   let mood = 'neutral';
   let lastDecision = null;        // the turn being written in the trace: its stage and signals go under it
   const stateWord = () => { const st = agent.state; $('#stateWord').textContent = `${STATE_WORDS[st] || st}${mood !== 'neutral' && ['listening', 'hearing', 'thinking', 'speaking'].includes(st) ? `, ${mood}` : ''}`; };
@@ -41,7 +83,8 @@ export function initTalk(agent) {
     if (!live) showLanguage('');
   });
   agent.on('start', () => { banner('', ''); });
-  agent.on('status', (ev) => { if (ev.text) banner('', ev.text, ev.progress); else banner('', ''); });
+  // (in the top bar too: a voice changed from Voice & timing reloads while you are there)
+  agent.on('status', (ev) => { if (ev.text) banner('', ev.text, ev.progress); else banner('', ''); $('#liveCaption').textContent = ev.text || ''; });
   agent.on('error', (ev) => banner(ev.fatal ? 'err' : 'warn', ev.message));
 
   // — the words —

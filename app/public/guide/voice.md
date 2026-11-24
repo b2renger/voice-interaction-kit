@@ -26,9 +26,9 @@ Zonos runs inside this window, on the computer's graphics card. The first time y
 
 Chatterbox can imitate someone's voice from a short recording of it. With Chatterbox chosen, **Clone a voice**:
 
-1. Tick that the person agrees, and type whose voice it is.
+1. Tick that the person agrees, and type whose voice it is. **Record** stays greyed out until then, and while a conversation runs (it uses the microphone): the line under it says what is missing.
 2. **Record**, and have them read the text shown, close to the microphone, in a quiet room (10 to 30 seconds; it stops by itself at 30). **Stop**. Or choose a WAV file of their voice.
-3. The voice is saved in the agent's **Saved voices** and the agent speaks with it at once: **Listen** to hear it.
+3. The voice is saved in the agent's **Saved voices** and the agent speaks with it at once. It loads first: the top of the window says **Loading** and what loads, then **Loaded: ready to talk**. **Listen** to hear it.
 
 Chatterbox loads a voice once: switching to another reloads it. On Windows it runs on the processor, so a sentence takes about a minute: fine to try a voice, slow for a conversation. The recording is kept in the agent's folder (`voices/`), and an export carries it only if you say so.
 
@@ -41,7 +41,7 @@ Chatterbox loads a voice once: switching to another reloads it. On Windows it ru
 **Save this voice…** keeps the voice as it is set (its engine, its voice, its speed or its design) under a name: "the old sailor", "the child", "calm". **Saved voices** lists them, each with what it is ("Zonos · Gaspard · age +1.5"), the one the agent speaks with marked **in use**, and the voices saved in the other agents of this computer.
 
 - **Listen** says the sentence in that saved voice.
-- **Use** gives the agent that voice: it becomes its own voice. The [Persona](view:persona) offers the same choice, under **Voice**.
+- **Use** gives the agent that voice: it becomes its own voice. A cloned voice of another agent is copied here, its recording with it ("Léa (Museum)"). The [Persona](view:persona) offers the same choice, under **Voice**.
 - **Delete** removes it (a voice of another agent is deleted from that agent).
 - In a pattern, the action **Change voice** makes the agent answer in a saved voice from that reply on: a storyteller who becomes the wolf when you ask for the wolf, a guide who whispers in the last room. The change lasts until another pattern changes the voice again, or gives the agent "its own voice" back. A new conversation always starts in the agent's own voice.
 - A voice of the same engine changes at once. A voice of another engine has to be loaded first ("Changing voice…"), which takes a moment: for a quick back-and-forth between characters, save voices of the same engine.

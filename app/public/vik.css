@@ -88,6 +88,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .live[data-state="thinking"] .dot { background: var(--think); }
 .live[data-state="speaking"] .dot { background: var(--speak); }
 .live[data-state="error"] .dot { background: var(--fail); }
+/* models loading outside a conversation (talk.js, followLoading): what loads, written out */
+.live[data-state="loading"] .dot { background: var(--think); animation: live-pulse .9s ease-in-out infinite alternate; }
+.live[data-state="loading"] .live-caption { max-width: 52ch; }
+@keyframes live-pulse { from { opacity: 1; } to { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .live[data-state="loading"] .dot { animation: none; } }
 body[data-view="talk"] .live-caption { display: none; }
 .live-caption { max-width: 34ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 

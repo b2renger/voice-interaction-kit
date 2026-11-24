@@ -45,6 +45,10 @@ export const api = {
     if (!r.ok) throw new Error((j && j.error) || `The server answered ${r.status}.`);
     return j;
   },
+  // "Use" on another agent's cloned voice: its recording (file, 'voices/x.wav'), copied into this agent under name
+  copyVoiceAudio: (id, name, from, file) => call('POST', `/api/agents/${enc(id)}/voice-audio?name=${enc(name)}&from=${enc(from)}&file=${enc(file)}`),
+  // what the models are doing: {text, progress} (text '' when nothing loads)
+  status: () => call('GET', '/api/status'),
   decide: (q) => call('POST', '/api/decide', q),
   models: () => call('GET', '/models'),
   farms: (add) => call('GET', `/farms${add ? `?add=${enc(add)}` : ''}`),
