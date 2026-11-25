@@ -3,7 +3,7 @@
 import { $, $$, h, toast, ask, menu, seconds } from './ui.js';
 import { api } from './api.js';
 import { state, settings, valueOf, set, onChange, openAgent, lastAgent, flush, reloadAgent, saveNow } from './state.js';
-import { initTalk, banner } from './talk.js';
+import { initTalk, banner, followLoading } from './talk.js';
 import { initKnowledge, renderKnowledge } from './knowledge.js';
 import { initInteractions, renderInteractions } from './interactions.js';
 import { initSettings, initMicMeter, initOscIn, loadModels, paintSettings, showHealth, modelsInUse } from './settings.js';
@@ -156,7 +156,7 @@ function prepareModels() {
   prepareTimer = setTimeout(() => {
     const s = settings();
     if (s.engine !== 'local' || agent.active || agent.state === 'connecting') return;
-    api.prepare(Object.fromEntries(VoiceCore.LOCAL_KEYS.map((k) => [k, s[k]]))).catch(() => { /* the server says it at Start */ });
+    followLoading(api.prepare(Object.fromEntries(VoiceCore.LOCAL_KEYS.map((k) => [k, s[k]])))).catch(() => { /* the server says it at Start */ });
   }, 1500);
 }
 

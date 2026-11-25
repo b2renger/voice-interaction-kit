@@ -10,6 +10,7 @@ import { $, h, ask, toast } from './ui.js';
 import { state, settings, set, onChange, saveVoices } from './state.js';
 import { record, TEXTS } from './people.js';
 import { loadZonos } from './zonos.js';
+import { followLoading } from './talk.js';
 
 const KEYS = ['localVoiceEngine', 'localVoice', 'localSpeed', 'zonosVoice', 'voiceDesign', 'referenceAudio'];
 const ENGINE = { supertonic: 'Supertonic', chatterbox: 'Chatterbox', zonos: 'Zonos' };
@@ -45,8 +46,9 @@ export function renderVoices() {
   const row = (v, other) => h('li', { [other ? 'data-other' : 'data-saved']: other ? String(others.indexOf(v)) : v.id, class: inUse(v) ? 'current' : '' },
     h('div', { class: 'what' }, h('b', {}, other ? `${v.name} (${v.title})` : v.name), h('span', {}, describeVoice(v)), inUse(v) ? h('em', {}, 'in use') : ''),
     h('div', { class: 'row' },
-      h('button', { type: 'button', class: 'btn quiet', onclick: () => listen(v.settings) }, 'Listen'),
-      h('button', { type: 'button', class: 'btn', disabled: inUse(v), title: 'Give the agent this voice', onclick: () => use(v) }, 'Use'),
+      // another agent's voice: its own agent (a cloned voice's recording is in that agent's folder)
+      h('button', { type: 'button', class: 'btn quiet', onclick: () => listen(other ? { ...v.settings, agent: v.agent } : v.settings) }, 'Listen'),
+      h('button', { type: 'button', class: 'btn', disabled: inUse(v), title: 'Give the agent this voice', onclick: () => use(v, other).catch((e) => toast(e.message, 'err')) }, 'Use'),
       other ? '' : h('button', { type: 'button', class: 'btn quiet danger', onclick: () => remove(v).catch((e) => toast(e.message, 'err')) }, 'Delete')));
   $('#voiceRows').replaceChildren(
     ...mine().map((v) => row(v, false)),
@@ -78,7 +80,11 @@ async function listen(voiceSettings, language = $('#voiceLang').value, text = $(
     const voice = { ...current(), ...voiceSettings };
     // a Zonos voice: its engine runs in this window, loaded only when needed (it takes much of the graphics card)
     if (voice.localVoiceEngine === 'zonos' && settings().engine === 'local') await loadZonos(true);
-    const blob = await api.testVoice({ ...voice, agent: state.agentId }, language, text);
+    // what loads (as the top bar says), then the sentence being made: Chatterbox on Windows takes long
+    const t0 = Date.now();
+    const slow = voice.localVoiceEngine === 'chatterbox' ? ' (Chatterbox on Windows can take a minute)' : '';
+    const blob = await followLoading(api.testVoice({ agent: state.agentId, ...voice }, language, text),
+      (loading) => note(loading || `Saying the sentence… ${Math.round((Date.now() - t0) / 1000)} s${slow}`));
     const audio = new Audio(URL.createObjectURL(blob));
     audio.volume = Math.max(0, Math.min(1, Number(settings().volume) || 1));
     note(`Listening (${language === 'fr' ? 'French' : 'English'}).`);
@@ -101,8 +107,18 @@ async function save() {
   toast(`Voice saved: ${name}.`);
 }
 
-function use(voice) {
+/** other: a voice of another agent. Its recording, for a cloned voice, is copied here and the voice saved here. */
+async function use(voice, other = false) {
   if (!voice) return;
+  if (other && voice.settings.referenceAudio) {
+    const name = `${voice.name} (${voice.title})`;
+    const { referenceAudio } = await api.copyVoiceAudio(state.agentId, name, voice.agent, voice.settings.referenceAudio);
+    const list = mine().filter((v) => v.settings.referenceAudio !== referenceAudio);
+    list.push({ name, settings: { ...voice.settings, referenceAudio } });
+    const kept = await saveVoices(list);
+    voice = kept && kept.find((v) => v.settings.referenceAudio === referenceAudio);
+    if (!voice) return;
+  }
   for (const k of KEYS) if (voice.settings[k] !== undefined) set(k, voice.settings[k]);
   push(0);
   renderVoices();
@@ -119,10 +135,18 @@ async function remove(voice) {
 let cloning = null;          // the recording in progress: {stop}
 let opening = false;
 const cloneNote = (t) => { $('#cloneStatus').textContent = t; };
+/** Why Record is greyed out ('' when it is not). */
+export function cloneBlocked({ talking, consent, name }) {
+  if (talking) return 'A conversation is running and uses the microphone: stop it first (Stop, at the top, or in Talk).';
+  if (!consent) return 'Tick the box above first: the person agrees.';
+  if (!name) return 'Write whose voice it is first.';
+  return '';
+}
 function paintClone() {
-  const ok = $('#cloneConsent').checked && $('#cloneName').value.trim() && !(window.agent && window.agent.active);
-  $('#cloneRecord').disabled = !cloning && !ok;
-  $('#clonePick').disabled = !!cloning || !ok;
+  const why = cloneBlocked({ talking: !!(window.agent && (window.agent.active || window.agent.state === 'connecting')), consent: $('#cloneConsent').checked, name: $('#cloneName').value.trim() });
+  $('#cloneWhy').textContent = cloning ? '' : why;
+  $('#cloneRecord').disabled = !cloning && !!why;
+  $('#clonePick').disabled = !!cloning || !!why;
   $('#cloneRecord').textContent = cloning ? 'Stop' : 'Record';
   $('#cloneRead').textContent = TEXTS[$('#cloneTextLang').value] || TEXTS.en;
 }
@@ -136,8 +160,8 @@ async function keepClone(data, format) {
     list.push({ name, settings: { ...current(), localVoiceEngine: 'chatterbox', referenceAudio } });
     const kept = await saveVoices(list);
     const voice = kept && kept.find((v) => v.name.toLowerCase() === name.toLowerCase());
-    if (voice) use(voice);
-    cloneNote(`${name}'s voice is saved and the agent speaks with it. Listen to it above (Chatterbox first loads it: on Windows, about a minute).`);
+    if (voice) await use(voice);
+    cloneNote(`${name}'s voice is saved and the agent speaks with it. It loads now: the top of the window says "Loading", then "Loaded: ready to talk".`);
   } catch (e) { cloneNote(`Not saved: ${e.message}`); }
 }
 async function cloneRecord() {
