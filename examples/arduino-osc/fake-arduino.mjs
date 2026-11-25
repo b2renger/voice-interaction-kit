@@ -1,6 +1,7 @@
 // No Arduino at hand? This script plays the board of vik_osc_room.ino, on this computer.
 // It sends the room's temperature to VIK twice a second: the room warms up by itself, and cools down while the
 // fan is on. It switches its "fan" when VIK sends /arduino/fan, and tells VIK the fan's state.
+// Press Enter: the board's button (/arduino/button 1, then 0), as on vik_osc_esp32.ino.
 //
 //   node fake-arduino.mjs                     VIK on this computer, listening on port 9000; the "board" on 8000
 //   node fake-arduino.mjs 127.0.0.1 9000 8000  the same, said explicitly: VIK's host, VIK's port, this board's port
@@ -38,8 +39,14 @@ sock.on('message', (b) => {
   console.log(`VIK says: fan ${fan ? 'ON' : 'off'}`);
   send('/arduino/fan/state', fan, 'i');
 });
+// Enter: the button, pressed then released
+process.stdin.on('data', () => {
+  send('/arduino/button', 1, 'i');
+  setTimeout(() => send('/arduino/button', 0, 'i'), 200);
+  console.log('\nbutton pressed');
+});
 sock.bind(Number(PORT), () => {
-  console.log(`Fake Arduino: sends /arduino/temp to ${VIK_HOST}:${VIK_PORT}, listens for /arduino/fan on port ${PORT}. Ctrl+C to stop.`);
+  console.log(`Fake Arduino: sends /arduino/temp to ${VIK_HOST}:${VIK_PORT}, listens for /arduino/fan on port ${PORT}. Enter: the button. Ctrl+C to stop.`);
   setInterval(() => {
     temp += fan ? -0.4 : 0.15;                       // it warms up slowly, the fan cools it faster
     temp = Math.min(35, Math.max(20, temp));
